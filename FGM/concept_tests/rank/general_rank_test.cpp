@@ -6,10 +6,12 @@
 
 #include "utils.h"
 #include "general_rank.h"
+#include "rank_4n.h"
 
 // Test rank queries on a given strings.
 void test(unsigned char *text, int length, int queries) {
-  general_rank *rank = new general_rank(text, length);
+  //general_rank *rank = new general_rank(text, length);
+  rank_4n *rank = new rank_4n(text, length);
   for (int q = 0; q < queries; ++q) {
     int i = utils::random_int(-2 * length, 2 * length);
     unsigned char c = utils::random_int(0, 255);
@@ -70,10 +72,10 @@ int main(int, char **) {
   test_random(1000,   10,      256,  10000);
   test_random(1000,   1000,    5,    10000);
   test_random(1000,   1000,    256,  10000);
-  test_random(100,    100000,  5,    10000);
-  test_random(100,    100000,  256,  10000);
-  test_random(10,     1000000, 5,    10000);
-  test_random(10,     1000000, 256,  10000);
+  test_random(100,    100000,  5,    1000);
+  test_random(100,    100000,  256,  1000);
+  test_random(10,     1000000, 5,    1000);
+  test_random(10,     1000000, 256,  1000);
   fprintf(stderr,"All tests passed.\n");
 
   return 0;
