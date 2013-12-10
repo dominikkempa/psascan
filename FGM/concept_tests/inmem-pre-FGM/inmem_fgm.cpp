@@ -5,6 +5,7 @@
 // TODO better memory management (less allocation).
 // TODO: streaming left-to-right, not right-to-left.
 // TODO: encoding single gt value on a bit, not byte.
+// TODO: make the rightmost block the smallest.
 
 #include <ctime>
 #include <cstring>

@@ -14,10 +14,8 @@ void FGM_fast_merge(int *outputSA, int length, int max_block_size) {
   // Initialize buffers for merging.
   file_streamer<int> **sparseSA = new file_streamer<int>*[n_block];
   vbyte_file_streamer **gap = new vbyte_file_streamer*[n_block];
-//  file_streamer<int> **gap = new file_streamer<int>*[n_block];
   for (int i = 0; i < n_block; ++i) {
     sparseSA[i] = new file_streamer<int>("sparseSA." + utils::intToStr(n_block - 1 - i), 1 << 20);
-//    gap[i] = new file_streamer<int>("gap." + utils::intToStr(n_block - 1 - i), 1 << 20);
     gap[i] = new vbyte_file_streamer("gap." + utils::intToStr(n_block - 1 - i), 1 << 20);
   }
   

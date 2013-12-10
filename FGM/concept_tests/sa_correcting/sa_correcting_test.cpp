@@ -20,12 +20,20 @@ void test(unsigned char *text, int length, int B_length) {
   int A_length = length - B_length, BA_length = length;
   unsigned char *B = text, *BA = text, *A = text + B_length;
 
+  unsigned char *Bcopy = new unsigned char[B_length];
+  std::copy(B, B + B_length, Bcopy);
+
   int *BA_SA = new int[BA_length];
   saisxx(BA, BA_SA, BA_length);
 
   int *sparseSA = new int[B_length];
   for (int i = 0, j = 0; i < BA_length; ++i)
     if (BA_SA[i] < B_length) sparseSA[j++] = BA_SA[i];
+
+  /////
+  --A;
+  ++A_length;
+  /////
 
   unsigned char *gt_eof = new unsigned char[B_length];
   for (int j = 0; j < B_length; ++j) {
@@ -34,13 +42,14 @@ void test(unsigned char *text, int length, int B_length) {
     gt_eof[j] = ((lcp == A_length) || B[j + lcp] > A[lcp]); // B[j..] > A?
   }
 
-  int *computedSparseSA = new int[B_length];
-
-  // Remap symbols in B. We assume that the maximal symbol is <= 253.
-  unsigned char last = B[B_length - 1];
+  // Remap symbols in B. We assume that the maximal symbol is <= 254.
+/*  unsigned char last = B[B_length - 1];
   for (int i = 0; i < B_length - 1; ++i)
-    if (B[i] > last || (B[i] == last && gt_eof[i + 1])) B[i] += 2;
-  ++B[B_length - 1];
+    if (B[i] > last || (B[i] == last && gt_eof[i + 1])) B[i] += 1;
+  ++B[B_length - 1];*/
+
+  for (int i = 0; i < B_length; ++i) B[i] += gt_eof[i]; // new! YAY!
+
 
   // Compute the SA for modified B.
   int *B_SA = new int[B_length];
@@ -51,6 +60,9 @@ void test(unsigned char *text, int length, int B_length) {
     fprintf(stderr, "Failure:\n");
     if (length < 100) {
       fprintf(stderr, "  B = ");
+      for (int k = 0; k < B_length; ++k) fprintf(stderr, "%c", Bcopy[k]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  B'= ");
       for (int k = 0; k < B_length; ++k) fprintf(stderr, "%c", B[k]);
       fprintf(stderr, "\n");
       fprintf(stderr, "  A = ");
@@ -68,10 +80,10 @@ void test(unsigned char *text, int length, int B_length) {
 
   // Clean up.
   delete[] B_SA;
-  delete[] computedSparseSA;
   delete[] gt_eof;
   delete[] sparseSA;
   delete[] BA_SA;
+  delete[] Bcopy;
 }
 
 // Test many string chosen according to given paranters.
@@ -108,13 +120,13 @@ int main(int, char **) {
   // Run tests.
   fprintf(stderr, "Testing the SA correction.\n");
   test_random(500000, 10,      5);
-  test_random(500000, 10,    254);
+  test_random(500000, 10,    255);
   test_random(500000, 100,     5);
-  test_random(500000, 100,   254);
+  test_random(500000, 100,   255);
   test_random(50000,  1000,    5);
-  test_random(50000,  1000,  254);
+  test_random(50000,  1000,  255);
   test_random(500,    10000,   5);
-  test_random(500,    10000, 254);
+  test_random(500,    10000, 255);
   fprintf(stderr,"All tests passed.\n");
 
   return 0;
