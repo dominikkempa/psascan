@@ -45,11 +45,9 @@ void test(unsigned char *text, int length, int B_length) {
     while (j + lcp < A_length && A[j + lcp] == A[lcp]) ++lcp;
     gt_A[j] = (j + lcp < A_length && A[j + lcp] > A[lcp]); // A[j..] > A[0..]?
   }
-  
-  unsigned char *gt_BA = new unsigned char[length];
-  std::fill(gt_BA, gt_BA + length, 0);
-  
+ 
   // Do the streaming as in the 'gap' test.
+  unsigned char *gt_BA = new unsigned char[length];
   int i = 0;
   general_rank *rank = new general_rank(BWT, B_length - 1);
   for (int j = A_length - 1; j >= 0; --j) {
@@ -70,8 +68,8 @@ void test(unsigned char *text, int length, int B_length) {
   }
   // Now siply compute gt_BA[0..B_length) -- just scan sparse array
   // starting from 'whole_suffix_pos'.
-  for (int k = whole_suffix_pos + 1; k < B_length; ++k)
-    gt_BA[sparseSA[k]] = 1;
+  for (int k = 0; k <= whole_suffix_pos; ++k) gt_BA[sparseSA[k]] = 0;
+  for (int k = whole_suffix_pos + 1; k < B_length; ++k) gt_BA[sparseSA[k]] = 1;
 
   // Compare
   if (!std::equal(gt_BA, gt_BA + length, correct_gt_BA)) {
