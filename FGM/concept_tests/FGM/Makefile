@@ -6,8 +6,8 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -static -funroll-loops -DNDEBUG -O3
 
 all: fgm
 
-fgm: fgm_main.cpp
-	$(CC) $(CFLAGS) -o fgm fgm_main.cpp
+fgm: main.cpp
+	$(CC) $(CFLAGS) -o fgm main.cpp
 
 clean:
 	/bin/rm -f *.o

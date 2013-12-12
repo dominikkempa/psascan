@@ -194,7 +194,7 @@ void read_file(unsigned char* &text, long &length, std::string fname) {
   fseek(f, 0, SEEK_END);
   length = (long)ftell(f); // No length was given.
   rewind(f);
-  text = new unsigned char[length + 10];
+  text = new unsigned char[length + 100];
   if (!text) {
     fprintf(stderr, "Error: cannot allocate text.\n");
     std::exit(EXIT_FAILURE);

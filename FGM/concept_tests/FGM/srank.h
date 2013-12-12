@@ -1,11 +1,11 @@
-#ifndef __SUFFIX_RANKING_H
-#define __SUFFIX_RANKING_H
+#ifndef __SRANK_H
+#define __SRANK_H
 
 #include <algorithm>
 #include <cstring>
 
 #include "bitvector.h"
-#include "bit_stream_reader.h"
+#include "stream.h"
 
 // Update ms-decomposition of T[0..n) from T[0..n-1).
 void next(unsigned char *T, int n, int &s, int &p) {
@@ -47,4 +47,4 @@ void compute_gt_eof(unsigned char *A, int A_length,
   }
 }
 
-#endif // __SUFFIX_RANKING_H
+#endif // __SRANK_H

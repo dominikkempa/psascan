@@ -1,22 +1,22 @@
-// TODO: write SA directly to disk.
 #ifndef __MERGE
 #define __MERGE
 
+#include <string>
 #include <algorithm>
 
 #include "utils.h"
-#include "file_streamer.h"
-#include "vbyte_file_streamer.h"
+#include "stream.h"
 
-void merge(int *outputSA, int length, int max_block_size) {
+void merge(int length, int max_block_size, std::string out_filename) {
+  stream_writer<int> *output = new stream_writer<int>(out_filename, 1 << 21);
   int n_block = (length + max_block_size - 1) / max_block_size;
   
   // Initialize buffers for merging.
-  file_streamer<int> **sparseSA = new file_streamer<int>*[n_block];
-  vbyte_file_streamer **gap = new vbyte_file_streamer*[n_block];
+  stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
+  vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
   for (int i = 0; i < n_block; ++i) {
-    sparseSA[i] = new file_streamer<int>("sparseSA." + utils::intToStr(n_block - 1 - i), 1 << 20);
-    gap[i] = new vbyte_file_streamer("gap." + utils::intToStr(n_block - 1 - i), 1 << 20);
+    sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(n_block - 1 - i), 1 << 20);
+    gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(n_block - 1 - i), 1 << 20);
   }
   
   // Merge.
@@ -32,7 +32,7 @@ void merge(int *outputSA, int length, int max_block_size) {
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
-    outputSA[i] = sparseSA[j]->read();
+    output->write(sparseSA[j]->read()); // SA[i]
 
     // Update suffix_rank[j].    
     suffix_rank[j]++;
@@ -43,6 +43,7 @@ void merge(int *outputSA, int length, int max_block_size) {
   }
 
   // Clean up.
+  delete output;
   for (int i = 0; i < n_block; ++i) {
     delete sparseSA[i];
     delete gap[i];
