@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <cstring>
 
+#include "bitvector.h"
+#include "bit_stream_reader.h"
+
 // Update ms-decomposition of T[0..n) from T[0..n-1).
 void next(unsigned char *T, int n, int &s, int &p) {
   if (n == 1) { s = 0; p = 1; return; }
@@ -16,15 +19,14 @@ void next(unsigned char *T, int n, int &s, int &p) {
   }
 }
 
-void compute_bitmap(unsigned char *A, int A_length,
+void compute_gt_eof(unsigned char *A, int A_length,
                     unsigned char *B, int B_length,
-                    unsigned char *gt_A, unsigned char *gt_eof) {
-  std::fill(gt_eof, gt_eof + B_length, 0);
+                    bitvector *gt_head_bv, bitvector *gt_eof) {
   int i = 0, el = 0, s = 0, p = 0, i_max = 0, el_max = 0, s_max = 0, p_max = 0;
   while (i < B_length) {
     while (i + el < B_length && el < A_length && B[i + el] == A[el]) next(A, ++el, s, p);
-    if (el == A_length || (i + el == B_length && !gt_A[el]) ||
-        (i + el < B_length && B[i + el] > A[el])) gt_eof[i] = 1;
+    if (el == A_length || (i + el == B_length && gt_head_bv->get(A_length - 1 - el) == false) ||
+        (i + el < B_length && B[i + el] > A[el])) gt_eof->set(i);
     int j = i_max;
     if (el > el_max) {
       std::swap(el, el_max);
@@ -33,11 +35,13 @@ void compute_bitmap(unsigned char *A, int A_length,
       i_max = i;
     }
     if (p && 3 * p <= el && !memcmp(A, A + p, s)) {
-      std::copy(gt_eof + j + 1, gt_eof + j + p, gt_eof + i + 1);
+      for (int k = 1; k < p; ++k)
+        if (gt_eof->get(j + k)) gt_eof->set(i + k);
       i += p; el -= p;
     } else {
       int h = (el / 3) + 1;
-      std::copy(gt_eof + j + 1, gt_eof + j + h, gt_eof + i + 1);
+      for (int k = 1; k < h; ++k)
+        if (gt_eof->get(j + k)) gt_eof->set(i + k);
       i += h; el = 0; s = 0; p = 0;
     }
   }

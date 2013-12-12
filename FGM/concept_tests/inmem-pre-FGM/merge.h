@@ -1,6 +1,6 @@
 // TODO: write SA directly to disk.
-#ifndef __FGM_FAST_MERGE
-#define __FGM_FAST_MERGE
+#ifndef __MERGE
+#define __MERGE
 
 #include <algorithm>
 
@@ -8,7 +8,7 @@
 #include "file_streamer.h"
 #include "vbyte_file_streamer.h"
 
-void FGM_fast_merge(int *outputSA, int length, int max_block_size) {
+void merge(int *outputSA, int length, int max_block_size) {
   int n_block = (length + max_block_size - 1) / max_block_size;
   
   // Initialize buffers for merging.
@@ -51,5 +51,5 @@ void FGM_fast_merge(int *outputSA, int length, int max_block_size) {
   delete[] sparseSA;
 }
 
-#endif // __FGM_FAST_MERGE
+#endif // __MERGE
 

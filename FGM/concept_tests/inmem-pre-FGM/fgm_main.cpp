@@ -1,10 +1,32 @@
-// Initial version of FGM, where gt arrays and the text are hold in memory
-// but all other things are final. In particular, gap and partial SA are stored
-// on disk and merged in the same way and they will be in the final version.
+// Handling gt bitvectors
+//=======================
+//
+// At the beginning of phase, the gt bitvector for A is split into two pieces:
+//  1. the gt bitvector for the previous block (file: 'gt_head')
+//  2. the gt bitvector for the rest of A (file: 'gt_tail')
+// 
+// We use these in the current phase as follows:
+//  a) first, for the computation of gt_eof, we need a random access to
+//     the gt of the prev block. To achieve this, we simply load the
+//     bitvector into 'bitvector' class from the 'gt_head' file and use
+//     it during the Crochemore's algorithm. Of course the bitvector class
+//     encodes 8bits/byte and provides random access. After we're done with
+//     this, we drop this bitvector, although, it could be kept in memory for
+//     a little longer, because we need it later.
+//  b) next, as we are about to drop (after saving to disk) the sparseSA
+//     we save the head of the new gt (resulting from this phase) into
+//     'new_gt_head' (which will be renamed later). For the current phase
+//     we will not need the 'new_gt_head' any more.
+//  c) next follows the scanning part, at this point we need the stream gt of
+//     A. To achieve this, we first stream the 'gt_tail' and then the 'gt_head'
+//     (note: we stream it now, whereas at the beginning we have accessed it
+//     randomly). Simultanously, we use bit_stream_writer to write the
+//     tail of the new gt array into 'new_gt_tail'.
+//  d) finally, we rename 'new_gt_head' into 'gt_head' and 'new_gt_tail'
+//     into 'gt_tail' and are now ready to process next block.
 
-// TODO better memory management (less allocation).
+// TODO: better memory management (less allocation).
 // TODO: streaming left-to-right, not right-to-left.
-// TODO: encoding single gt value on a bit, not byte.
 // TODO: make the rightmost block the smallest.
 
 #include <ctime>
@@ -16,10 +38,13 @@
 
 #include "sais.hxx"
 #include "utils.h"
-#include "rank_4n.h"
+#include "rank.h"
 #include "suffix_ranking.h"
 #include "buffered_gap_array.h"
-#include "FGM_fast_merge.h"
+#include "merge.h"
+#include "bitvector.h"
+#include "bit_stream_reader.h"
+#include "bit_stream_writer.h"
 
 // Write the gap array to file using v-byte encoding.
 void write_gap_to_file(buffered_gap_array *gap, std::string fname) {
@@ -35,8 +60,6 @@ void write_gap_to_file(buffered_gap_array *gap, std::string fname) {
     int c = 0;
     while (pos < (int)gap->excess.size() && gap->excess[pos] == j) ++pos, ++c;
     int gap_j = gap->count[j] + (c << 8);
-    
-    // fwrite(&gap_j, sizeof(int), 1, f);
     // v-byte encoding of gap_j:
     while (gap_j > 127) {
       buf[filled++] = ((gap_j & 0x7f) | 0x80);
@@ -55,9 +78,8 @@ void write_gap_to_file(buffered_gap_array *gap, std::string fname) {
   fclose(f);
 }
 
-void inmem_FGM(unsigned char *text, int length, int max_block_size) {
-  int end = length, block_id = 0;
-  unsigned char *gt = NULL;
+void FGM(unsigned char *text, int length, int max_block_size) {
+  int end = length, block_id = 0, prev_end = length;
   while (end > 0) {
     int beg = std::max(end - max_block_size, 0);
     int block_size = end - beg;
@@ -65,67 +87,44 @@ void inmem_FGM(unsigned char *text, int length, int max_block_size) {
     // then gt[end..length) holds the gt array of A.
 
     // 1. We start by computing the gt_eof bitvector.
-    unsigned char *gt_eof = new unsigned char[block_size];
-    std::fill(gt_eof, gt_eof + block_size, 0);
-    compute_bitmap(text + end, length - end, text + beg, block_size, gt, gt_eof);
-
-    // 2. Remap symbols of B on a copy of B to compute ordering of
-    // suffixes of BA start start in B. Then restore original B back.
+    bitvector *gt_eof = new bitvector(block_size);
     unsigned char *B = new unsigned char[block_size];
     std::copy(text + beg, text + end, B);
+    unsigned char *prevB = new unsigned char[block_size];
+    std::copy(text + end, text + prev_end, prevB);
+    int prevB_size = prev_end - end;
+    bitvector *gt_head_bv = (end < length) ? (new bitvector("gt_head")) : NULL;
+    compute_gt_eof(prevB, prevB_size, B, block_size, gt_head_bv, gt_eof);
+    delete gt_head_bv;
+    delete[] prevB;
+
+    // 2. Remap symbols of B on a copy of B to compute ordering of
+    // suffixes of BA starting in B. Then restore original.
     unsigned char last = B[block_size - 1];
     for (int j = 0; j < block_size - 1; ++j)
-      if (B[j] > last || (B[j] == last && gt_eof[j + 1])) B[j] += 2;
+      if (B[j] > last || (B[j] == last && gt_eof->get(j + 1))) B[j] += 2;
+    delete gt_eof;
     ++B[block_size - 1];
     int *SA = new int[block_size];
     saisxx(B, SA, block_size);
     std::copy(text + beg, text + end, B);
 
     // 3. Store partial SA to disk and compute the prefix of new_gt array.
-    unsigned char *new_gt = new unsigned char[length - beg];
     int whole_suffix_pos = 0;
-    for (int k = 0; k < block_size; ++k) if (!SA[k]) whole_suffix_pos = k;
-    for (int k = 0; k < block_size; ++k) new_gt[SA[k]] = (k > whole_suffix_pos);
+    for (int k = 0; k < block_size; ++k)
+      if (!SA[k]) { whole_suffix_pos = k; break; }
+    bitvector *new_gt_head = new bitvector(block_size);
+    for (int k = whole_suffix_pos + 1; k < block_size; ++k)
+      new_gt_head->set(block_size - 1 - SA[k]);
+    new_gt_head->save("new_gt_head");
+    delete new_gt_head;
 
     // 4. Store partial SA on disk
     for (int k = 0; k < block_size; ++k) SA[k] += beg;
     utils::write_ints_to_file(SA, block_size, "sparseSA." + utils::intToStr(block_id));
     for (int k = 0; k < block_size; ++k) SA[k] -= beg;
 
-    // ************************************************************************/
-    /*                     EXTRA TESTS, NOW ALSO PASSING                      */
-    /**************************************************************************/
-    /*int *dbg_SA = new int[length - beg];
-    saisxx(text + beg, dbg_SA, length - beg);
-    int *dbg_sparseSA = new int[block_size];
-    int *dbg_gap = new int[block_size + 1];
-    std::fill(dbg_gap, dbg_gap + block_size + 1, 0);
-    for (int dbg_j = 0, dbg_jj = 0; dbg_j < length - beg; ++dbg_j)
-      if (dbg_SA[dbg_j] < block_size) dbg_sparseSA[dbg_jj++] = dbg_SA[dbg_j];
-      else ++dbg_gap[dbg_jj];
-    for (int dbg_j = 0; dbg_j < block_size; ++dbg_j)
-      if (SA[dbg_j] != dbg_sparseSA[dbg_j]) {
-        fprintf(stderr, "Error!\n");
-        if (length < 100) {
-          fprintf(stderr, "  text = %s\n", text);
-          fprintf(stderr, "  max_block_size = %d\n", max_block_size);
-          fprintf(stderr, "when processing block [%d..%d):\n", beg, end);
-          fprintf(stderr, "  correct sparse SA:  ");
-          for (int k = 0; k < block_size; ++k)
-            fprintf(stderr, "%d ", dbg_sparseSA[k]);
-          fprintf(stderr, "\n");
-          fprintf(stderr, "  computed sparse SA: ");
-          for (int k = 0; k < block_size; ++k)
-            fprintf(stderr, "%d ", SA[k]);
-          fprintf(stderr, "\n");
-        }
-        std::exit(EXIT_FAILURE);
-      }
-    delete[] dbg_SA;
-    delete[] dbg_sparseSA;*/
-    /**************************************************************************/
-    
-    // 4. Compute the BWT from SA and build rank on top of it.
+    // 5. Compute the BWT from SA and build rank on top of it.
     int count[256] = {0}, dollar_pos = 0;
     for (int j = 0; j < block_size; ++j) count[B[j] + 1]++;
     for (int j = 1; j < 256; ++j) count[j] += count[j - 1];
@@ -138,64 +137,56 @@ void inmem_FGM(unsigned char *text, int length, int max_block_size) {
     rank_4n *rank = new rank_4n(BWT, block_size - 1);
     delete[] BWT;
 
-    // 5. Allocate the buffered n-bytes gap array and do the streaming.
+    // 6. Allocate the buffered n-bytes gap array and do the streaming.
     buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
-    int i = 0, scan_length = length - end;
-    for (int j = scan_length - 1, idx = length - 1; j >= 0; --j, --idx) {
-      unsigned char c = text[idx];
+    bit_stream_writer *new_gt_tail = new bit_stream_writer("new_gt_tail");
+    bit_stream_reader *gt_tail = (prev_end < length) ? (new bit_stream_reader("gt_tail")) : NULL;
+    int i = 0;
+    unsigned char next_gt = 0;
+    for (long j = length - 1; j >= prev_end; --j) { // stream the tail, except prev block
+      // Invariant: next_gt = gt[j + 1]
+      unsigned char c = text[j];
       i = count[c] + rank->rank(i - (i > dollar_pos), c);
-      if (c == last && j + 1 != scan_length && gt[j + 1]) ++i;
-      new_gt[block_size + j] = (i > whole_suffix_pos);
+      if (c == last && next_gt) ++i;
+      new_gt_tail->write(i > whole_suffix_pos);
       gap->increment(i);
+      next_gt = gt_tail->read();
     }
+    delete gt_tail;
+    bit_stream_reader *gt_head = (end < length) ? (new bit_stream_reader("gt_head")) : NULL;
+    for (int j = prev_end - 1; j >= end; --j) { // stream previous block
+      // Invariant: next_gt = gt[j + 1]
+      unsigned char c = text[j];
+      i = count[c] + rank->rank(i - (i > dollar_pos), c);
+      if (c == last && next_gt) ++i;
+      new_gt_tail->write(i > whole_suffix_pos);
+      gap->increment(i);
+      next_gt = gt_head->read();
+    }
+    delete gt_head;
+    delete new_gt_tail;
 
-    // 6. Store gap array to disk.
+    // 7. Store gap array to disk.
     write_gap_to_file(gap, "gap." + utils::intToStr(block_id));
 
-    /**************************************************************************/
-    /*                    EXTRA TESTS, NOW ALSO PASSING                       */
-    /**************************************************************************/
-    /*gap->flush();
-    std::sort(gap->excess.begin(), gap->excess.end());
-    for (int j = 0, pos = 0; j <= block_size; ++j) {
-      int c = 0;
-      while (pos < (int)gap->excess.size() && gap->excess[pos] == j) ++pos, ++c;
-      int gap_j = gap->count[j] + (c << 8);
-      if (dbg_gap[j] != gap_j) {
-        fprintf(stderr, "Error!\n");
-        if (length < 100) {
-          fprintf(stderr, "  text = %s\n", text);
-          fprintf(stderr, "  max_block_size = %d\n", max_block_size);
-          fprintf(stderr, "  processing block [%d..%d):\n", beg, end);
-          fprintf(stderr, "  correct  gap[%d] == %d\n", j, dbg_gap[j]);
-          fprintf(stderr, "  computed gap[%d] == %d\n", j, gap_j);
-        }
-        std::exit(EXIT_FAILURE);
-      }
-    }
-    delete[] dbg_gap;*/
-    /**************************************************************************/
-    
-    // 7. Clean up.
-    delete[] gt;
-    gt = new_gt;
+    // 8. Clean up.
     delete gap;
     delete rank;
+    prev_end = end;
     end = beg;
     ++block_id;
+    utils::execute("mv new_gt_head gt_head");
+    utils::execute("mv new_gt_tail gt_tail");
   }
-  
-  if (gt)
-    delete[] gt;
 
   // Merge the resulting 'gap' and 'sparseSA' arrays
   // and delete the files.
   int *computed_SA = new int[length];
-  FGM_fast_merge(computed_SA, length, max_block_size);
-  /*for (int i = 0; i < block_id; ++i) {
+  merge(computed_SA, length, max_block_size);
+  for (int i = 0; i < block_id; ++i) {
     utils::file_delete("sparseSA." + utils::intToStr(i));
     utils::file_delete("gap." + utils::intToStr(i));
-  }*/
+  }
 
   // Compare the resulting SA to correct SA.
   int *correct_SA = new int[length];
@@ -226,7 +217,7 @@ void test_random(int testcases, int max_length, int max_sigma) {
 
   for (int tc = 0, dbg = 0; tc < testcases; ++tc, ++dbg) {
     // Print progress information.
-    if (dbg == 1000) {
+    if (dbg == 10) {
       fprintf(stderr,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
       dbg = 0;
     }
@@ -239,10 +230,13 @@ void test_random(int testcases, int max_length, int max_sigma) {
     while (20 * block_size <= length);
     if (max_sigma <= 26) utils::fill_random_letters(text, length, sigma);
     else utils::fill_random_string(text, length, sigma);
+    // int length = strlen("cccedbacba");
+    // strcat((char *)text, "cccedbacba");
+    // int block_size = 5;
     text[length] = 0;
 
     // Run the test on generated string.
-    inmem_FGM(text, length, block_size);
+    FGM(text, length, block_size);
   }
 
   // Clean up.
@@ -254,12 +248,12 @@ int main(int, char **) {
 
   // Run tests.
   fprintf(stderr, "Testing inmem pre-FGM.\n");
-  test_random(50000, 10,      5);
-  test_random(50000, 10,    254);
-  test_random(5000, 100,      5);
-  test_random(5000, 100,    254);
-  test_random(500, 1000,      5);
-  test_random(500, 1000,    254);
+  test_random(5000, 10,      5);
+  test_random(5000, 10,    254);
+  test_random(500, 100,      5);
+  test_random(500, 100,    254);
+  test_random(50, 1000,      5);
+  test_random(50, 1000,    254);
   test_random(50, 10000,     5);
   test_random(50, 10000,   254);
   test_random(5, 100000,      5);

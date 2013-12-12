@@ -1,5 +1,5 @@
-#ifndef __RANK_4N_H
-#define __RANK_4N_H
+#ifndef __RANK_H
+#define __RANK_H
 
 #include <algorithm>
 #include <string>
@@ -93,5 +93,5 @@ struct rank_4n {
   int *bwt32;
 };
 
-#endif // __RANK_4N_H
+#endif // __RANK_H
 

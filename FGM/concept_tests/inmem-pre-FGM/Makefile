@@ -4,16 +4,16 @@ CC = g++
 CFLAGS = -Wall -Wextra -pedantic -Wshadow -static -funroll-loops -DNDEBUG -O3
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -static -g2
 
-all: inmem_fgm
+all: fgm
 
-inmem_fgm: inmem_fgm.cpp
-	$(CC) $(CFLAGS) -o inmem_fgm inmem_fgm.cpp
+fgm: fgm_main.cpp
+	$(CC) $(CFLAGS) -o fgm fgm_main.cpp
 
 clean:
 	/bin/rm -f *.o
 
-test: inmem_fgm
-	./inmem_fgm
+test: fgm
+	./fgm
 
 nuclear:
-	/bin/rm -f inmem_fgm *.o
+	/bin/rm -f fgm *.o gap.* sparseSA.* gt_head new_gt_head gt_tail new_gt_tail
