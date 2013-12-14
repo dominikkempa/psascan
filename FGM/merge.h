@@ -18,8 +18,8 @@ void merge(long length, long max_block_size, std::string out_filename) {
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
   for (int i = 0; i < n_block; ++i) {
-    sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(n_block - 1 - i), 4 * buffer_size);
-    gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(n_block - 1 - i), buffer_size);
+    sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(i), 4 * buffer_size);
+    gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(i), buffer_size);
   }
   
   // Merge.
@@ -43,7 +43,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
-    output->write(sparseSA[j]->read()); // SA[i]
+    output->write(sparseSA[j]->read() + j * max_block_size); // SA[i]
 
     // Update suffix_rank[j].    
     suffix_rank[j]++;

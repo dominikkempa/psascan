@@ -1,23 +1,16 @@
 // The implementation is intended to obey only the following limitions:
-//  block_size <= 4GB
-//  alphabet_size <= 254
+//  block_size <= 2GB
+//  alphabet_size <= 255
 //
-// length could be anything up to 2^63 because we will encode partial SA using
-// 4-byte integers (this restricts the block size to 4GB) and gap array using
-// v-byte encoding. This requires slightly more complicated merging, but this
-// we can afford.
+// length could be anything because we will encode partial SA using 4-byte
+// integers (this restricts the block size to 2GB) and gap array using v-byte
+// encoding. This requires slightly more complicated merging, but this we
+// can afford.
 //
 // TODO: use uint40 for output on disk, long (8 bytes) for integers (in
 //       general) in memory and unsigned (4 bytes) for inmemory block-related
 //       integers.
-// TODO: change the encoding of partial SA on disk, so they can *always* use
-//       4-byte integers (even for huge texts), and during the merging we add
-//       the missing bits.
-// TODO: better memory management (less allocation).
-// TODO: make the rightmost block the smallest.
 // TODO: implement Juha's modified rank (and also test other ranks).
-// TODO: check mem usage using 'memusage' and check leaks using valgrind
-//       is it really using 5b bytes for a block of legth b?
 
 #include <cstdio>
 #include <cstdlib>
@@ -36,13 +29,15 @@
 
 void FGM(std::string filename, long max_block_size) {
   long length = utils::file_size(filename);
-  long end = length, block_id = 0, prev_end = length;
+  long n_block = (length + max_block_size - 1) / max_block_size;
+  long block_id = n_block - 1, prev_end = length;
   long double start = utils::wclock();
-  while (end > 0) {
-    long beg = std::max(end - max_block_size, 0L);
+  while (block_id >= 0) {
+    long beg = max_block_size * block_id;
+    long end = std::min(length, beg + max_block_size);
     long block_size = end - beg; // B = text[beg..end), current block
-    fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n", block_id + 1,
-      (length + max_block_size - 1) / max_block_size, beg, end);
+    fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n",
+      n_block - block_id, n_block, beg, end);
 
     // 1. Read current and previously processed block.
     fprintf(stderr, "  Reading blocks: ");
@@ -96,16 +91,14 @@ void FGM(std::string filename, long max_block_size) {
     // 4. Store partial SA on disk.
     fprintf(stderr, "  Write partial SA to disk: ");
     long double write_sa_start = utils::wclock();
-    for (long k = 0; k < block_size; ++k) SA[k] += beg;
     utils::write_ints_to_file(SA, block_size, "sparseSA." + utils::intToStr(block_id));
-    for (long k = 0; k < block_size; ++k) SA[k] -= beg;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - write_sa_start);
 
     // 5. Compute the BWT from SA and build rank on top of it.
     fprintf(stderr, "  Compute BWT and rank: ");
     long double compute_bwt_start = utils::wclock();
     long count[256] = {0}, dollar_pos = 0;
-    if (block_id) {
+    if (block_id + 1 != n_block) {
       for (long j = 0; j < block_size; ++j) count[(int)B[j] + 1]++;
       for (int j = 1; j < 256; ++j) count[j] += count[j - 1];
       unsigned char *tmpBWT = (unsigned char *)SA;
@@ -115,7 +108,7 @@ void FGM(std::string filename, long max_block_size) {
       std::copy(tmpBWT, tmpBWT + block_size - 1, B);
     }
     delete[] SA;
-    rank_4n *rank = block_id ? new rank_4n(B, block_size - 1) : NULL;
+    rank_4n *rank = (block_id + 1 != n_block) ? new rank_4n(B, block_size - 1) : NULL;
     delete[] B;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - compute_bwt_start);
 
@@ -175,7 +168,7 @@ void FGM(std::string filename, long max_block_size) {
     delete rank;
     prev_end = end;
     end = beg;
-    ++block_id;
+    --block_id;
     utils::execute("mv new_gt_head gt_head");
     utils::execute("mv new_gt_tail gt_tail");
   }
@@ -185,7 +178,7 @@ void FGM(std::string filename, long max_block_size) {
   merge(length, max_block_size, out_filename);
 
   // Delete auxiliary files.
-  for (int i = 0; i < block_id; ++i) {
+  for (int i = 0; i < n_block; ++i) {
     utils::file_delete("sparseSA." + utils::intToStr(i));
     utils::file_delete("gap." + utils::intToStr(i));
   }

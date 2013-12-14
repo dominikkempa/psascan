@@ -26,8 +26,6 @@
 //     into 'gt_tail' and are now ready to process next block.
 
 // TODO: better memory management (less allocation).
-// TODO: streaming left-to-right, not right-to-left.
-// TODO: make the rightmost block the smallest.
 
 #include <ctime>
 #include <cstring>
@@ -47,11 +45,13 @@
 
 void FGM(std::string filename, int max_block_size) {
   long length = utils::file_size(filename);
-  int end = length, block_id = 0, prev_end = length;
+  long n_block = (length + max_block_size - 1) / max_block_size;
+  long block_id = n_block - 1, prev_end = length;
   text_reader *reader = new text_reader(filename);
-  while (end > 0) {
-    int beg = std::max(end - max_block_size, 0);
-    int block_size = end - beg; // B = text[beg..end), current block
+  while (block_id >= 0) {
+    long beg = max_block_size * block_id;
+    long end = std::min(length, beg + max_block_size);
+    long block_size = end - beg; // B = text[beg..end), current block
 
     // 1. Read current and previously processed block, extended with B[0].
     unsigned char *B = new unsigned char[block_size];
@@ -72,7 +72,7 @@ void FGM(std::string filename, int max_block_size) {
     // starting in B and then restore original B.
     for (int j = 0; j < block_size; ++j) B[j] += gt_eof->get(j);
     int *SA = new int[block_size];
-    saisxx(B, SA, block_size);
+    saisxx(B, SA, (int)block_size);
     for (int j = 0; j < block_size; ++j) B[j] -= gt_eof->get(j);
     delete gt_eof;
 
@@ -87,9 +87,7 @@ void FGM(std::string filename, int max_block_size) {
     delete new_gt_head;
 
     // 4. Store partial SA on disk.
-    for (int k = 0; k < block_size; ++k) SA[k] += beg;
     utils::write_ints_to_file(SA, block_size, "sparseSA." + utils::intToStr(block_id));
-    for (int k = 0; k < block_size; ++k) SA[k] -= beg;
 
     // 5. Compute the BWT from SA and build rank on top of it.
     int count[256] = {0}, dollar_pos = 0;
@@ -138,7 +136,7 @@ void FGM(std::string filename, int max_block_size) {
     delete rank;
     prev_end = end;
     end = beg;
-    ++block_id;
+    --block_id;
     utils::execute("mv new_gt_head gt_head");
     utils::execute("mv new_gt_tail gt_tail");
   }
@@ -150,7 +148,7 @@ void FGM(std::string filename, int max_block_size) {
   merge(length, max_block_size, out_filename);
 
   // Delete auxiliary files.
-  for (int i = 0; i < block_id; ++i) {
+  for (int i = 0; i < n_block; ++i) {
     utils::file_delete("sparseSA." + utils::intToStr(i));
     utils::file_delete("gap." + utils::intToStr(i));
   }
