@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
     std::exit(EXIT_FAILURE);
   }
 
-  long ram_use = atoi(argv[2]) << 20;
+  long ram_use = (long)atoi(argv[2]) << 20;
   long block_size = ram_use / 5;
 
   fprintf(stderr, "Filename = %s\n", argv[1]);

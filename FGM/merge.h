@@ -6,13 +6,14 @@
 
 #include "utils.h"
 #include "stream.h"
+#include "uint40.h"
 
 void merge(long length, long max_block_size, std::string out_filename) {
   int n_block = (length + max_block_size - 1) / max_block_size;
-  int buffer_size = (5L * max_block_size) / (5 * n_block + 4);
+  int buffer_size = (5L * max_block_size) / (5 * n_block + 5);
   fprintf(stderr, "buffer size for merging: %d\n", buffer_size);
 
-  stream_writer<int> *output = new stream_writer<int>(out_filename, 4 * buffer_size);
+  stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
   
   // Initialize buffers for merging.
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
@@ -43,7 +44,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
-    output->write(sparseSA[j]->read() + j * max_block_size); // SA[i]
+    output->write(uint40((unsigned long)sparseSA[j]->read() + (unsigned long)max_block_size * j)); // SA[i]
 
     // Update suffix_rank[j].    
     suffix_rank[j]++;

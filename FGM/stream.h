@@ -192,8 +192,8 @@ struct vbyte_stream_reader {
     std::fclose(f);
   }
 
-  inline int read() {
-    int ret = 0, offset = 0;
+  inline long read() {
+    long ret = 0, offset = 0;
     while (buf[pos] & 0x80) {
       ret |= ((buf[pos++] & 0x7f) << offset);
       if (pos == filled) refill();
@@ -228,14 +228,14 @@ struct text_reader {
     delete[] buf;
   }
 
-  void read_block(int beg, int length, unsigned char *b) {
+  void read_block(long beg, int length, unsigned char *b) {
     fseek(f, beg, SEEK_SET);
     utils::read_objects_from_file<unsigned char>(b, length, f);
   }
 
   void refill() {
-    int curpos = ftell(f);
-    int left = std::min(curpos - filled, buffersize);
+    long curpos = ftell(f);
+    long left = std::min(curpos - filled, buffersize);
     fseek(f, -(filled + left), SEEK_CUR);
     filled = fread(buf, 1, left, f);
     pos = filled - 1;
@@ -256,8 +256,8 @@ struct text_reader {
 
   std::FILE *f;
 
-//  static const int buffersize = (1 << 21); // ???
-  int buffersize;
+//  static const int buffersize = (1 << 21); //???
+  long buffersize;
   unsigned char *buf;
   int filled, pos;
 };

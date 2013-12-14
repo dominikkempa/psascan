@@ -160,7 +160,7 @@ void FGM(std::string filename, long max_block_size) {
       stream_time, streamed_mib / stream_time);
     delete gt_head;
     delete new_gt_tail;
-    fprintf(stderr, "  gap->excess.size() = %d\n", (int)gap->excess.size());
+    fprintf(stderr, "  gap->excess.size() = %lu\n", (size_t)gap->excess.size());
     gap->save_to_file("gap." + utils::intToStr(block_id));
 
     // 7. Clean up.
@@ -174,7 +174,7 @@ void FGM(std::string filename, long max_block_size) {
   }
 
   // Merge gap and sparseSA arrays into final SA.
-  std::string out_filename = filename + ".sa";
+  std::string out_filename = filename + ".sa5";
   merge(length, max_block_size, out_filename);
 
   // Delete auxiliary files.
