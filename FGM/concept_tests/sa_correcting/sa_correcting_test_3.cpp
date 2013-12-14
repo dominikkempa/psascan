@@ -30,6 +30,9 @@ void test(unsigned char *text, int length, int B_length) {
   for (int i = 0, j = 0; i < BA_length; ++i)
     if (BA_SA[i] < B_length) sparseSA[j++] = BA_SA[i];
 
+  --A;
+  ++A_length;
+
   unsigned char *gt_eof = new unsigned char[B_length];
   for (int j = 0; j < B_length; ++j) {
     int lcp = 0;
@@ -37,11 +40,8 @@ void test(unsigned char *text, int length, int B_length) {
     gt_eof[j] = ((lcp == A_length) || B[j + lcp] > A[lcp]); // B[j..] > A?
   }
 
-  // Remap symbols in B. We assume that the maximal symbol is <= 253.
-  unsigned char last = B[B_length - 1];
-  for (int i = 0; i < B_length - 1; ++i)
-    if (B[i] > last || (B[i] == last && gt_eof[i + 1])) B[i] += 2;
-  ++B[B_length - 1];
+  // (c) Juha Karkkainen
+  for (int i = 0; i < B_length; ++i) B[i] += gt_eof[i];
 
   // Compute the SA for modified B.
   int *B_SA = new int[B_length];
@@ -112,13 +112,13 @@ int main(int, char **) {
   // Run tests.
   fprintf(stderr, "Testing the SA correction.\n");
   test_random(500000, 10,      5);
-  test_random(500000, 10,    254);
+  test_random(500000, 10,    255);
   test_random(500000, 100,     5);
-  test_random(500000, 100,   254);
+  test_random(500000, 100,   255);
   test_random(50000,  1000,    5);
-  test_random(50000,  1000,  254);
+  test_random(50000,  1000,  255);
   test_random(500,    10000,   5);
-  test_random(500,    10000, 254);
+  test_random(500,    10000, 255);
   fprintf(stderr,"All tests passed.\n");
 
   return 0;

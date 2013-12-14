@@ -53,30 +53,28 @@ void FGM(std::string filename, int max_block_size) {
     int beg = std::max(end - max_block_size, 0);
     int block_size = end - beg; // B = text[beg..end), current block
 
-    // 1. Read current and previously processed block.
+    // 1. Read current and previously processed block, extended with B[0].
     unsigned char *B = new unsigned char[block_size];
     reader->read_block(beg, block_size, B);
-    unsigned char *prevB = new unsigned char[max_block_size];
-    int prev_block_size = prev_end - end;
-    reader->read_block(end, prev_block_size, prevB);
+    unsigned char last = B[block_size - 1];
+    unsigned char *extprevB = new unsigned char[max_block_size + 1];
+    int ext_prev_block_size = prev_end - end + 1;
+    reader->read_block(end - 1, ext_prev_block_size, extprevB);
 
     // 2. Compute gt_eof.
     bitvector *gt_eof = new bitvector(block_size);
     bitvector *gt_head_bv = end < length ? new bitvector("gt_head") : NULL;
-    compute_gt_eof(prevB, prev_block_size, B, block_size, gt_head_bv, gt_eof);
+    compute_gt_eof(extprevB, ext_prev_block_size, B, block_size, gt_head_bv, gt_eof);
     delete gt_head_bv;
-    delete[] prevB;
+    delete[] extprevB;
 
     // 2. Remap symbols of B to compute ordering of suffixes of BA
     // starting in B and then restore original B.
-    unsigned char last = B[block_size - 1];
-    for (int j = 0; j < block_size - 1; ++j)
-      if (B[j] > last || (B[j] == last && gt_eof->get(j + 1))) B[j] += 2;
-    delete gt_eof;
-    ++B[block_size - 1];
+    for (int j = 0; j < block_size; ++j) B[j] += gt_eof->get(j);
     int *SA = new int[block_size];
     saisxx(B, SA, block_size);
-    reader->read_block(beg, end - beg, B);
+    for (int j = 0; j < block_size; ++j) B[j] -= gt_eof->get(j);
+    delete gt_eof;
 
     // 3. Store the head of new gt bitvector to disk.
     int whole_suffix_pos = 0;
@@ -225,15 +223,15 @@ int main(int, char **) {
   srand(time(0) + getpid());
   fprintf(stderr, "Testing FGM.\n");
   test_random(5000, 10,      5);
-  test_random(5000, 10,    254);
+  test_random(5000, 10,    255);
   test_random(500, 100,      5);
-  test_random(500, 100,    254);
+  test_random(500, 100,    255);
   test_random(50, 1000,      5);
-  test_random(50, 1000,    254);
+  test_random(50, 1000,    255);
   test_random(50, 10000,     5);
-  test_random(50, 10000,   254);
+  test_random(50, 10000,   255);
   test_random(5, 100000,      5);
-  test_random(5, 100000,    254);
+  test_random(5, 100000,    255);
   fprintf(stderr,"All tests passed.\n");
 }
 

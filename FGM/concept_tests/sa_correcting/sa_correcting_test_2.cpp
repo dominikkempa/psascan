@@ -37,10 +37,11 @@ void test(unsigned char *text, int length, int B_length) {
     gt_eof[j] = ((lcp == A_length) || B[j + lcp] > A[lcp]); // B[j..] > A?
   }
 
-  // Remap symbols in B. We assume that the maximal symbol is <= 253.
+  // Remap symbols in B. We assume that the maximal symbol is <= 254.
+  // (c) Juha Karkkainen
   unsigned char last = B[B_length - 1];
   for (int i = 0; i < B_length - 1; ++i)
-    if (B[i] > last || (B[i] == last && gt_eof[i + 1])) B[i] += 2;
+    if (B[i] > last || (B[i] == last && gt_eof[i + 1])) B[i] += 1;
   ++B[B_length - 1];
 
   // Compute the SA for modified B.
@@ -112,13 +113,13 @@ int main(int, char **) {
   // Run tests.
   fprintf(stderr, "Testing the SA correction.\n");
   test_random(500000, 10,      5);
-  test_random(500000, 10,    254);
+  test_random(500000, 10,    255);
   test_random(500000, 100,     5);
-  test_random(500000, 100,   254);
+  test_random(500000, 100,   255);
   test_random(50000,  1000,    5);
-  test_random(50000,  1000,  254);
+  test_random(50000,  1000,  255);
   test_random(500,    10000,   5);
-  test_random(500,    10000, 254);
+  test_random(500,    10000, 255);
   fprintf(stderr,"All tests passed.\n");
 
   return 0;
