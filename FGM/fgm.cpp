@@ -14,8 +14,6 @@
 //       4-byte integers (even for huge texts), and during the merging we add
 //       the missing bits.
 // TODO: better memory management (less allocation).
-// TODO: streaming left-to-right, not right-to-left, in general: test whether
-//       it makes a differece.
 // TODO: make the rightmost block the smallest.
 // TODO: implement Juha's modified rank (and also test other ranks).
 // TODO: check mem usage using 'memusage' and check leaks using valgrind
@@ -39,7 +37,6 @@
 void FGM(std::string filename, long max_block_size) {
   long length = utils::file_size(filename);
   long end = length, block_id = 0, prev_end = length;
-  text_reader *reader = new text_reader(filename);
   long double start = utils::wclock();
   while (end > 0) {
     long beg = std::max(end - max_block_size, 0L);
@@ -49,13 +46,17 @@ void FGM(std::string filename, long max_block_size) {
 
     // 1. Read current and previously processed block.
     fprintf(stderr, "  Reading blocks: ");
+    text_reader *reader = new text_reader(filename);
     long double read_start = utils::wclock();
     unsigned char *B = new unsigned char[block_size];
-    reader->read_block(beg, block_size, B);
+    reader->read_block(length - block_size - beg, block_size, B);
+    std::reverse(B, B + block_size);
     unsigned char last = B[block_size - 1];
     unsigned char *extprevB = new unsigned char[max_block_size + 1];
     long ext_prev_block_size = prev_end - end + 1;
-    reader->read_block(end - 1, ext_prev_block_size, extprevB);
+    reader->read_block(length - ext_prev_block_size - (end - 1), ext_prev_block_size, extprevB);
+    std::reverse(extprevB, extprevB + ext_prev_block_size);
+    delete reader;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
     // 2. Compute gt_eof.
@@ -126,7 +127,7 @@ void FGM(std::string filename, long max_block_size) {
     bit_stream_reader *gt_tail = prev_end < length ? new bit_stream_reader("gt_tail") : NULL;
     long i = 0;
     unsigned char next_gt = 0;
-    reader->init_backward_streaming();
+    stream_reader<unsigned char> *streamer = new stream_reader<unsigned char>(filename, 1 << 20);
     for (long j = length - 1, dbg = 0; j >= prev_end; --j, ++dbg) { // stream the tail
       if (dbg == (1 << 20)) {
         long double elapsed = utils::wclock() - stream_start;
@@ -135,7 +136,7 @@ void FGM(std::string filename, long max_block_size) {
           (100.L * (length - j)) / (length - end), elapsed, streamed_mib / elapsed);
         dbg = 0;
       }
-      unsigned char c = reader->read_next();        // c = text[j]
+      unsigned char c = streamer->read();          // c = text^R[j]
       i = count[c] + rank->rank(i - (i > dollar_pos), c);
       if (c == last && next_gt) ++i;               // next_gt = gt[j + 1]
       new_gt_tail->write(i > whole_suffix_pos);
@@ -152,13 +153,14 @@ void FGM(std::string filename, long max_block_size) {
           (100.L * (length - j)) / (length - end), elapsed, streamed_mib / elapsed);
         dbg = 0;
       }
-      unsigned char c = reader->read_next();    // c = text[j]
+      unsigned char c = streamer->read();       // c = text^R[j]
       i = count[c] + rank->rank(i - (i > dollar_pos), c);
       if (c == last && next_gt) ++i;            // next_gt = gt[j + 1]
       new_gt_tail->write(i > whole_suffix_pos);
       gap->increment(i);
       next_gt = gt_head->read();
     }
+    delete streamer;
     long double stream_time = utils::wclock() - stream_start;
     long double streamed_mib = (1.L * (length - end)) / (1 << 20);
     fprintf(stderr,"  Stream: 100.0%%. Time: %.2Lf. Speed: %.2LfMiB/s\n",
@@ -177,8 +179,6 @@ void FGM(std::string filename, long max_block_size) {
     utils::execute("mv new_gt_head gt_head");
     utils::execute("mv new_gt_tail gt_tail");
   }
-
-  delete reader;
 
   // Merge gap and sparseSA arrays into final SA.
   std::string out_filename = filename + ".sa";
