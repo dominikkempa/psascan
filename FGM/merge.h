@@ -8,15 +8,18 @@
 #include "stream.h"
 
 void merge(long length, long max_block_size, std::string out_filename) {
-  stream_writer<int> *output = new stream_writer<int>(out_filename, 1 << 23);
   int n_block = (length + max_block_size - 1) / max_block_size;
+  int buffer_size = (5L * max_block_size) / (5 * n_block + 4);
+  fprintf(stderr, "buffer size for merging: %d\n", buffer_size);
+
+  stream_writer<int> *output = new stream_writer<int>(out_filename, 4 * buffer_size);
   
   // Initialize buffers for merging.
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
   for (int i = 0; i < n_block; ++i) {
-    sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(n_block - 1 - i), 1 << 23);
-    gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(n_block - 1 - i), 1 << 23);
+    sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(n_block - 1 - i), 4 * buffer_size);
+    gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(n_block - 1 - i), buffer_size);
   }
   
   // Merge.
