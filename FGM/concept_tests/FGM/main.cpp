@@ -37,6 +37,7 @@
 #include "sais.hxx"
 #include "utils.h"
 #include "rank.h"
+#include "fast_rank.h"
 #include "srank.h"
 #include "gap_array.h"
 #include "merge.h"
@@ -99,7 +100,7 @@ void FGM(std::string filename, int max_block_size) {
       else tmpBWT[jj++] = B[SA[j] - 1];
     std::copy(tmpBWT, tmpBWT + block_size - 1, BWT);
     delete[] SA;
-    rank_4n *rank = new rank_4n(BWT, block_size - 1);
+    fast_rank_4n *rank = new fast_rank_4n(BWT, block_size - 1);
     delete[] BWT;
 
     // 6. Allocate the gap array, do the streaming and store gap to disk.

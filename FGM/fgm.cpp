@@ -4,13 +4,7 @@
 //
 // length could be anything because we will encode partial SA using 4-byte
 // integers (this restricts the block size to 2GB) and gap array using v-byte
-// encoding. This requires slightly more complicated merging, but this we
-// can afford.
-//
-// TODO: use uint40 for output on disk, long (8 bytes) for integers (in
-//       general) in memory and unsigned (4 bytes) for inmemory block-related
-//       integers.
-// TODO: implement Juha's modified rank (and also test other ranks).
+// encoding.
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,6 +15,7 @@
 #include "divsufsort.h"
 #include "utils.h"
 #include "rank.h"
+#include "fast_rank.h"
 #include "srank.h"
 #include "gap_array.h"
 #include "merge.h"
@@ -109,6 +104,7 @@ void FGM(std::string filename, long max_block_size) {
     }
     delete[] SA;
     rank_4n *rank = (block_id + 1 != n_block) ? new rank_4n(B, block_size - 1) : NULL;
+    //fast_rank_4n *rank = (block_id + 1 != n_block) ? new fast_rank_4n(B, block_size - 1) : NULL;
     delete[] B;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - compute_bwt_start);
 
