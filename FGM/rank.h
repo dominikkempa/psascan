@@ -63,13 +63,13 @@ struct rank_4n {
     static const int mask16 = (1 << 16) - 1;
     static const int mask8 = (1 << 8) - 1;
     unsigned sb_id = (i >> 24);
-    long sb_count = sb_rank[256 * sb_id + c];
+    long sb_count = sb_rank[(sb_id << 8) + c];
     unsigned b_id = (i >> 8);
-    long b_count = (bwt32[b_id * 256 + c] >> 8);
+    long b_count = (bwt32[(b_id << 8) + c] >> 8);
     unsigned next_b = b_id + 1;
     unsigned nextb_count = 0;    
-    if (!(next_b & mask16)) nextb_count = sb_rank[(next_b >> 16) * 256 + c] - sb_count;
-    else nextb_count = bwt32[256 * next_b + c] >> 8;
+    if (!(next_b & mask16)) nextb_count = sb_rank[((next_b >> 16) << 8) + c] - sb_count;
+    else nextb_count = bwt32[(next_b << 8) + c] >> 8;
     if (nextb_count == b_count) return sb_count + b_count;
     long extra = 0;
     if (i & 128) {

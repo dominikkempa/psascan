@@ -53,7 +53,8 @@ void test_random(int testcases, int max_length, int max_sigma, int queries) {
 
   for (int tc = 0; tc < testcases; ++tc) {
     // Print progress information.
-    fprintf(stderr,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
+    if (tc % 10 == 0)
+      fprintf(stderr,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
 
     // Generate string.
     int length = utils::random_int(1, max_length);
