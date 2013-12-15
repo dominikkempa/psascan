@@ -7,20 +7,33 @@
 #include "utils.h"
 #include "stream.h"
 #include "uint40.h"
+#include "settings.h"
 
 void merge(long length, long max_block_size, std::string out_filename) {
   int n_block = (length + max_block_size - 1) / max_block_size;
+#if USE_SMALL_GAP
   int buffer_size = (5L * max_block_size) / (5 * n_block + 5);
+#else
+  int buffer_size = (8L * max_block_size) / (8 * n_block + 5);
+#endif
   fprintf(stderr, "buffer size for merging: %d\n", buffer_size);
 
   stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
   
   // Initialize buffers for merging.
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
+#if USE_SMALL_GAP
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
+#else
+  stream_reader<int> **gap = new stream_reader<int>*[n_block];
+#endif
   for (int i = 0; i < n_block; ++i) {
     sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(i), 4 * buffer_size);
+#if USE_SMALL_GAP
     gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(i), buffer_size);
+#else
+    gap[i] = new stream_reader<int>("gap." + utils::intToStr(i), 4 * buffer_size);
+#endif
   }
   
   // Merge.

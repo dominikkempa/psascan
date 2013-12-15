@@ -12,12 +12,10 @@ int main(int argc, char **argv) {
   }
 
   long ram_use = (long)atoi(argv[2]) << 20;
-  long block_size = ram_use / 5;
 
   fprintf(stderr, "Filename = %s\n", argv[1]);
   fprintf(stderr, "RAM use = %ld\n", ram_use);
-  fprintf(stderr, "block size = %ld\n", block_size);
 
-  FGM(argv[1], block_size);
+  FGM(argv[1], ram_use);
 }
 

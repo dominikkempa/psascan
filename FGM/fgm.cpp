@@ -21,8 +21,15 @@
 #include "merge.h"
 #include "bitvector.h"
 #include "stream.h"
+#include "settings.h"
 
-void FGM(std::string filename, long max_block_size) {
+void FGM(std::string filename, long ram_use) {
+#if USE_SMALL_GAP
+  long max_block_size = ram_use / 5;
+#else
+  long max_block_size = ram_use / 8;
+#endif
+  fprintf(stderr, "Using block size = %ld\n", max_block_size);
   long length = utils::file_size(filename);
   long n_block = (length + max_block_size - 1) / max_block_size;
   long block_id = n_block - 1, prev_end = length;
@@ -103,15 +110,22 @@ void FGM(std::string filename, long max_block_size) {
       std::copy(tmpBWT, tmpBWT + block_size - 1, B);
     }
     delete[] SA;
-    rank_4n *rank = (block_id + 1 != n_block) ? new rank_4n(B, block_size - 1) : NULL;
-    //fast_rank_4n *rank = (block_id + 1 != n_block) ? new fast_rank_4n(B, block_size - 1) : NULL;
+#if USE_FAST_RANK
+     fast_rank_4n *rank = (block_id + 1 != n_block) ? new fast_rank_4n(B, block_size - 1) : NULL;
+#else
+     rank_4n *rank = (block_id + 1 != n_block) ? new rank_4n(B, block_size - 1) : NULL;
+#endif
     delete[] B;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - compute_bwt_start);
 
     // 6. Allocate the gap array, do the streaming and store gap to disk.
     fprintf(stderr, "  Stream:\r");
     long double stream_start = utils::wclock();
+#if USE_SMALL_GAP
     buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
+#else
+    int *gap = new int[block_size + 1];
+#endif
     bit_stream_writer *new_gt_tail = new bit_stream_writer("new_gt_tail");
     bit_stream_reader *gt_tail = prev_end < length ? new bit_stream_reader("gt_tail") : NULL;
     long i = 0;
@@ -129,7 +143,11 @@ void FGM(std::string filename, long max_block_size) {
       i = count[c] + rank->rank(i - (i > dollar_pos), c);
       if (c == last && next_gt) ++i;               // next_gt = gt[j + 1]
       new_gt_tail->write(i > whole_suffix_pos);
+#if USE_SMALL_GAP
       gap->increment(i);
+#else
+      gap[i]++;
+#endif
       next_gt = gt_tail->read();
     }
     delete gt_tail;
@@ -146,7 +164,11 @@ void FGM(std::string filename, long max_block_size) {
       i = count[c] + rank->rank(i - (i > dollar_pos), c);
       if (c == last && next_gt) ++i;            // next_gt = gt[j + 1]
       new_gt_tail->write(i > whole_suffix_pos);
+#if USE_SMALL_GAP
       gap->increment(i);
+#else
+      gap[i]++;
+#endif
       next_gt = gt_head->read();
     }
     delete streamer;
@@ -156,11 +178,16 @@ void FGM(std::string filename, long max_block_size) {
       stream_time, streamed_mib / stream_time);
     delete gt_head;
     delete new_gt_tail;
+#if USE_SMALL_GAP
     fprintf(stderr, "  gap->excess.size() = %lu\n", (size_t)gap->excess.size());
     gap->save_to_file("gap." + utils::intToStr(block_id));
+    delete gap;
+#else
+    utils::write_objects_to_file<int>(gap, block_size + 1, "gap." + utils::intToStr(block_id));
+    delete[] gap;
+#endif
 
     // 7. Clean up.
-    delete gap;
     delete rank;
     prev_end = end;
     end = beg;
