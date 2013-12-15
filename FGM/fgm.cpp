@@ -93,7 +93,15 @@ void FGM(std::string filename, long ram_use) {
     // 4. Store partial SA on disk.
     fprintf(stderr, "  Write partial SA to disk: ");
     long double write_sa_start = utils::wclock();
+#if FAST_MERGE
     utils::write_ints_to_file(SA, block_size, "sparseSA." + utils::intToStr(block_id));
+#else
+    if (block_id + 1 == n_block) {
+      stream_writer<uint40> *writer = new stream_writer<uint40>(filename + ".sa5", 1 << 20);
+      for (long k = 0; k < block_size; ++k) writer->write(uint40((unsigned long)beg + (unsigned long)SA[k]));
+      delete writer;
+    } else utils::write_ints_to_file(SA, block_size, "partial_sa");
+#endif
     fprintf(stderr, "%.2Lf\n", utils::wclock() - write_sa_start);
 
     // 5. Compute the BWT from SA and build rank on top of it.
@@ -178,6 +186,10 @@ void FGM(std::string filename, long ram_use) {
       stream_time, streamed_mib / stream_time);
     delete gt_head;
     delete new_gt_tail;
+    
+
+#if FAST_MERGE
+    // Fast merge, save gap.
 #if USE_SMALL_GAP
     fprintf(stderr, "  gap->excess.size() = %lu\n", (size_t)gap->excess.size());
     gap->save_to_file("gap." + utils::intToStr(block_id));
@@ -185,6 +197,43 @@ void FGM(std::string filename, long ram_use) {
 #else
     utils::write_objects_to_file<int>(gap, block_size + 1, "gap." + utils::intToStr(block_id));
     delete[] gap;
+#endif
+#else
+    if (block_id + 1 != n_block) {
+      // merge partial SA of the current block with the current SA.
+      stream_reader<uint40> *tail_reader = new stream_reader<uint40>(filename + ".sa5", 1 << 20);
+      stream_writer<uint40> *writer = new stream_writer<uint40>(filename + ".sa5.tmp",  1 << 20);
+      stream_reader<int> *head_reader = new stream_reader<int>("partial_sa", 1 << 20);
+      
+#if USE_SMALL_GAP
+      std::sort(gap->excess.begin(), gap->excess.end());
+      int pos = 0, max_pos = (int)gap->excess.size();
+#endif
+      fprintf(stderr, "  Merging: ");
+      long double merge_start = utils::wclock();
+      for (int j = 0; j <= block_size; ++j) {
+#if USE_SMALL_GAP
+        int c = 0;
+        while (pos < max_pos && gap->excess[pos] == j) ++pos, ++c;
+        int gi = gap->count[j] + (c << 8);
+#else
+        int gi = gap[j];
+#endif
+        for (int k = 0; k < gi; ++k) writer->write(tail_reader->read());
+        if (j != block_size) writer->write(uint40((unsigned long)head_reader->read() + (unsigned long)beg));
+      }
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - merge_start);
+      delete head_reader;
+      delete writer;
+      delete tail_reader;
+      utils::file_delete("partial_sa");
+      utils::execute("mv " + filename + ".sa5.tmp " + filename + ".sa5");
+#if USE_SMALL_GAP
+      delete gap;
+#else
+      delete[] gap; 
+#endif
+    }
 #endif
 
     // 7. Clean up.
@@ -196,6 +245,7 @@ void FGM(std::string filename, long ram_use) {
     utils::execute("mv new_gt_tail gt_tail");
   }
 
+#if FAST_MERGE
   // Merge gap and sparseSA arrays into final SA.
   std::string out_filename = filename + ".sa5";
   merge(length, max_block_size, out_filename);
@@ -205,6 +255,8 @@ void FGM(std::string filename, long ram_use) {
     utils::file_delete("sparseSA." + utils::intToStr(i));
     utils::file_delete("gap." + utils::intToStr(i));
   }
+#endif
+
   if (utils::file_exists("gt_head")) utils::file_delete("gt_head");
   if (utils::file_exists("gt_tail")) utils::file_delete("gt_tail");
 
