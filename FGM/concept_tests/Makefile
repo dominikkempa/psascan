@@ -6,6 +6,8 @@ all:
 	cd sa_correcting; make all
 	cd update_gt; make all
 	cd buffering_gap_values; make all
+	cd fast_rank; make all
+	cd fgm; make all
 
 test:
 	cd compute_gap; make test
@@ -15,6 +17,8 @@ test:
 	cd sa_correcting; make test
 	cd update_gt; make test
 	cd buffering_gap_values; make test
+	cd fast_rank; make test
+	cd fgm; make test
 
 nuclear:
 	cd compute_gap; make nuclear
@@ -24,3 +28,5 @@ nuclear:
 	cd sa_correcting; make nuclear
 	cd update_gt; make nuclear
 	cd buffering_gap_values; make nuclear
+	cd fast_rank; make nuclear
+	cd fgm; make nuclear

@@ -73,15 +73,15 @@ int main(int, char **) {
   srand(time(0) + getpid());
 
   // Run tests.
-  fprintf(stderr, "Testing general rank.\n");
-  test_random(10000,   10,      5,    100000);
-  test_random(10000,   10,      256,  100000);
-  test_random(10000,   1000,    5,    100000);
-  test_random(10000,   1000,    256,  100000);
-  test_random(1000,    100000,  5,    10000);
-  test_random(1000,    100000,  256,  10000);
-  test_random(100,     1000000, 5,    10000);
-  test_random(100,     1000000, 256,  10000);
+  fprintf(stderr, "Testing fast rank.\n");
+  test_random(10000,   10,      5,    10000);
+  test_random(10000,   10,      256,  10000);
+  test_random(10000,   1000,    5,    1000);
+  test_random(10000,   1000,    256,  1000);
+  test_random(1000,    100000,  5,    100);
+  test_random(1000,    100000,  256,  100);
+  test_random(100,     1000000, 5,    100);
+  test_random(100,     1000000, 256,  100);
   fprintf(stderr,"All tests passed.\n");
 
   return 0;
