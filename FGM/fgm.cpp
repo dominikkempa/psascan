@@ -206,6 +206,7 @@ void FGM(std::string filename, long ram_use) {
       stream_reader<int> *head_reader = new stream_reader<int>("partial_sa", 1 << 20);
       
 #if USE_SMALL_GAP
+      gap->flush();
       std::sort(gap->excess.begin(), gap->excess.end());
       int pos = 0, max_pos = (int)gap->excess.size();
 #endif
