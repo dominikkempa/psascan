@@ -16,6 +16,7 @@
 #include "utils.h"
 #include "rank.h"
 #include "fast_rank.h"
+#include "context_rank.h"
 #include "srank.h"
 #include "gap_array.h"
 #include "merge.h"
@@ -119,7 +120,7 @@ void FGM(std::string filename, long ram_use) {
     }
     delete[] SA;
 #if USE_FAST_RANK
-     fast_rank_4n *rank = (block_id + 1 != n_block) ? new fast_rank_4n(B, block_size - 1) : NULL;
+    context_rank_4n *rank = (block_id + 1 != n_block) ? new context_rank_4n(B, block_size - 1) : NULL;
 #else
      rank_4n *rank = (block_id + 1 != n_block) ? new rank_4n(B, block_size - 1) : NULL;
 #endif
