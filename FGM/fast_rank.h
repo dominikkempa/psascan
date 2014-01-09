@@ -7,191 +7,69 @@
 
 #include "utils.h"
 
-inline int log2ceil(int x) {
-  int pow2 = 1, w = 0;
-  while (pow2 < x) { pow2 <<= 1; ++w; }
-  return w;
-}
-
-struct fast_sigma_rank_4n_modulo {
-
-  fast_sigma_rank_4n_modulo(unsigned char *text, long length, int sigma)
-      : m_length(length), m_sigma(sigma) {
-    sb_rate = m_sigma * (1 << 16);
-
-    long b_count = ((length + m_sigma - 1) / m_sigma) + 1;
-    long sb_count = ((length + sb_rate - 1) / sb_rate) + 1;
-
-    bwt32 = new unsigned[b_count * m_sigma];
-    if (!bwt32) {
-      fprintf(stderr, "Error: cannot allocate bwt32.\n");
-      std::exit(EXIT_FAILURE);
-    }
-    for (long i = 0; i < length; ++i) bwt32[i] = text[i];
-    for (long i = length; i < b_count * m_sigma; ++i) bwt32[i] = 0;
-
-    rank_c = new unsigned[m_sigma];
-    if (!rank_c) {
-      fprintf(stderr, "Error: cannot allocate rank.\n");
-      std::exit(EXIT_FAILURE);
-    }
-
-    sb_rank = new unsigned[m_sigma * sb_count];
-    if (!sb_rank) {
-      fprintf(stderr, "Error: cannot allocate sb_rank.\n");
-      std::exit(EXIT_FAILURE);
-    }
-
-    std::fill(rank_c, rank_c + m_sigma, 0);
-    int sb_ptr = 0;
-    for (long i = 0; i < b_count * m_sigma; ++i) {
-      if (!(i % sb_rate)) {
-        for (int j = 0; j < m_sigma; ++j)
-          sb_rank[m_sigma * sb_ptr + j] = rank_c[j];
-        ++sb_ptr;
-      }
-      if (!(i % m_sigma))
-        for (int j = 0; j < m_sigma; ++j) {
-          unsigned diff = rank_c[j] - sb_rank[(sb_ptr - 1) * m_sigma + j];
-          bwt32[i + j] += (diff << 8);
-        }
-      rank_c[bwt32[i] & 255]++;
-    }
-    rank_c[0] -= b_count * m_sigma - length;
-  }
-
-  inline long rank(long i, unsigned char c) const {
-    if (c >= m_sigma) return 0;
-    if (i <= 0) return 0;
-    if (i >= m_length) return rank_c[c];
-    unsigned sb_id = i / sb_rate;
-    long sb_count = sb_rank[m_sigma * sb_id + c];
-    unsigned b_id = i / m_sigma;
-    long b_count = (bwt32[b_id * m_sigma + c] >> 8);
-    unsigned next_b = b_id + 1;
-    unsigned nextb_count = 0;
-
-    if (!(next_b & mask16)) nextb_count = sb_rank[(next_b >> 16) * m_sigma + c] - sb_count;
-    else nextb_count = bwt32[m_sigma * next_b + c] >> 8;
-    if (nextb_count == b_count) return sb_count + b_count;
-
-    long extra = 0;
-    if (i & 128) {
-      for (unsigned j = i; j < next_b * m_sigma; ++j)
-        if ((bwt32[j] & mask8) == c) ++extra;
-      return (sb_count + nextb_count) - extra;
-    } else {
-      for (unsigned j = m_sigma * b_id; j < i; ++j)
-        if ((bwt32[j] & mask8) == c) ++extra;
-      return sb_count + b_count + extra;
-    }
-  }
-
-  ~fast_sigma_rank_4n_modulo() {
-    if (bwt32) delete[] bwt32;
-    if (sb_rank) delete[] sb_rank;
-    if (rank_c) delete[] rank_c;
-  }
-
-  static const int mask8 = (1 << 8) - 1;
-  static const int mask16 = (1 << 16) - 1;
-
-  long m_length;
-  int m_sigma, sb_rate;
-  unsigned *sb_rank, *rank_c;
-  unsigned *bwt32;
-};
-
-
 struct fast_sigma_rank_4n {
+  static const int k_sb_size_bits = 24; // log_2 of the super block size
 
-  fast_sigma_rank_4n(unsigned char *text, long length, int sigma)
-      : m_length(length), m_sigma(sigma) {
-    m_sigma_bits = log2ceil(m_sigma);
-    m_sigma = (1 << m_sigma_bits);
-    sb_rate = m_sigma * (1 << 16);
-
-    long b_count = ((length + m_sigma - 1) / m_sigma) + 1;
-    long sb_count = ((length + sb_rate - 1) / sb_rate) + 1;
-
-    bwt32 = new unsigned[b_count * m_sigma];
-    if (!bwt32) {
-      fprintf(stderr, "Error: cannot allocate bwt32.\n");
-      std::exit(EXIT_FAILURE);
-    }
-    for (long i = 0; i < length; ++i) bwt32[i] = text[i];
-    for (long i = length; i < b_count * m_sigma; ++i) bwt32[i] = 0;
-
-    rank_c = new unsigned[m_sigma];
-    if (!rank_c) {
-      fprintf(stderr, "Error: cannot allocate rank.\n");
-      std::exit(EXIT_FAILURE);
-    }
-
+  fast_sigma_rank_4n(unsigned char *text, long length, int sigma_bits)
+      : m_sigma_bits(sigma_bits), m_sigma(1 << m_sigma_bits),
+        m_blocks_in_sb(k_sb_size / m_sigma), m_length(length) {
+    long b_count = (length + m_sigma - 1) / m_sigma + 1;
+    long sb_count = (b_count + m_blocks_in_sb - 1) / m_blocks_in_sb;
+    trunk = new unsigned[b_count * m_sigma];
+    std::fill(trunk, trunk + b_count * m_sigma, 0);
+    for (long i = 0; i < length; ++i) trunk[i] = text[i];
     sb_rank = new unsigned[m_sigma * sb_count];
-    if (!sb_rank) {
-      fprintf(stderr, "Error: cannot allocate sb_rank.\n");
-      std::exit(EXIT_FAILURE);
+    count = new unsigned[m_sigma];
+    std::fill(count, count + m_sigma, 0);
+    for (long i = 0, sb_ptr = 0; i < b_count * m_sigma; ++i) {
+      if (i % k_sb_size == 0) for (int j = 0; j < m_sigma; ++j) sb_rank[sb_ptr++] = count[j];
+      if (i % m_sigma == 0) for (int j = 0; j < m_sigma; ++j)
+        trunk[i + j] += (count[j] - sb_rank[sb_ptr - m_sigma + j]) << 8;
+      count[trunk[i] & 255]++;
     }
-
-    std::fill(rank_c, rank_c + m_sigma, 0);
-    int sb_ptr = 0;
-    for (long i = 0; i < b_count * m_sigma; ++i) {
-      if (!(i % sb_rate)) {
-        for (int j = 0; j < m_sigma; ++j)
-          sb_rank[m_sigma * sb_ptr + j] = rank_c[j];
-        ++sb_ptr;
-      }
-      if (!(i % m_sigma))
-        for (int j = 0; j < m_sigma; ++j) {
-          unsigned diff = rank_c[j] - sb_rank[(sb_ptr - 1) * m_sigma + j];
-          bwt32[i + j] += (diff << 8);
-        }
-      rank_c[bwt32[i] & 255]++;
-    }
-    rank_c[0] -= b_count * m_sigma - length;
+    count[0] -= b_count * m_sigma - m_length;
   }
 
   inline long rank(long i, unsigned char c) const {
-    if (c >= m_sigma) return 0;
-    if (i <= 0) return 0;
-    if (i >= m_length) return rank_c[c];
-    unsigned sb_id = i  >> (16 + m_sigma_bits);
+    if (c >= m_sigma || i <= 0) return 0;
+    else if (i >= m_length) return count[c];
+
+    unsigned b_id = i >> m_sigma_bits, nextb_id = b_id + 1;
+    unsigned sb_id = (i >> k_sb_size_bits);
     long sb_count = sb_rank[(sb_id << m_sigma_bits) + c];
-    unsigned b_id = i >> m_sigma_bits;
-    long b_count = (bwt32[(b_id << m_sigma_bits) + c] >> 8);
-    unsigned next_b = b_id + 1;
-    unsigned nextb_count = 0;
+    long b_count = (trunk[(b_id << m_sigma_bits) + c] >> 8);
+    long nextb_count = 0;
+    if (!(nextb_id & (m_blocks_in_sb - 1)))
+      nextb_count = sb_rank[((sb_id + 1) << m_sigma_bits) + c] - sb_count;
+    else nextb_count = trunk[(nextb_id << m_sigma_bits) + c] >> 8;
 
-    if (!(next_b & mask16)) nextb_count = sb_rank[((next_b >> 16) << m_sigma_bits) + c] - sb_count;
-    else nextb_count = bwt32[(next_b << m_sigma_bits) + c] >> 8;
-    if (nextb_count == b_count) return sb_count + b_count;
-
+    // optimization
+    if (!((nextb_count - b_count) & (m_sigma - 1)))
+      return sb_count + b_count + ((b_count == nextb_count) ? 0 : (i & (m_sigma - 1)));
+ 
     long extra = 0;
     if (i & 128) {
-      for (unsigned j = i; j < next_b * m_sigma; ++j)
-        if ((bwt32[j] & mask8) == c) ++extra;
-      return (sb_count + nextb_count) - extra;
+      for (unsigned j = i; j < nextb_id * m_sigma; ++j) if ((trunk[j] & 255) == c) ++extra;
+      return sb_count + nextb_count - extra;
     } else {
-      for (unsigned j = m_sigma * b_id; j < i; ++j)
-        if ((bwt32[j] & mask8) == c) ++extra;
+      for (unsigned j = m_sigma * b_id; j < i; ++j) if ((trunk[j] & 255) == c) ++extra;
       return sb_count + b_count + extra;
     }
   }
 
   ~fast_sigma_rank_4n() {
-    if (bwt32) delete[] bwt32;
-    if (sb_rank) delete[] sb_rank;
-    if (rank_c) delete[] rank_c;
+    delete[] trunk;
+    delete[] sb_rank;
+    delete[] count;
   }
 
-  static const int mask8 = (1 << 8) - 1;
-  static const int mask16 = (1 << 16) - 1;
+private:
+  static const int k_sb_size = (1 << k_sb_size_bits);
+  static const int k_sb_size_mask = k_sb_size - 1;
+  const long m_sigma_bits, m_sigma, m_blocks_in_sb;
 
   long m_length;
-  int m_sigma, sb_rate, m_sigma_bits;
-  unsigned *sb_rank, *rank_c;
-  unsigned *bwt32;
+  unsigned *sb_rank, *count, *trunk;
 };
 
 struct fast_rank_4n {
@@ -227,7 +105,7 @@ struct fast_rank_4n {
       unsigned char *rbwt = new unsigned char[rare_sum];
       for (int i = 0, ptr = 0; i < length; ++i)
         if (!is_freq[text[i]]) rbwt[ptr++] = mapping[text[i]];
-      rare_rank = new fast_sigma_rank_4n(rbwt, rare_sum, rare_count);
+      rare_rank = new fast_sigma_rank_4n(rbwt, rare_sum, utils::log2ceil(rare_count));
       delete[] rbwt;
     } else rare_rank = NULL;
 
@@ -239,8 +117,7 @@ struct fast_rank_4n {
       if (is_freq[text[i]]) text[i] = mapping[text[i]];
       else text[i] = freq_count;
     int new_sigma = freq_count + (rare_count > 0);
-    freq_rank = new fast_sigma_rank_4n(text, length, new_sigma);
-    fprintf(stderr, "(freq=%d, rare=%d) ", new_sigma, rare_count);
+    freq_rank = new fast_sigma_rank_4n(text, length, utils::log2ceil(new_sigma));
   }
   
   inline long rank(long i, unsigned char c) const {
