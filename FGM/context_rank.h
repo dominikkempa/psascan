@@ -132,7 +132,7 @@ struct context_rank_4n {
     // debug ////////
     fprintf(stderr, "  rare_trunk.size() = %d (%.2Lf millions)\n",
         (int)rare_trunk.size(), (long double)rare_trunk.size() / 1000000.L);
-    freq_hit = rare_hit = no_hit = avg_freq_scanning = avg_rare_scanning = 0;
+    // freq_hit = rare_hit = no_hit = avg_freq_scanning = avg_rare_scanning = 0;
     fprintf(stderr, "  freq_cnt_total = %ld, rare_cnt_total = %ld\n",
         freq_cnt_total, rare_cnt_total);
     ////////////////
@@ -152,7 +152,7 @@ struct context_rank_4n {
 
     if (type == FREQUENT_CHAR) {
       // debug ////
-      ++freq_hit;
+      // ++freq_hit;
       //////////////
 
       long b_count = freq_trunk[(micro_block_id << freq_cnt_bits) + c_map] >> 8;
@@ -170,14 +170,14 @@ struct context_rank_4n {
       for (long j = (micro_block_id << freq_cnt_bits); j < i; ++j) {
         if ((freq_trunk[j] & 255) == c_map) ++extra;
         // debug ///////
-        ++avg_freq_scanning;
+        // ++avg_freq_scanning;
         ////////////////
       }
 
       return sb_count + b_count + extra;
     } else if (type == RARE_CHAR) {
       // debug ////////
-      ++rare_hit;
+      // ++rare_hit;
       /////////////////
 
       // Compute new_i.
@@ -209,14 +209,14 @@ struct context_rank_4n {
       for (long j = (rare_micro_block_id << rare_cnt_bits); j < new_i; ++j) {
         if ((rare_trunk[rare_trunk_ptr + j] & 255) == c_map) ++extra;
         // debug ///////
-        ++avg_rare_scanning;
+        // ++avg_rare_scanning;
         ////////////////
       }
         
       return sb_count + b_count + extra;
     } else {
       // debug ///////
-      ++no_hit;
+      // ++no_hit;
       ////////////////
       
       while (block_id < n_block && (block_id & k_blocks_in_sb_mask) && m_mapping[2 * (c * n_block + block_id)] == NOT_OCCURRING)
@@ -235,9 +235,9 @@ struct context_rank_4n {
     delete[] c_rank;
 
     // debug //////
-    fprintf(stderr, "  freq_hit=%ld, rare_hit=%ld, no_hit=%ld\n", freq_hit, rare_hit, no_hit);
-    fprintf(stderr, "  avg_freq_scanning_length = %.3Lf\n", (long double)avg_freq_scanning / freq_hit);
-    fprintf(stderr, "  avg_rare_scanning_length = %.3Lf\n", (long double)avg_rare_scanning / rare_hit);
+    // fprintf(stderr, "  freq_hit=%ld, rare_hit=%ld, no_hit=%ld\n", freq_hit, rare_hit, no_hit);
+    // fprintf(stderr, "  avg_freq_scanning_length = %.3Lf\n", (long double)avg_freq_scanning / freq_hit);
+    // fprintf(stderr, "  avg_rare_scanning_length = %.3Lf\n", (long double)avg_rare_scanning / rare_hit);
     ///////////////
   }
 
@@ -254,7 +254,7 @@ private:
   std::vector<unsigned> rare_trunk;
 
   // debug /////
-  long rare_hit, freq_hit, no_hit, avg_freq_scanning, avg_rare_scanning;
+  // long rare_hit, freq_hit, no_hit, avg_freq_scanning, avg_rare_scanning;
   long freq_cnt_total, rare_cnt_total;
   //////////////
 };
