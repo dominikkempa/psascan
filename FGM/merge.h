@@ -19,7 +19,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
   fprintf(stderr, "buffer size for merging: %ld\n", buffer_size);
 
   stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
-  
+
   // Initialize buffers for merging.
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
 #if USE_SMALL_GAP
@@ -40,7 +40,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
   long *block_rank  = new long[n_block];
   long *suffix_rank = new long[n_block];
   long *suf_ptr = new long[n_block]; // First non-extracted suffix in the block.
-  for (int i = 0; i < n_block; ++i) suffix_rank[i] = gap[i]->read();
+  for (long i = 0; i < n_block; ++i) suffix_rank[i] = gap[i]->read();
   std::fill(block_rank, block_rank + n_block, 0);
   std::fill(suf_ptr, suf_ptr + n_block, 0);
   fprintf(stderr, "Merging:\r");

@@ -8,17 +8,17 @@
 #include "utils.h"
 
 struct buffered_gap_array {
-  buffered_gap_array(int n) {
+  buffered_gap_array(long n) {
     length = n;
     count = new unsigned char[length];
     std::fill(count, count + length, 0);
-    buf = new int[bufsize];
+    buf = new long[bufsize];
     filled = 0;
   }
 
   inline void flush() {
     for (int i = 0; i < filled; ++i) {
-      int pos = buf[i];
+      long pos = buf[i];
       ++count[pos];
       if (!count[pos])
         excess.push_back(pos);
@@ -26,7 +26,7 @@ struct buffered_gap_array {
     filled = 0;
   }
 
-  inline void increment(int i) {
+  inline void increment(long i) {
     buf[filled++] = i;
     if (filled == bufsize) flush();
   }
@@ -44,11 +44,11 @@ struct buffered_gap_array {
     unsigned char *buffer = (unsigned char *)buf;
     filled = 0;
     
-    int max_pos = (int)excess.size();
-    for (int j = 0, pos = 0; j < length; ++j) {
-      int c = 0;
+    long max_pos = excess.size();
+    for (long j = 0, pos = 0; j < length; ++j) {
+      long c = 0;
       while (pos < max_pos && excess[pos] == j) ++pos, ++c;
-      int gap_j = count[j] + (c << 8);
+      long gap_j = count[j] + (c << 8);
       while (gap_j > 127) {
         buffer[filled++] = ((gap_j & 0x7f) | 0x80);
         gap_j >>= 7;
@@ -70,10 +70,12 @@ struct buffered_gap_array {
   }
 
   unsigned char *count;
-  std::vector<int> excess;
+  std::vector<long> excess;
 
   static const int bufsize = (1 << 19); // 2MB
-  int *buf, filled, length;
+  int filled;
+
+  long length, *buf;
 };
 
 #endif // __GAP_ARRAY_H
