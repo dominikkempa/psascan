@@ -44,17 +44,16 @@ void FGM(std::string filename, long ram_use) {
 
     // 1. Read current and previously processed block.
     fprintf(stderr, "  Reading blocks: ");
-    text_reader *reader = new text_reader(filename);
     long double read_start = utils::wclock();
     unsigned char *B = new unsigned char[block_size];
-    reader->read_block(length - block_size - beg, block_size, B);
+    utils::read_block(filename, length - block_size - beg, block_size, B);
     std::reverse(B, B + block_size);
     unsigned char last = B[block_size - 1];
     unsigned char *extprevB = new unsigned char[max_block_size + 1];
     long ext_prev_block_size = prev_end - end + 1;
-    reader->read_block(length - ext_prev_block_size - (end - 1), ext_prev_block_size, extprevB);
+    utils::read_block(filename, length - ext_prev_block_size - (end - 1),
+        ext_prev_block_size, extprevB);
     std::reverse(extprevB, extprevB + ext_prev_block_size);
-    delete reader;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
     // 2. Compute gt_eof.

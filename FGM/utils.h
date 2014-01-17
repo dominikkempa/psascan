@@ -103,43 +103,43 @@ void file_delete(std::string fname) {
 }
 
 // Writing sequences.
-void write_text_to_file(unsigned char *text, int length, std::string fname) {
+void write_text_to_file(unsigned char *text, long length, std::string fname) {
   FILE *f = open_file(fname, "w");
-  int fwrite_ret = fwrite(text, sizeof(unsigned char), length, f);
+  long fwrite_ret = fwrite(text, sizeof(unsigned char), length, f);
   if (fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
   fclose(f);
 }
 
-void write_ints_to_file(int *tab, int length, std::string fname) {
+void write_ints_to_file(int *tab, long length, std::string fname) {
   FILE *f = open_file(fname, "w");
-  int fwrite_ret = fwrite(tab, sizeof(int), length, f);
+  long fwrite_ret = fwrite(tab, sizeof(int), length, f);
   if (fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
   fclose(f);
 }
 
-void add_ints_to_file(int *tab, int length, FILE *f) {
-  int fwrite_ret = fwrite(tab, sizeof(int), length, f);
+void add_ints_to_file(int *tab, long length, FILE *f) {
+  long fwrite_ret = fwrite(tab, sizeof(int), length, f);
   if (fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
 }
 
 template<typename value_type>
-void write_objects_to_file(value_type *tab, int length, std::string fname) {
+void write_objects_to_file(value_type *tab, long length, std::string fname) {
   FILE *f = open_file(fname, "w");
-  int fwrite_ret = fwrite(tab, sizeof(value_type), length, f);
+  long fwrite_ret = fwrite(tab, sizeof(value_type), length, f);
   if (fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
@@ -147,42 +147,42 @@ void write_objects_to_file(value_type *tab, int length, std::string fname) {
 }
 
 template<typename value_type>
-void add_objects_to_file(value_type *tab, int length, FILE *f) {
-  int fwrite_ret = fwrite(tab, sizeof(value_type), length, f);
+void add_objects_to_file(value_type *tab, long length, FILE *f) {
+  long fwrite_ret = fwrite(tab, sizeof(value_type), length, f);
   if (fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
 }
 
 // Reading sequences.
-void read_text_from_file(unsigned char* &text, int length, std::string fname) {
+void read_text_from_file(unsigned char* &text, long length, std::string fname) {
   FILE *f = open_file(fname, "r");
   text = new unsigned char[length + 10];
   if (!text) {
     fprintf(stderr, "Error: cannot allocate text.\n");
     std::exit(EXIT_FAILURE);
   }
-  int fread_ret = fread(text, sizeof(unsigned char), length, f);
+  long fread_ret = fread(text, sizeof(unsigned char), length, f);
   if (fread_ret != length) {
-    fprintf(stderr, "Error: fread in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fread in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fread_ret);
     std::exit(EXIT_FAILURE);
   }
   fclose(f);
 }
 
-void read_ints_from_file(int* &tab, int length, std::string fname) {
+void read_ints_from_file(int* &tab, long length, std::string fname) {
   FILE *f = open_file(fname, "r");
   tab = new int[length + 5];
   if (!tab) {
     fprintf(stderr, "Error: cannot allocate tab.\n");
     std::exit(EXIT_FAILURE);
   }
-  int fread_ret = fread(tab, sizeof(int), length, f);
+  long fread_ret = fread(tab, sizeof(int), length, f);
   if (fread_ret != length) {
-    fprintf(stderr, "Error: fread in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fread in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fread_ret);
     std::exit(EXIT_FAILURE);
   }
@@ -239,7 +239,7 @@ void read_objects_from_file(value_type* &tab, long length, std::FILE *f) {
 }
 
 template<typename value_type>
-void read_n_objects_from_file(value_type* &tab, int length, std::string fname) {
+void read_n_objects_from_file(value_type* &tab, long length, std::string fname) {
   tab = new value_type[length + 5];
   if (!tab) {
     fprintf(stderr, "Error: alloc faild in line %s of %s\n",
@@ -247,13 +247,20 @@ void read_n_objects_from_file(value_type* &tab, int length, std::string fname) {
     std::exit(EXIT_FAILURE);
   }
   FILE *f = open_file(fname, "r");
-  int fread_ret = fread(tab, sizeof(value_type), length, f);
+  long fread_ret = fread(tab, sizeof(value_type), length, f);
   if (fread_ret != length) {
-    fprintf(stderr, "Error: fread in line %s of %s returned %d\n",
+    fprintf(stderr, "Error: fread in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fread_ret);
     std::exit(EXIT_FAILURE);
   }
   fclose(f);
+}
+
+void read_block(std::string fname, long beg, long length, unsigned char *b) {
+  std::FILE *f = open_file(fname.c_str(), "r");
+  std::fseek(f, beg, SEEK_SET);
+  read_objects_from_file<unsigned char>(b, length, f);
+  std::fclose(f);
 }
 
 // Reading single objects from fie.
@@ -296,14 +303,14 @@ long random_long(long p, long r) {
   return p + z % (r - p + 1);
 }
 
-void fill_random_string(unsigned char* &s, int n, int sigma) {
-  for (int i = 0; i < n; ++i)
+void fill_random_string(unsigned char* &s, long length, int sigma) {
+  for (long i = 0; i < length; ++i)
     s[i] = random_int(0, sigma - 1);
 }
 
-void fill_random_letters(unsigned char* &s, int n, int sigma) {
+void fill_random_letters(unsigned char* &s, long n, int sigma) {
   fill_random_string(s, n, sigma);
-  for (int i = 0; i < n; ++i) s[i] += 'a';
+  for (long i = 0; i < n; ++i) s[i] += 'a';
 }
 
 std::string random_string_hash() {
@@ -315,8 +322,8 @@ std::string random_string_hash() {
 
 /********************************* MATH ***************************************/
 
-inline int log2ceil(int x) {
-  int pow2 = 1, w = 0;
+inline long log2ceil(long x) {
+  long pow2 = 1, w = 0;
   while (pow2 < x) { pow2 <<= 1; ++w; }
   return w;
 }

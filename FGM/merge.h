@@ -10,13 +10,13 @@
 #include "settings.h"
 
 void merge(long length, long max_block_size, std::string out_filename) {
-  int n_block = (length + max_block_size - 1) / max_block_size;
+  long n_block = (length + max_block_size - 1) / max_block_size;
 #if USE_SMALL_GAP
-  int buffer_size = (5L * max_block_size) / (5 * n_block + 5);
+  long buffer_size = (5L * max_block_size) / (5 * n_block + 5);
 #else
-  int buffer_size = (8L * max_block_size) / (8 * n_block + 5);
+  long buffer_size = (8L * max_block_size) / (8 * n_block + 5);
 #endif
-  fprintf(stderr, "buffer size for merging: %d\n", buffer_size);
+  fprintf(stderr, "buffer size for merging: %ld\n", buffer_size);
 
   stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
   
@@ -27,7 +27,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
 #else
   stream_reader<int> **gap = new stream_reader<int>*[n_block];
 #endif
-  for (int i = 0; i < n_block; ++i) {
+  for (long i = 0; i < n_block; ++i) {
     sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(i), 4 * buffer_size);
 #if USE_SMALL_GAP
     gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(i), buffer_size);
@@ -53,7 +53,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
       dbg = 0;
     }
     // Find the leftmost block j with block_rank[j] == suffix_rank[j].
-    int j = 0;
+    long j = 0;
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
@@ -64,7 +64,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
     suffix_rank[j] += gap[j]->read();
     
     // Update block_rank[0..j].
-    for (int k = 0; k <= j; ++k) ++block_rank[k];
+    for (long k = 0; k <= j; ++k) ++block_rank[k];
   }
   long double merge_time = utils::wclock() - merge_start;
   fprintf(stderr, "Merging: 100.0%%. Time: %.2Lfs\n", merge_time);
@@ -72,7 +72,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
   // Clean up.
   delete output;
 
-  for (int i = 0; i < n_block; ++i) {
+  for (long i = 0; i < n_block; ++i) {
     delete sparseSA[i];
     delete gap[i];
   }

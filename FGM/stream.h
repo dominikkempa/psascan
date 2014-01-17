@@ -19,8 +19,8 @@ delete sr;
 
 template<typename data_type>
 struct stream_reader {
-  stream_reader(std::string fname, int bufsize)
-      : m_bufelems(bufsize / sizeof(data_type)) {
+  stream_reader(std::string fname, int buf_bytes)
+      : m_bufelems(buf_bytes / sizeof(data_type)) {
     f = utils::open_file(fname, "r");
     buffer = new data_type[m_bufelems];
     if (!buffer) {
@@ -215,52 +215,5 @@ private:
     pos = 0;
   }
 };
-
-struct text_reader {
-  text_reader(std::string filename) {
-    f = utils::open_file(filename, "r");
-    buffersize = (1 << 21);
-    buf = new unsigned char[buffersize];
-  }
-
-  ~text_reader() {
-    fclose(f);
-    delete[] buf;
-  }
-
-  void read_block(long beg, int length, unsigned char *b) {
-    fseek(f, beg, SEEK_SET);
-    utils::read_objects_from_file<unsigned char>(b, length, f);
-  }
-
-  void refill() {
-    long curpos = ftell(f);
-    long left = std::min(curpos - filled, buffersize);
-    fseek(f, -(filled + left), SEEK_CUR);
-    filled = fread(buf, 1, left, f);
-    pos = filled - 1;
-  }
-
-  void init_backward_streaming() {
-    fseek(f, 0, SEEK_END);
-    filled = 0;
-    refill();
-  }
-
-  inline unsigned char read_next() {
-    unsigned char ret = buf[pos--];
-    if (pos < 0) refill();
-
-    return ret;
-  }
-
-  std::FILE *f;
-
-//  static const int buffersize = (1 << 21); //???
-  long buffersize;
-  unsigned char *buf;
-  int filled, pos;
-};
-
 
 #endif // __STREAM

@@ -8,11 +8,11 @@ struct bitvector {
     utils::read_file(data, length, filename);
   }
 
-  inline bool get(int i) const {
+  inline bool get(long i) const {
     return data[i >> 3] & (1 << (i & 7));
   }
 
-  inline void set(int i) {
+  inline void set(long i) {
     data[i >> 3] |= (1 << (i & 7));
   }
 
@@ -20,7 +20,7 @@ struct bitvector {
     utils::write_objects_to_file<unsigned char>(data, length, filename);
   }
 
-  bitvector(int n) {
+  bitvector(long n) {
     length = (n + 7) / 8;
     data = new unsigned char[length];
     std::fill(data, data + length, 0);
