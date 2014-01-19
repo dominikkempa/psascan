@@ -1,5 +1,5 @@
-#ifndef __MERGE
-#define __MERGE
+#ifndef __MERGE_H
+#define __MERGE_H
 
 #include <string>
 #include <algorithm>
@@ -8,7 +8,11 @@
 #include "stream.h"
 #include "uint40.h"
 
-void merge(long length, long max_block_size, std::string out_filename) {
+// Merge the partial suffix arrays for text in 'filename'.
+// If recursion level > 0 then we also compute BWT of the text.
+void merge(std::string filename, long length, long max_block_size,
+    std::string out_filename, int recursion_level = 0, unsigned char *BWT = NULL) {
+
   long n_block = (length + max_block_size - 1) / max_block_size;
   long pieces = 5 * n_block + 5;
   long ram_use = 5L * max_block_size;
@@ -21,10 +25,10 @@ void merge(long length, long max_block_size, std::string out_filename) {
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
   for (long i = 0; i < n_block; ++i) {
-    sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(i), 4 * buffer_size);
-    gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(i), buffer_size);
+    sparseSA[i] = new stream_reader<int>(filename + ".partial_sa." + utils::intToStr(i), 4 * buffer_size);
+    gap[i] = new vbyte_stream_reader(filename + ".gap." + utils::intToStr(i), buffer_size);
   }
-  
+
   // Merge.
   long *block_rank  = new long[n_block];
   long *suffix_rank = new long[n_block];
@@ -67,17 +71,16 @@ void merge(long length, long max_block_size, std::string out_filename) {
   }
   delete[] gap;
   delete[] sparseSA;
-  
-  // Delete auxiliary files.
-  for (int i = 0; i < n_block; ++i) {
-    utils::file_delete("sparseSA." + utils::intToStr(i));
-    utils::file_delete("gap." + utils::intToStr(i));
-  }
-  
+
   delete[] block_rank;
   delete[] suffix_rank;
   delete[] suf_ptr;
+  
+  for (int i = 0; i < n_block; ++i) {
+    utils::file_delete(filename + ".partial_sa." + utils::intToStr(i));
+    utils::file_delete(filename + ".gap." + utils::intToStr(i));
+  }
 }
 
-#endif // __MERGE
+#endif // __MERGE_H
 
