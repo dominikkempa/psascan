@@ -1,6 +1,6 @@
 // Various types of streamers.
-#ifndef __STREAM
-#define __STREAM
+#ifndef __STREAM_H
+#define __STREAM_H
 
 #include <cstdio>
 #include <cstdlib>
@@ -226,4 +226,4 @@ private:
   std::FILE *f;
 };
 
-#endif // __STREAM
+#endif // __STREAM_H

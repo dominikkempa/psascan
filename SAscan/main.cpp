@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "fgm.h"
+#include "sascan.h"
 
 int main(int argc, char **argv) {
   if (argc != 3) {
@@ -12,5 +12,5 @@ int main(int argc, char **argv) {
   }
 
   long ram_use = (long)atoi(argv[2]) << 20;
-  FGM(argv[1], ram_use);
+  SAscan(argv[1], ram_use);
 }

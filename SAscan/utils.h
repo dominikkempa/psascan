@@ -1,9 +1,9 @@
-// Common routines. (c) Dominik Kempa 2013.
+// Common routines. (c) Dominik Kempa 2013, 2014.
 #ifndef __UTILS_H
 #define __UTILS_H
 
 #include <cstdio>
-#include <ctime>
+#include <cstdlib>
 #include <string>
 #include <sstream>
 

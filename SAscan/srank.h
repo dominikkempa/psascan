@@ -1,11 +1,10 @@
 #ifndef __SRANK_H
 #define __SRANK_H
 
-#include <algorithm>
 #include <cstring>
+#include <algorithm>
 
 #include "bitvector.h"
-#include "stream.h"
 
 // Update ms-decomposition of T[0..n) from T[0..n-1).
 void next(unsigned char *T, long n, long &s, long &p, long &r) {

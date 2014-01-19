@@ -14,7 +14,7 @@
 #include "uint40.h"
 #include "divsufsort.h"
 #include "utils.h"
-#include "fgm.h"
+#include "sascan.h"
 
 // Test many string chosen according to given paranters.
 void test_random(int testcases, int max_length, int max_sigma) {
@@ -48,11 +48,11 @@ void test_random(int testcases, int max_length, int max_sigma) {
     utils::write_text_to_file(text, length, filename);
 
     // Run the test on generated string.
-    FGM_block_size(filename, block_size);
+    SAscan_block_size(filename, block_size);
     
     // Compare the result to correct SA.
     std::reverse(text, text + length);
-    divsufsort(text, SA, length); // recall that FGM computes the SA of *reversed* text.
+    divsufsort(text, SA, length); // recall that SAscan computes the SA of *reversed* text.
     std::reverse(text, text + length);
     uint40 *computed_SA;
     utils::read_n_objects_from_file(computed_SA, length, filename + ".sa5");
@@ -86,12 +86,12 @@ void test_random(int testcases, int max_length, int max_sigma) {
 int main(int, char **) {
   srand(time(0) + getpid());
 
-  // Redirect stderr >> /dev/null
+  // Redirect stderr to /dev/null
   int redir = open("/dev/null", O_WRONLY);
   dup2(redir, 2);
   close(redir);
 
-  printf("Testing FGM.\n");
+  printf("Testing SAscan.\n");
   fflush(stdout);
   test_random(5000, 10,      5);
   test_random(5000, 10,     20);
