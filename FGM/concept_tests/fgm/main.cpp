@@ -57,53 +57,53 @@ void FGM(std::string filename, int max_block_size) {
     // 1. Read current and previously processed block, extended with B[0].
     unsigned char *B = new unsigned char[block_size];
     reader->read_block(beg, block_size, B);
+
+    // 2. Compute symbols counts.
+    int count[256] = {0};
+    for (int j = 0; j < block_size; ++j) count[(int)B[j] + 1]++;
+    for (int j = 1; j < 256; ++j) count[j] += count[j - 1];
+
+    // 3. Compute gt_eof.
     unsigned char last = B[block_size - 1];
     unsigned char *extprevB = new unsigned char[max_block_size + 1];
     int ext_prev_block_size = prev_end - end + 1;
     reader->read_block(end - 1, ext_prev_block_size, extprevB);
-
-    // 2. Compute gt_eof.
-    bitvector *gt_eof = new bitvector(block_size);
+    bitvector *gt_eof_bv = new bitvector(block_size);
     bitvector *gt_head_bv = end < length ? new bitvector("gt_head") : NULL;
-    compute_gt_eof(extprevB, ext_prev_block_size, B, block_size, gt_head_bv, gt_eof);
+    compute_gt_eof_bv(extprevB, ext_prev_block_size, B, block_size, gt_head_bv, gt_eof_bv);
     delete gt_head_bv;
     delete[] extprevB;
 
-    // 2. Remap symbols of B to compute ordering of suffixes of BA
-    // starting in B and then restore original B.
-    for (int j = 0; j < block_size; ++j) B[j] += gt_eof->get(j);
+    // 4. Remap symbols of B.
+    for (int j = 0; j < block_size; ++j) B[j] += gt_eof_bv->get(j);
+
+    // 5. Compute and save to disk the head of the new gt bitvector.
+    bitvector *new_gt_head_bv = new bitvector(block_size);
+    int whole_suffix_rank = compute_new_gt_head_bv(B, block_size, new_gt_head_bv);
+    new_gt_head_bv->reverse();
+    new_gt_head_bv->save("new_gt_head");
+    delete new_gt_head_bv;
+
+    // 6. Compute and save the ordering of suffixes of
+    // BA starting in B and restore original B.
     int *SA = new int[block_size];
     saisxx(B, SA, (int)block_size);
-    for (int j = 0; j < block_size; ++j) B[j] -= gt_eof->get(j);
-    delete gt_eof;
-
-    // 3. Store the head of new gt bitvector to disk.
-    int whole_suffix_pos = 0;
-    for (int k = 0; k < block_size; ++k)
-      if (!SA[k]) { whole_suffix_pos = k; break; }
-    bitvector *new_gt_head = new bitvector(block_size);
-    for (int k = whole_suffix_pos + 1; k < block_size; ++k)
-      new_gt_head->set(block_size - 1 - SA[k]);
-    new_gt_head->save("new_gt_head");
-    delete new_gt_head;
-
-    // 4. Store partial SA on disk.
     utils::write_ints_to_file(SA, block_size, "sparseSA." + utils::intToStr(block_id));
 
-    // 5. Compute the BWT from SA and build rank on top of it.
-    int count[256] = {0}, dollar_pos = 0;
-    for (int j = 0; j < block_size; ++j) count[(int)B[j] + 1]++;
-    for (int j = 1; j < 256; ++j) count[j] += count[j - 1];
+    // 7. Restore original block.
+    for (int j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
+    delete gt_eof_bv;
+
+    // 8. Compute the BWT from SA and build rank on top of it.
     unsigned char *tmpBWT = (unsigned char *)SA, *BWT = B;
     for (int j = 0, jj = 0; j < block_size; ++j)
-      if (SA[j] == 0) dollar_pos = j;
-      else tmpBWT[jj++] = B[SA[j] - 1];
+      if (SA[j]) tmpBWT[jj++] = B[SA[j] - 1];
     std::copy(tmpBWT, tmpBWT + block_size - 1, BWT);
     delete[] SA;
     fast_rank_4n *rank = new fast_rank_4n(BWT, block_size - 1);
     delete[] BWT;
 
-    // 6. Allocate the gap array, do the streaming and store gap to disk.
+    // 9. Allocate the gap array, do the streaming and store gap to disk.
     buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
     bit_stream_writer *new_gt_tail = new bit_stream_writer("new_gt_tail");
     bit_stream_reader *gt_tail = prev_end < length ? new bit_stream_reader("gt_tail") : NULL;
@@ -112,9 +112,9 @@ void FGM(std::string filename, int max_block_size) {
     reader->init_backward_streaming();
     for (long j = length - 1; j >= prev_end; --j) { // stream the tail
       unsigned char c = reader->read_next();        // c = text[j]
-      i = count[c] + rank->rank(i - (i > dollar_pos), c);
+      i = count[c] + rank->rank(i - (i > whole_suffix_rank), c);
       if (c == last && next_gt) ++i;               // next_gt = gt[j + 1]
-      new_gt_tail->write(i > whole_suffix_pos);
+      new_gt_tail->write(i > whole_suffix_rank);
       gap->increment(i);
       next_gt = gt_tail->read();
     }
@@ -122,9 +122,9 @@ void FGM(std::string filename, int max_block_size) {
     bit_stream_reader *gt_head = end < length ? new bit_stream_reader("gt_head") : NULL;
     for (int j = prev_end - 1; j >= end; --j) { // stream the head
       unsigned char c = reader->read_next();    // c = text[j]
-      i = count[c] + rank->rank(i - (i > dollar_pos), c);
+      i = count[c] + rank->rank(i - (i > whole_suffix_rank), c);
       if (c == last && next_gt) ++i;            // next_gt = gt[j + 1]
-      new_gt_tail->write(i > whole_suffix_pos);
+      new_gt_tail->write(i > whole_suffix_rank);
       gap->increment(i);
       next_gt = gt_head->read();
     }
@@ -132,7 +132,7 @@ void FGM(std::string filename, int max_block_size) {
     delete new_gt_tail;
     gap->save_to_file("gap." + utils::intToStr(block_id));
 
-    // 7. Clean up.
+    // 10. Clean up.
     delete gap;
     delete rank;
     prev_end = end;
@@ -222,15 +222,25 @@ int main(int, char **) {
   srand(time(0) + getpid());
   fprintf(stderr, "Testing FGM.\n");
   test_random(5000, 10,      5);
+  test_random(5000, 10,     20);
+  test_random(5000, 10,    128);
   test_random(5000, 10,    255);
   test_random(500, 100,      5);
+  test_random(500, 100,     20);
+  test_random(500, 100,    128);
   test_random(500, 100,    255);
   test_random(50, 1000,      5);
+  test_random(50, 1000,     20);
+  test_random(50, 1000,    128);
   test_random(50, 1000,    255);
   test_random(50, 10000,     5);
+  test_random(50, 10000,    20);
+  test_random(50, 10000,   128);
   test_random(50, 10000,   255);
-  test_random(5, 100000,      5);
-  test_random(5, 100000,    255);
+  test_random(5, 100000,     5);
+  test_random(5, 100000,    20);
+  test_random(5, 100000,   128);
+  test_random(5, 100000,   255);
   fprintf(stderr,"All tests passed.\n");
 }
 

@@ -19,12 +19,12 @@ delete sr;
 
 template<typename data_type>
 struct stream_reader {
-  stream_reader(std::string fname, int buf_bytes)
+  stream_reader(std::string fname, long buf_bytes)
       : m_bufelems(buf_bytes / sizeof(data_type)) {
     f = utils::open_file(fname, "r");
     buffer = new data_type[m_bufelems];
     if (!buffer) {
-      fprintf(stderr, "Error: not enough memory for stream reader\n");
+      fprintf(stderr, "Error: allocation error in stream_reader\n");
       std::exit(EXIT_FAILURE);
     }
     refill();
@@ -38,7 +38,7 @@ struct stream_reader {
   inline data_type read() {
     data_type ret = buffer[pos++];
     if (pos == filled) refill();
-    
+
     return ret;
   }
 
@@ -47,15 +47,16 @@ struct stream_reader {
   }
   
 private:
-  int m_bufelems, filled, pos;
-  data_type *buffer;
-  std::FILE *f;
-
-  int refill() {
+  long refill() {
     filled = std::fread(buffer, sizeof(data_type), m_bufelems, f);
     pos = 0;
     return filled;
   }
+
+  long m_bufelems, filled, pos;
+  data_type *buffer;
+
+  std::FILE *f;
 };
 
 /********************************* usage ***************************************
@@ -67,7 +68,7 @@ delete sw;
 
 template<typename data_type>
 struct stream_writer {
-  stream_writer(std::string fname, int bufsize)
+  stream_writer(std::string fname, long bufsize)
       : m_bufelems(bufsize / sizeof(data_type)) {
     f = utils::open_file(fname.c_str(), "w");
     buffer = new data_type[m_bufelems];
@@ -78,10 +79,9 @@ struct stream_writer {
     filled = 0;
   }
 
-  ~stream_writer() {
-    if (filled) flush();
-    delete[] buffer;
-    fclose(f);
+  inline void flush() {
+    utils::add_objects_to_file(buffer, filled, f);
+    filled = 0;
   }
 
   void write(data_type x) {
@@ -89,16 +89,17 @@ struct stream_writer {
     if (filled == m_bufelems) flush();
   }
 
-private:
-  void flush() {
-    utils::add_objects_to_file(buffer, filled, f);
-    filled = 0;
+  ~stream_writer() {
+    if (filled) flush();
+    delete[] buffer;
+    fclose(f);
   }
 
-  std::FILE *f;
-
-  int m_bufelems, filled;
+private:
+  long m_bufelems, filled;
   data_type *buffer;
+
+  std::FILE *f;
 };
 
 struct bit_stream_reader {
@@ -106,11 +107,6 @@ struct bit_stream_reader {
     f = utils::open_file(filename.c_str(), "r");
     buf = new unsigned char[bufsize];
     refill();
-  }
-
-  inline void refill() {
-    filled = fread(buf, 1, bufsize, f);
-    pos_byte = pos_bit = 0;
   }
 
   inline bool read() {
@@ -131,8 +127,14 @@ struct bit_stream_reader {
     delete[] buf;
   }
 
+private:
+  inline void refill() {
+    filled = fread(buf, 1, bufsize, f);
+    pos_byte = pos_bit = 0;
+  }
+
   std::FILE *f;
-  static const int bufsize = (2 << 20); // 1MB
+  static const int bufsize = (2 << 20); // 2MB
   unsigned char *buf;
   int filled, pos_byte, pos_bit;
 };
@@ -141,18 +143,16 @@ struct bit_stream_writer {
   bit_stream_writer(std::string filename) {
     f = utils::open_file(filename, "w");
     buf = new unsigned char[bufsize];
+    if (!buf) {
+      fprintf(stderr, "Error: allocation error in bit_stream_writer\n");
+      std::exit(EXIT_FAILURE);
+    }
     std::fill(buf, buf + bufsize, 0);
     filled = pos_bit = 0;
   }
 
-  ~bit_stream_writer() {
-    flush();
-    fclose(f);
-    delete[] buf;
-  }
-
   inline void flush() {
-    if (pos_bit) ++filled; // in case this is the final flush.
+    if (pos_bit) ++filled; // final flush?
     utils::add_objects_to_file<unsigned char>(buf, filled, f);
     filled = pos_bit = 0;
     std::fill(buf, buf + bufsize, 0);
@@ -168,28 +168,32 @@ struct bit_stream_writer {
         flush();
     }
   }
+  
+  ~bit_stream_writer() {
+    flush();
+    fclose(f);
+    delete[] buf;
+  }
 
-  std::FILE *f;
+private:
   static const int bufsize = (2 << 20); // 2MB
+  
   unsigned char *buf;
   int filled, pos_bit;
+
+  std::FILE *f;
 };
 
 struct vbyte_stream_reader {
-  vbyte_stream_reader(std::string fname, int bufsize)
+  vbyte_stream_reader(std::string fname, long bufsize)
       : m_bufsize(bufsize) {
     f = utils::open_file(fname, "r");
     buf = new unsigned char[m_bufsize];
     if (!buf) {
-      fprintf(stderr, "Error: allocation failed in vbyte_stream_reader\n");
+      fprintf(stderr, "Error: allocation error in vbyte_stream_reader\n");
       std::exit(EXIT_FAILURE);
     }
     refill();
-  }
-
-  ~vbyte_stream_reader() {
-    delete[] buf;
-    std::fclose(f);
   }
 
   inline long read() {
@@ -205,15 +209,21 @@ struct vbyte_stream_reader {
     return ret;
   }
   
+  ~vbyte_stream_reader() {
+    delete[] buf;
+    std::fclose(f);
+  }
+  
 private:
-  int m_bufsize, filled, pos;
-  unsigned char *buf;
-  std::FILE *f;
-
   inline void refill() {
     filled = fread(buf, 1, m_bufsize, f);
     pos = 0;
   }
+
+  long m_bufsize, filled, pos;
+  unsigned char *buf;
+  
+  std::FILE *f;
 };
 
 #endif // __STREAM

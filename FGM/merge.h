@@ -7,33 +7,22 @@
 #include "utils.h"
 #include "stream.h"
 #include "uint40.h"
-#include "settings.h"
 
 void merge(long length, long max_block_size, std::string out_filename) {
   long n_block = (length + max_block_size - 1) / max_block_size;
-#if USE_SMALL_GAP
-  long buffer_size = (5L * max_block_size) / (5 * n_block + 5);
-#else
-  long buffer_size = (8L * max_block_size) / (8 * n_block + 5);
-#endif
-  fprintf(stderr, "buffer size for merging: %ld\n", buffer_size);
+  long pieces = 5 * n_block + 5;
+  long ram_use = 5L * max_block_size;
+  long buffer_size = (ram_use + pieces - 1) / pieces;
 
+  fprintf(stderr, "Buffer size for merging: %ld\n", buffer_size);
   stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
 
   // Initialize buffers for merging.
   stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
-#if USE_SMALL_GAP
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
-#else
-  stream_reader<int> **gap = new stream_reader<int>*[n_block];
-#endif
   for (long i = 0; i < n_block; ++i) {
     sparseSA[i] = new stream_reader<int>("sparseSA." + utils::intToStr(i), 4 * buffer_size);
-#if USE_SMALL_GAP
     gap[i] = new vbyte_stream_reader("gap." + utils::intToStr(i), buffer_size);
-#else
-    gap[i] = new stream_reader<int>("gap." + utils::intToStr(i), 4 * buffer_size);
-#endif
   }
   
   // Merge.
@@ -46,7 +35,7 @@ void merge(long length, long max_block_size, std::string out_filename) {
   fprintf(stderr, "Merging:\r");
   long double merge_start = utils::wclock();
   for (long i = 0, dbg = 0; i < length; ++i, ++dbg) {
-    if (dbg == 4000000) {
+    if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
       fprintf(stderr, "Merging: %.1Lf%%. Time: %.2Lfs\r",
           (100.L * i) / length, elapsed);
@@ -78,7 +67,13 @@ void merge(long length, long max_block_size, std::string out_filename) {
   }
   delete[] gap;
   delete[] sparseSA;
-
+  
+  // Delete auxiliary files.
+  for (int i = 0; i < n_block; ++i) {
+    utils::file_delete("sparseSA." + utils::intToStr(i));
+    utils::file_delete("gap." + utils::intToStr(i));
+  }
+  
   delete[] block_rank;
   delete[] suffix_rank;
   delete[] suf_ptr;

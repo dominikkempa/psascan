@@ -18,4 +18,3 @@ int main(int argc, char **argv) {
 
   FGM(argv[1], ram_use);
 }
-

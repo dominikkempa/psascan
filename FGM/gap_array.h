@@ -2,6 +2,7 @@
 #define __GAP_ARRAY_H
 
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <algorithm>
 
@@ -9,6 +10,10 @@
 
 struct buffered_gap_array {
   buffered_gap_array(long n) {
+    if (n <= 0) {
+      fprintf(stderr, "Error: constructing a gap array of length 0.\n");
+      std::exit(EXIT_FAILURE);
+    }
     length = n;
     count = new unsigned char[length];
     std::fill(count, count + length, 0);
@@ -72,9 +77,8 @@ struct buffered_gap_array {
   unsigned char *count;
   std::vector<long> excess;
 
-  static const int bufsize = (1 << 19); // 2MB
+  static const int bufsize = (1 << 19); // 4MB
   int filled;
-
   long length, *buf;
 };
 
