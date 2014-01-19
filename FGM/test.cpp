@@ -48,7 +48,7 @@ void test_random(int testcases, int max_length, int max_sigma) {
     utils::write_text_to_file(text, length, filename);
 
     // Run the test on generated string.
-    FGM(filename, block_size);
+    FGM_block_size(filename, block_size);
     
     // Compare the result to correct SA.
     std::reverse(text, text + length);

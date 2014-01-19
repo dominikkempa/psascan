@@ -12,9 +12,5 @@ int main(int argc, char **argv) {
   }
 
   long ram_use = (long)atoi(argv[2]) << 20;
-
-  fprintf(stderr, "Filename = %s\n", argv[1]);
-  fprintf(stderr, "RAM use = %ld\n", ram_use);
-
   FGM(argv[1], ram_use);
 }

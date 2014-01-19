@@ -9,6 +9,8 @@
 #include "utils.h"
 
 void FGM(std::string filename, long ram_use) {
+  fprintf(stderr, "RAM use = %ld\n", ram_use);
+
   long max_block_size = (ram_use + 4) / 5;
   FGM_block_size(filename, max_block_size);
 }

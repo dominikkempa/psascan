@@ -76,21 +76,21 @@ void partial_sufsort(std::string filename, long length, long max_block_size) {
     delete new_gt_head_bv;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - new_gt_head_bv_start);
 
-    // 6. Compute ordering of suffixes of BA starting in B.
+    // 6. Compute partial SA.
     fprintf(stderr, "  Computing partial SA: ");
     long double sa_start = utils::wclock();
     int *SA = new int[block_size];
     divsufsort(B, SA, (int)block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
 
-    // 7. Remapping B back.
+    // 7. Remapping symbols of B back to original.
     fprintf(stderr, "  Re-remapping B: ");
     long double reremap_start = utils::wclock();
     for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
     delete gt_eof_bv;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
 
-    // 8. Store partial SA on disk and compute BWT.
+    // 8. Write partial SA on disk and compute BWT.
     fprintf(stderr, "  Write partial SA to disk and compute BWT: ");
     long double write_sa_and_compute_bwt_start = utils::wclock();
     std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
@@ -104,7 +104,7 @@ void partial_sufsort(std::string filename, long length, long max_block_size) {
     delete[] SA;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - write_sa_and_compute_bwt_start);
     
-    // 9. Build the rank query support BWT.
+    // 9. Build the rank support for BWT.
     fprintf(stderr, "  Building the rank data structure: ");
     long double building_rank_start = utils::wclock();
     context_rank_4n *rank = (block_id + 1 != n_block) ? new context_rank_4n(B, block_size - 1) : NULL;
