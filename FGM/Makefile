@@ -6,11 +6,11 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -static -funroll-loops -DNDEBUG -O3
 
 all: fgm test_fgm
 
-fgm: main.cpp fgm.cpp utils.cpp divsufsort.c
-	$(CC) $(CFLAGS) -o fgm utils.cpp main.cpp fgm.cpp divsufsort.c
+fgm: main.cpp fgm.cpp utils.cpp
+	$(CC) $(CFLAGS) -o fgm utils.cpp main.cpp fgm.cpp -ldivsufsort -ldivsufsort64
 
-test_fgm: test.cpp fgm.cpp utils.cpp divsufsort.c
-	$(CC) $(CFLAGS) -o test_fgm utils.cpp test.cpp fgm.cpp divsufsort.c
+test_fgm: test.cpp fgm.cpp utils.cpp
+	$(CC) $(CFLAGS) -o test_fgm utils.cpp test.cpp fgm.cpp -ldivsufsort -ldivsufsort64
 
 clean:
 	/bin/rm -f *.o
