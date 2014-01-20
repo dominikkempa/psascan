@@ -8,28 +8,37 @@
 #include "stream.h"
 #include "uint40.h"
 
-// Merge partial suffix arrays. If recursion_level > 0 then also compute BWT.
+// Merge partial suffix arrays and (optionally) compute BWT.
 template<typename offset_type>
-void merge(std::string filename, long length, long max_block_size, long n_block,
-    std::string out_filename, int recursion_level = 0, unsigned char *BWT = NULL) {
+void merge(std::string text_fname, long length, long max_block_size, long n_block,
+    long ram_use, std::string out_filename, unsigned char **BWT, bool compute_bwt) {
+  // Invariant: 5 * length <= ram_use.
   if (n_block <= 1) {
-    fprintf(stderr, "Error: merging %ld blocks.\n", n_block);
+    fprintf(stderr, "Error: trying to merge %ld blocks.\n", n_block);
     std::exit(EXIT_FAILURE);
   }
 
+  unsigned char *text = NULL;
+  long buffer_size = 0;
   long pieces = (1 + sizeof(offset_type)) * n_block + 5;
-  long ram_use = 5L * max_block_size;
-  long buffer_size = (ram_use + pieces - 1) / pieces;
+  if (compute_bwt) {
+    utils::read_n_objects_from_file<unsigned char>(text, length, text_fname);
+    *BWT = new unsigned char[length - 1];
+    long merge_ram_use = ram_use - 2 * length; // Is positive.
+    buffer_size = (merge_ram_use + pieces - 1) / pieces;
+  } else buffer_size = (ram_use + pieces - 1) / pieces;
 
   fprintf(stderr, "Buffer size for merging: %ld\n", buffer_size);
+  fprintf(stderr, "Compute BWT = %s\n", compute_bwt ? "TRUE" : "FALSE");
+
   stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
   stream_reader<offset_type> **sparseSA = new stream_reader<offset_type>*[n_block];
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
-    sparseSA[i] = new stream_reader<offset_type>(filename + ".partial_sa." + utils::intToStr(i),
+    sparseSA[i] = new stream_reader<offset_type>(text_fname + ".partial_sa." + utils::intToStr(i),
         sizeof(offset_type) * buffer_size);
     if (i + 1 != n_block)
-      gap[i] = new vbyte_stream_reader(filename + ".gap." + utils::intToStr(i), buffer_size);
+      gap[i] = new vbyte_stream_reader(text_fname + ".gap." + utils::intToStr(i), buffer_size);
   }
 
   // Merge.
@@ -46,7 +55,7 @@ void merge(std::string filename, long length, long max_block_size, long n_block,
 
   fprintf(stderr, "Merging:\r");
   long double merge_start = utils::wclock();
-  for (long i = 0, dbg = 0; i < length; ++i, ++dbg) {
+  for (long i = 0, bwt_ptr = 0, dbg = 0; i < length; ++i, ++dbg) {
     if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
       fprintf(stderr, "Merging: %.1Lf%%. Time: %.2Lfs\r",
@@ -58,7 +67,12 @@ void merge(std::string filename, long length, long max_block_size, long n_block,
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
-    output->write(uint40((unsigned long)sparseSA[j]->read() + max_block_size * j)); // SA[i]
+    unsigned long SAi = (unsigned long)sparseSA[j]->read() + max_block_size * j; // SA[i]
+    output->write(uint40(SAi));
+    
+    // Compute the BWT entry, if it was requested.
+    if (compute_bwt && SAi > 0)
+      *BWT[bwt_ptr++] = text[SAi - 1];
 
     // Update suffix_rank[j].    
     ++suffix_rank[j];
@@ -88,9 +102,9 @@ void merge(std::string filename, long length, long max_block_size, long n_block,
   delete[] suf_ptr;
   
   for (int i = 0; i < n_block; ++i) {
-    utils::file_delete(filename + ".partial_sa." + utils::intToStr(i));
+    utils::file_delete(text_fname + ".partial_sa." + utils::intToStr(i));
     if (i + 1 != n_block)
-      utils::file_delete(filename + ".gap." + utils::intToStr(i));
+      utils::file_delete(text_fname + ".gap." + utils::intToStr(i));
   }
 }
 

@@ -4,9 +4,10 @@
 #include <string>
 
 // Run SAscan with given RAM limit.
-void SAscan(std::string filename, long ram_use);
-
-// Run SAscan with given block size.
-void SAscan_block_size(std::string filename, long max_block_size);
+void SAscan(std::string     filename,
+            long            ram_use,
+            unsigned char** BWT = NULL,
+            bool            compute_bwt = false
+);
 
 #endif // __SASCAN_H
