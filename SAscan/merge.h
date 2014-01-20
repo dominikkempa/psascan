@@ -8,34 +8,42 @@
 #include "stream.h"
 #include "uint40.h"
 
-// Merge the partial suffix arrays for text in 'filename'.
-// If recursion level > 0 then we also compute BWT of the text.
-void merge(std::string filename, long length, long max_block_size,
+// Merge partial suffix arrays. If recursion_level > 0 then also compute BWT.
+template<typename offset_type>
+void merge(std::string filename, long length, long max_block_size, long n_block,
     std::string out_filename, int recursion_level = 0, unsigned char *BWT = NULL) {
+  if (n_block <= 1) {
+    fprintf(stderr, "Error: merging %ld blocks.\n", n_block);
+    std::exit(EXIT_FAILURE);
+  }
 
-  long n_block = (length + max_block_size - 1) / max_block_size;
-  long pieces = 5 * n_block + 5;
+  long pieces = (1 + sizeof(offset_type)) * n_block + 5;
   long ram_use = 5L * max_block_size;
   long buffer_size = (ram_use + pieces - 1) / pieces;
 
   fprintf(stderr, "Buffer size for merging: %ld\n", buffer_size);
   stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, 5 * buffer_size);
-
-  // Initialize buffers for merging.
-  stream_reader<int> **sparseSA = new stream_reader<int>*[n_block];
-  vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block];
+  stream_reader<offset_type> **sparseSA = new stream_reader<offset_type>*[n_block];
+  vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
-    sparseSA[i] = new stream_reader<int>(filename + ".partial_sa." + utils::intToStr(i), 4 * buffer_size);
-    gap[i] = new vbyte_stream_reader(filename + ".gap." + utils::intToStr(i), buffer_size);
+    sparseSA[i] = new stream_reader<offset_type>(filename + ".partial_sa." + utils::intToStr(i),
+        sizeof(offset_type) * buffer_size);
+    if (i + 1 != n_block)
+      gap[i] = new vbyte_stream_reader(filename + ".gap." + utils::intToStr(i), buffer_size);
   }
 
   // Merge.
-  long *block_rank  = new long[n_block];
   long *suffix_rank = new long[n_block];
-  long *suf_ptr = new long[n_block]; // First non-extracted suffix in the block.
-  for (long i = 0; i < n_block; ++i) suffix_rank[i] = gap[i]->read();
+  for (long i = 0; i + 1 < n_block; ++i)
+    suffix_rank[i] = gap[i]->read();
+  suffix_rank[n_block - 1] = 0;
+
+  long *block_rank = new long[n_block];
   std::fill(block_rank, block_rank + n_block, 0);
+
+  long *suf_ptr = new long[n_block]; // First non-extracted suffix in the block.
   std::fill(suf_ptr, suf_ptr + n_block, 0);
+
   fprintf(stderr, "Merging:\r");
   long double merge_start = utils::wclock();
   for (long i = 0, dbg = 0; i < length; ++i, ++dbg) {
@@ -50,11 +58,12 @@ void merge(std::string filename, long length, long max_block_size,
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
-    output->write(uint40((unsigned long)sparseSA[j]->read() + (unsigned long)max_block_size * j)); // SA[i]
+    output->write(uint40((unsigned long)sparseSA[j]->read() + max_block_size * j)); // SA[i]
 
     // Update suffix_rank[j].    
-    suffix_rank[j]++;
-    suffix_rank[j] += gap[j]->read();
+    ++suffix_rank[j];
+    if (j + 1 != n_block)
+      suffix_rank[j] += gap[j]->read();
     
     // Update block_rank[0..j].
     for (long k = 0; k <= j; ++k) ++block_rank[k];
@@ -67,10 +76,12 @@ void merge(std::string filename, long length, long max_block_size,
 
   for (long i = 0; i < n_block; ++i) {
     delete sparseSA[i];
-    delete gap[i];
+    if (i + 1 != n_block)
+      delete gap[i];
   }
-  delete[] gap;
+
   delete[] sparseSA;
+  delete[] gap;
 
   delete[] block_rank;
   delete[] suffix_rank;
@@ -78,7 +89,8 @@ void merge(std::string filename, long length, long max_block_size,
   
   for (int i = 0; i < n_block; ++i) {
     utils::file_delete(filename + ".partial_sa." + utils::intToStr(i));
-    utils::file_delete(filename + ".gap." + utils::intToStr(i));
+    if (i + 1 != n_block)
+      utils::file_delete(filename + ".gap." + utils::intToStr(i));
   }
 }
 

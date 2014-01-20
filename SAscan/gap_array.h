@@ -44,6 +44,8 @@ struct buffered_gap_array {
   // Store to file using v-byte encoding.  
   void save_to_file(std::string fname) {
     flush();
+    
+    fprintf(stderr, "  gap->excess.size() = %lu\n", excess.size());
     std::sort(excess.begin(), excess.end());
     FILE *f = utils::open_file(fname.c_str(), "w");
     unsigned char *buffer = (unsigned char *)buf;

@@ -27,7 +27,7 @@ struct context_rank_4n {
     freq_trunk   = new unsigned[n_block * k_block_size];
 
     // debug ///////
-    fprintf(stderr, "\n  m_mapping takes %.2Lf MiB\n", (long double)(512 * n_block) / (1 << 20));
+    fprintf(stderr, "  m_mapping takes %.2Lf MiB\n", (long double)(512 * n_block) / (1 << 20));
     fprintf(stderr, "  k_sb_size_bits = %d, k_block_size_bits = %d\n", k_sb_size_bits, k_block_size_bits);
     freq_cnt_total = rare_cnt_total = 0;
     ////////////////

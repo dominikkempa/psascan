@@ -20,7 +20,7 @@ delete sr;
 template<typename data_type>
 struct stream_reader {
   stream_reader(std::string fname, long buf_bytes)
-      : m_bufelems(buf_bytes / sizeof(data_type)) {
+      : m_bufelems((buf_bytes + sizeof(data_type) - 1) / sizeof(data_type)) {
     f = utils::open_file(fname, "r");
     buffer = new data_type[m_bufelems];
     if (!buffer) {
@@ -69,7 +69,7 @@ delete sw;
 template<typename data_type>
 struct stream_writer {
   stream_writer(std::string fname, long bufsize)
-      : m_bufelems(bufsize / sizeof(data_type)) {
+      : m_bufelems((bufsize + sizeof(data_type) - 1) / sizeof(data_type)) {
     f = utils::open_file(fname.c_str(), "w");
     buffer = new data_type[m_bufelems];
     if (!buffer) {
