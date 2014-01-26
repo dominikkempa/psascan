@@ -6,11 +6,11 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -static -funroll-loops -DNDEBUG -O3
 
 all: sascan test_sascan
 
-sascan: main.cpp sascan.cpp utils.cpp
-	$(CC) $(CFLAGS) -o sascan utils.cpp main.cpp sascan.cpp -ldivsufsort -ldivsufsort64
+sascan: main.cpp utils.cpp
+	$(CC) $(CFLAGS) -o sascan utils.cpp main.cpp -ldivsufsort -ldivsufsort64
 
-test_sascan: test.cpp sascan.cpp utils.cpp
-	$(CC) $(CFLAGS) -o test_sascan utils.cpp test.cpp sascan.cpp -ldivsufsort -ldivsufsort64
+test_sascan: test.cpp utils.cpp
+	$(CC) $(CFLAGS) -o test_sascan utils.cpp test.cpp -ldivsufsort -ldivsufsort64
 
 clean:
 	/bin/rm -f *.o

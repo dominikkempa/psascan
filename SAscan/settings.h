@@ -1,0 +1,6 @@
+#ifndef __SETTINGS_H
+#define __SETTINGS_H
+
+#define MAX_32BIT_DIVSUFSORT_LENGTH 2147483647L
+
+#endif // __SETTINGS_H

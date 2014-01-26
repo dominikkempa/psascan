@@ -18,8 +18,141 @@
 #include "stream.h"
 #include "sascan.h"
 
-void compute_partial_sa_and_bwt(unsigned char*, long, long, long,
-    std::string, long, long, bitvector*, unsigned char**);
+#include "settings.h"
+    
+template<typename output_type>
+void SAscan(std::string input_filename, long ram_use, unsigned char **BWT,
+    bool in_recursion, bool compute_bwt, std::string text_filename, long text_offset);
+
+// Compute partial SA of B[0..block_size) and store on disk.
+// If block_id != n_block also compute the BWT of B.
+//
+// INVARIANT: on entry to the function it holds: 5 * block_size <= ram_use
+void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
+    long max_block_size, long ram_use, std::string text_fname, std::string sa_fname,
+    bool compute_bwt, long n_block, bitvector *gt_eof_bv, unsigned char **BWT, long block_offset) {
+  fprintf(stderr, "  compute-bwt = %s\n", compute_bwt ? "TRUE" : "FALSE");
+  if (block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
+    // Easy case, just use use 32-bit divsufsort.
+    fprintf(stderr, "  Computing partial SA (divsufsort): ");
+    long double sa_start = utils::wclock();
+    int *SA = new int[block_size];
+    divsufsort(B, SA, (int)block_size);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
+
+    fprintf(stderr, "  Writing partial SA to disk ");
+    long double writing_sa_start = utils::wclock();
+    if (n_block > 1 && max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
+      fprintf(stderr, "(using 32-bit ints): ");
+      utils::write_objects_to_file<int>(SA, block_size, sa_fname);
+    } else {
+      fprintf(stderr, "(using 40-bit ints): ");
+      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 1 << 20);
+      for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
+      delete sa_writer;
+    }
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
+
+    if (compute_bwt) {
+      // Remap symbols of B back to original.
+      fprintf(stderr, "  Re-remapping B: ");
+      long double reremap_start = utils::wclock();
+      for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
+
+      // Compute BWT
+      fprintf(stderr, "  Compute BWT: ");
+      long double bwt_start = utils::wclock();
+      unsigned char *tmp = (unsigned char *)SA;
+      for (long j = 0, jj = 0; j < block_size; ++j)
+        if (SA[j]) tmp[jj++] = B[SA[j] - 1];
+      std::copy(tmp, tmp + block_size - 1, B);
+      *BWT = B;
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
+    } else delete[] B;
+    
+    delete[] SA;
+    delete gt_eof_bv;
+    
+  } else if (9L * block_size <= ram_use) {
+    // Easy case: block_size > 2147483647 but enough RAM to use divsufsort64.
+    fprintf(stderr, "  Computing partial SA (divsufsort64): ");
+    long double sa_start = utils::wclock();
+    long *SA = new long[block_size];
+    divsufsort64(B, SA, block_size);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
+    
+    fprintf(stderr, "  Writing partial SA to disk ");
+    long double writing_sa_start = utils::wclock();
+
+    // (max_block_size >= block_size > 2147483647) => use uint40.
+    // Currently for testing purposes we leave the checks below. In the final
+    // version always the 'else' branch will execute.
+    if (n_block > 1 && max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
+      fprintf(stderr, " (using 32-bit bits): ");
+      stream_writer<int> *sa_writer = new stream_writer<int>(sa_fname, 1 << 20);
+      for (long j = 0; j < block_size; ++j) sa_writer->write((int)SA[j]);
+      delete sa_writer;
+    } else {
+      fprintf(stderr, "(using 40-bit ints): ");
+      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 1 << 20);
+      for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
+      delete sa_writer;
+    }   
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
+
+    if (compute_bwt) {
+      // Remap symbols of B back to original.
+      fprintf(stderr, "  Re-remapping B: ");
+      long double reremap_start = utils::wclock();
+      for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
+
+      // Compute BWT
+      fprintf(stderr, "  Compute BWT: ");
+      long double bwt_start = utils::wclock();
+      unsigned char *tmp = (unsigned char *)SA;
+      for (long j = 0, jj = 0; j < block_size; ++j)
+        if (SA[j]) tmp[jj++] = B[SA[j] - 1];
+      std::copy(tmp, tmp + block_size - 1, B);
+      *BWT = B;
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
+    } else  delete[] B;
+    
+    delete gt_eof_bv;
+    delete[] SA;
+    
+  } else {
+    // (block_size > 2147483647 and 8 * block_size > ram_use) => use recursion.
+    // To save I/O from recursion we also get the BWT, which is obtained during
+    // the storage of the resulting partial SA to disk.
+    fprintf(stderr, "  Recursively computing partial SA:\n");
+    long double rec_partial_sa_start = utils::wclock();
+
+    // Save the remapped block to temp file.
+    // NOTE: SAscan computes the SA of the text *reversed*. Here we need
+    // the forward SA, this we reverse the input before writing to disk.
+    std::string B_fname = text_fname + ".current_block";
+    std::reverse(B, B + block_size);
+    utils::write_objects_to_file<unsigned char>(B, block_size, B_fname);
+
+    // Free all memory.
+    delete gt_eof_bv;
+    delete[] B;
+
+    if (max_block_size <=  MAX_32BIT_DIVSUFSORT_LENGTH)
+      SAscan<int>(B_fname, ram_use, BWT, true, compute_bwt, text_fname, block_offset);
+    else
+      SAscan<uint40>(B_fname, ram_use, BWT, true, compute_bwt, text_fname, block_offset);
+ 
+    // Delete the temp file.
+    utils::file_delete(B_fname);
+    utils::execute("mv " + B_fname + ".sa5 " + sa_fname);
+
+    fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
+        utils::wclock() - rec_partial_sa_start);
+  }
+}
 
 void partial_sufsort(std::string filename, long length, long max_block_size, long ram_use) {
   long n_block = (length + max_block_size - 1) / max_block_size;
@@ -29,8 +162,11 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
     long beg = max_block_size * block_id;
     long end = std::min(length, beg + max_block_size);
     long block_size = end - beg; // B = text[beg..end), current block
+    bool need_streaming = (block_id + 1 != n_block);
+
     fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n",
       n_block - block_id, n_block, beg, end);
+    fprintf(stderr, "  need_streaming = %s\n", need_streaming ? "TRUE" : "FALSE");
 
     // 1. Read current and previously processed block.
     fprintf(stderr, "  Reading block: ");
@@ -43,7 +179,7 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
 
     long count[256] = {0};
     bitvector *gt_eof_bv = NULL;
-    if (block_id + 1 != n_block) {
+    if (need_streaming) {
       // 2a. Compute symbols counts of B.
       fprintf(stderr, "  Compute counts: ");
       long double compute_counts_start = utils::wclock();
@@ -71,6 +207,14 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
       delete[] extprevB;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - gt_eof_start);
 
+      // TODO: implement Juha solution for the alphabet problem.
+      bool used = false;
+      for (long j = 0; j < block_size; ++j) if (B[j] == 255) used = true;
+      if (used) {
+        printf("\n255 used! THIS IS NOT IMPLEMENTED\n");
+        std::exit(EXIT_FAILURE);
+      }
+
       // 2d. Remap symbols of B.
       fprintf(stderr, "  Remapping B: ");
       long double remap_start = utils::wclock();
@@ -92,10 +236,12 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
 
     // 4. Compute/save partial SA. Compute BWT if it's not the last block.
     unsigned char *BWT = NULL;
+    std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
     compute_partial_sa_and_bwt(B, block_size, max_block_size, ram_use,
-        filename, block_id, n_block, gt_eof_bv, &BWT);
+        filename, sa_fname, need_streaming, n_block, gt_eof_bv, &BWT,
+        length - block_size - beg);
 
-    if (block_id + 1 != n_block) {
+    if (need_streaming) {
       // 5a. Build the rank support for BWT.
       fprintf(stderr, "  Building the rank data structure:\n");
       long double building_rank_start = utils::wclock();
@@ -168,122 +314,6 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
 
   if (utils::file_exists(filename + ".gt_head")) utils::file_delete(filename + ".gt_head");
   if (utils::file_exists(filename + ".gt_tail")) utils::file_delete(filename + ".gt_tail");
-}
-
-// Compute partial SA of B[0..block_size) and store on disk.
-// If block_id != n_block also compute the BWT of B.
-//
-// INVARIANT: on entry to the function it holds: 5 * block_size <= ram_use
-void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
-    long max_block_size, long ram_use, std::string text_fname,
-    long block_id, long n_block, bitvector *gt_eof_bv, unsigned char **BWT) {
-  if (block_size <= 2147483647L) {
-    // Easy case, just use use 32-bit divsufsort.
-    fprintf(stderr, "  Computing partial SA (divsufsort): ");
-    long double sa_start = utils::wclock();
-    int *SA = new int[block_size];
-    divsufsort(B, SA, (int)block_size);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
-
-    fprintf(stderr, "  Writing partial SA to disk: ");
-    long double writing_sa_start = utils::wclock();
-    std::string sa_fname = text_fname + ".partial_sa." + utils::intToStr(block_id);
-    if (n_block > 1 && max_block_size <= 2147483647L) utils::write_objects_to_file<int>(SA, block_size, sa_fname);
-    else {
-      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 1 << 20);
-      for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
-      delete sa_writer;
-    }
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
-
-    if (block_id + 1 != n_block) {
-      // Remap symbols of B back to original.
-      fprintf(stderr, "  Re-remapping B: ");
-      long double reremap_start = utils::wclock();
-      for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
-
-      // Compute BWT
-      fprintf(stderr, "  Compute BWT: ");
-      long double bwt_start = utils::wclock();
-      unsigned char *tmp = (unsigned char *)SA;
-      for (long j = 0, jj = 0; j < block_size; ++j)
-        if (SA[j]) tmp[jj++] = B[SA[j] - 1];
-      std::copy(tmp, tmp + block_size - 1, B);
-      *BWT = B;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-    } else delete[] B;
-    
-    delete[] SA;
-    delete gt_eof_bv;
-    
-  } else if (8L * block_size <= ram_use) {
-    // Easy case: block_size > 2147483647 but enough RAM to use divsufsort64.
-    fprintf(stderr, "  Computing partial SA (divsufsort64): ");
-    long double sa_start = utils::wclock();
-    long *SA = new long[block_size];
-    divsufsort64(B, SA, block_size);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
-    
-    fprintf(stderr, "  Writing partial SA to disk: ");
-    long double writing_sa_start = utils::wclock();
-    std::string sa_fname = text_fname + ".partial_sa." + utils::intToStr(block_id);
-    // (max_block_size >= block_size > 2147483647) => use uint40.
-    stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 1 << 20);
-    for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
-    delete sa_writer;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
-
-    if (block_id + 1 != n_block) {
-      // Remap symbols of B back to original.
-      fprintf(stderr, "  Re-remapping B: ");
-      long double reremap_start = utils::wclock();
-      for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
-
-      // Compute BWT
-      fprintf(stderr, "  Compute BWT: ");
-      long double bwt_start = utils::wclock();
-      unsigned char *tmp = (unsigned char *)SA;
-      for (long j = 0, jj = 0; j < block_size; ++j)
-        if (SA[j]) tmp[jj++] = B[SA[j] - 1];
-      std::copy(tmp, tmp + block_size - 1, B);
-      *BWT = B;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-    } else  delete[] B;
-    
-    delete gt_eof_bv;
-    delete[] SA;
-    
-  } else {
-    // (block_size > 2147483647 and 8 * block_size > ram_use) => use recursion.
-    // To save I/O from recursion we also get the BWT, which is obtained during
-    // the storage of the resulting partial SA to disk.
-    fprintf(stderr, "  Recursively computing partial SA:\n");
-    long double rec_partial_sa_start = utils::wclock();
-
-    // Save the remapped block to temp file.
-    std::string B_fname = text_fname + ".current_block";
-    utils::write_objects_to_file<unsigned char>(B, block_size, B_fname);
-
-    // Free all memory.
-    delete gt_eof_bv;
-    delete[] B;
-
-    if (block_id + 1 != n_block) {
-      // Recursive call, compute BWT.
-      SAscan(B_fname, ram_use, BWT, true);
-    } else {
-      // Recursive call, do not compute BWT.
-      SAscan(B_fname, ram_use, NULL, false);
-    }
-
-    // Delete the temp file.    
-    utils::file_delete(B_fname);
-
-    fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
-        utils::wclock() - rec_partial_sa_start);
-  }
 }
 
 #endif // __PARTIAL_SUFSORT_H

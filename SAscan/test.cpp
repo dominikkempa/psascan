@@ -41,9 +41,11 @@ void test_random(long testcases, long max_length, long max_sigma) {
     if (max_sigma <= 26) utils::fill_random_letters(text, length, sigma);
     else utils::fill_random_string(text, length, sigma);
 
-    // long length = strlen("cbcabccaac");
-    // strcat((char *)text, "cbcabccaac");
-    // long ram_use = 20;
+    // debug //
+    // long length = strlen("aaaaaaaaa");
+    // strcat((char *)text, "aaaaaaaaa");
+    // long ram_use = 39;
+    ///////////
 
     text[length] = 0;
     std::string filename = "/tmp/in" + utils::random_string_hash();
@@ -69,7 +71,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
       if ((unsigned long)SA[i] != computed_SA[i].ull()) { eq = false; break; }
     if (!eq) {
       printf("Error!\n");
-      if (length < 1000) {
+      if (length < 10000) {
         printf("  text = %s\n", text);
         printf("  computed SA: ");
         for (long k = 0; k < length; ++k) printf("%lu ", (unsigned long)computed_SA[k]);
@@ -103,23 +105,23 @@ int main(int, char **) {
   test_random(5000, 10,      5);
   test_random(5000, 10,     20);
   test_random(5000, 10,    128);
-  test_random(5000, 10,    255);
+  test_random(5000, 10,    254);
   test_random(500, 100,      5);
   test_random(500, 100,     20);
   test_random(500, 100,    128);
-  test_random(500, 100,    255);
+  test_random(500, 100,    254);
   test_random(50, 1000,      5);
   test_random(50, 1000,     20);
   test_random(50, 1000,    128);
-  test_random(50, 1000,    255);
+  test_random(50, 1000,    254);
   test_random(50, 10000,     5);
   test_random(50, 10000,    20);
   test_random(50, 10000,   128);
-  test_random(50, 10000,   255);
+  test_random(50, 10000,   254);
   test_random(5, 100000,     5);
   test_random(5, 100000,    20);
   test_random(5, 100000,   128);
-  test_random(5, 100000,   255);
+  test_random(5, 100000,   254);
   printf("All tests passed.\n");
   fflush(stdout);
 
