@@ -82,7 +82,16 @@ void SAscan(std::string      input_filename,
 
   long max_block_size;
   if (in_recursion) max_block_size = ram_use / 9;
-  else max_block_size = ram_use / 5;
+  else {
+    max_block_size = ram_use / 5;
+    if (max_block_size > MAX_32BIT_DIVSUFSORT_LENGTH) {
+      long length = utils::file_size(input_filename);
+      long n_block = (length + max_block_size - 1) / max_block_size;
+      long block_size_2GiB = MAX_32BIT_DIVSUFSORT_LENGTH;
+      long tmp_n_block = (length + block_size_2GiB - 1) / block_size_2GiB;
+      if (tmp_n_block == n_block) max_block_size = block_size_2GiB;
+    }
+  }
 
   // Currently we use simple criterion: for recursive calls (compute_bwt == true)
   // we know that it was true that ram_use == 5 * length thus if we set

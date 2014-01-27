@@ -47,7 +47,7 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
       utils::write_objects_to_file<int>(SA, block_size, sa_fname);
     } else {
       fprintf(stderr, "(using 40-bit ints): ");
-      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 1 << 20);
+      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 2L << 20);
       for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
       delete sa_writer;
     }
@@ -90,15 +90,15 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     // version always the 'else' branch will execute.
     if (n_block > 1 && max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
       fprintf(stderr, " (using 32-bit bits): ");
-      stream_writer<int> *sa_writer = new stream_writer<int>(sa_fname, 1 << 20);
+      stream_writer<int> *sa_writer = new stream_writer<int>(sa_fname, 2L << 20);
       for (long j = 0; j < block_size; ++j) sa_writer->write((int)SA[j]);
       delete sa_writer;
     } else {
       fprintf(stderr, "(using 40-bit ints): ");
-      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 1 << 20);
+      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 2L << 20);
       for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
       delete sa_writer;
-    }   
+    }
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
     if (compute_bwt) {
@@ -154,6 +154,7 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
   }
 }
 
+// Compute partial SAs and gap arrays and write to disk.
 void partial_sufsort(std::string filename, long length, long max_block_size, long ram_use) {
   long n_block = (length + max_block_size - 1) / max_block_size;
   long block_id = n_block - 1, prev_end = length;
@@ -167,6 +168,8 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
     fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n",
       n_block - block_id, n_block, beg, end);
     fprintf(stderr, "  need_streaming = %s\n", need_streaming ? "TRUE" : "FALSE");
+    fprintf(stderr, "  block_size = %ld (%.2LfMiB)\n", block_size,
+        (long double)block_size / (1 << 20));
 
     // 1. Read current and previously processed block.
     fprintf(stderr, "  Reading block: ");

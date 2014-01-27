@@ -21,7 +21,7 @@ void merge(std::string input_filename, long length, long max_block_size, long n_
 
   unsigned char *text = NULL;
   long buffer_size = 0;
-  long pieces = (1 + sizeof(offset_type)) * n_block + sizeof(output_type);
+  long pieces = (1 + sizeof(offset_type)) * n_block - 1 + sizeof(output_type);
   if (compute_bwt) {
     // Read the original block of text *** different from current block ***
     text = new unsigned char[length];

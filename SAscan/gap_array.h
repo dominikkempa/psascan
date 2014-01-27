@@ -46,6 +46,8 @@ struct buffered_gap_array {
     flush();
     
     fprintf(stderr, "  gap->excess.size() = %lu\n", excess.size());
+    fprintf(stderr, "  Saving gap to file: ");
+    long double gap_save_start = utils::wclock();
     std::sort(excess.begin(), excess.end());
     FILE *f = utils::open_file(fname.c_str(), "w");
     unsigned char *buffer = (unsigned char *)buf;
@@ -74,6 +76,7 @@ struct buffered_gap_array {
       utils::add_objects_to_file<unsigned char>(buffer, filled, f);
 
     fclose(f);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - gap_save_start);
   }
 
   unsigned char *count;
