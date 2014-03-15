@@ -20,9 +20,10 @@ struct context_rank_4n {
         n_block((length + k_block_size - 1) / k_block_size),
         n_sblock((n_block + k_blocks_in_sb - 1) / k_blocks_in_sb) {
 
-    c_rank       = new unsigned[256];
-    block_header = new unsigned[2 * n_block];
-    sb_rank      = new unsigned[256 * n_sblock];
+    c_rank       = new long[256];
+    block_header = new long[n_block];
+    sb_rank      = new long[256 * n_sblock];
+
     m_mapping    = new unsigned char[2 * 256 * n_block];
     freq_trunk   = new unsigned[n_block * k_block_size];
 
@@ -73,8 +74,9 @@ struct context_rank_4n {
       }
 
       // 3. Update block header and mapping.
-      block_header[2 * block_id] = freq_cnt_bits + (rare_cnt_bits << 8);
-      block_header[2 * block_id + 1] = rare_trunk.size();
+      block_header[block_id] = (rare_trunk.size() << 16) + // 6 bytes
+                               (rare_cnt_bits << 8) +      // one byte
+                               freq_cnt_bits;              // one byte
 
       // 4. Compute and store symbols mapping.
       bool is_freq[256] = {false};
@@ -130,8 +132,8 @@ struct context_rank_4n {
     c_rank[0] -= n_block * k_block_size - length;
 
     // debug ////////
-    fprintf(stderr, "  rare_trunk.size() = %d (%.2Lf millions)\n",
-        (int)rare_trunk.size(), (long double)rare_trunk.size() / 1000000.L);
+    fprintf(stderr, "  rare_trunk.size() = %lu (%.2Lf millions)\n",
+        rare_trunk.size(), (long double)rare_trunk.size() / 1000000.L);
     // freq_hit = rare_hit = no_hit = avg_freq_scanning = avg_rare_scanning = 0;
     fprintf(stderr, "  freq_cnt_total = %ld, rare_cnt_total = %ld\n",
         freq_cnt_total, rare_cnt_total);
@@ -139,16 +141,17 @@ struct context_rank_4n {
   }
 
   inline long rank(long i, unsigned char c) {
-    if (i <= 0) return 0;
+    if (i <= 0) return 0L;
     else if (i >= m_length) return c_rank[c];
 
-    unsigned block_id = (i >> k_block_size_bits), sb_id = (i >> k_sb_size_bits);
+    long block_id = (i >> k_block_size_bits), sb_id = (i >> k_sb_size_bits);
     long sb_count = sb_rank[(sb_id << 8) + c];
     unsigned char type = m_mapping[2 * (c * n_block + block_id)];
     unsigned char c_map = m_mapping[2 * (c * n_block + block_id) + 1];
-    unsigned char freq_cnt_bits = (block_header[2 * block_id] & 0xff);
-    unsigned char rare_cnt_bits = ((block_header[2 * block_id] & 0xff00) >> 8);
-    unsigned micro_block_id = (i >> freq_cnt_bits);
+
+    long freq_cnt_bits = (block_header[block_id] & 255L);
+    long rare_cnt_bits = ((block_header[block_id] >> 8) & 255L);
+    long micro_block_id = (i >> freq_cnt_bits);
 
     if (type == FREQUENT_CHAR) {
       // debug ////
@@ -181,7 +184,7 @@ struct context_rank_4n {
       /////////////////
 
       // Compute new_i.
-      unsigned rare_trunk_ptr     =   block_header[2 * block_id + 1];
+      long rare_trunk_ptr = (block_header[block_id] >> 16);
       long new_i = freq_trunk[((micro_block_id + 1) << freq_cnt_bits) - 1] >> 8;
 
       // Full/empty context-block optimization -- not effective.
@@ -197,7 +200,7 @@ struct context_rank_4n {
       // }
       
       // Answer a query on rare trunk.
-      unsigned rare_micro_block_id = (new_i >> rare_cnt_bits);
+      long rare_micro_block_id = (new_i >> rare_cnt_bits);
       long b_count = rare_trunk[rare_trunk_ptr + (rare_micro_block_id << rare_cnt_bits) + c_map] >> 8;
       long extra = 0;
 
@@ -249,8 +252,10 @@ private:
   static const int k_blocks_in_sb_mask = k_blocks_in_sb - 1;
 
   const long m_length, n_block, n_sblock;
-  unsigned *sb_rank, *freq_trunk, *block_header, *c_rank;
+  long *sb_rank, *c_rank, *block_header;
   unsigned char *m_mapping;
+  
+  unsigned *freq_trunk;
   std::vector<unsigned> rare_trunk;
 
   // debug /////

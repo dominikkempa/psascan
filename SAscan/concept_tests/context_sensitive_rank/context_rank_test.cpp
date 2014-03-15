@@ -5,7 +5,7 @@
 #include <string>
 
 #include "utils.h"
-#include "context_rank.h"
+#include "rank.h"
 
 // Test rank queries on a given strings.
 void test(unsigned char *text, int length, int queries) {
