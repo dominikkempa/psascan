@@ -17,12 +17,11 @@
 #include "bitvector.h"
 #include "stream.h"
 #include "sascan.h"
-
 #include "settings.h"
-    
-template<typename output_type>
-void SAscan(std::string input_filename, long ram_use, unsigned char **BWT,
-    bool in_recursion, bool compute_bwt, std::string text_filename, long text_offset);
+
+template<typename output_type> void SAscan(std::string input_filename, long ram_use);
+template<typename output_type> void partial_SAscan(std::string input_filename,
+    long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
 
 // Compute partial SA of B[0..block_size) and store on disk.
 // If block_id != n_block also compute the BWT of B.
@@ -122,9 +121,9 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     delete[] B;
 
     if (max_block_size <=  MAX_32BIT_DIVSUFSORT_LENGTH)
-      SAscan<int>(B_fname, ram_use, BWT, true, compute_bwt, text_fname, block_offset);
+      partial_SAscan<int>(B_fname, ram_use, BWT, text_fname, block_offset);
     else
-      SAscan<uint40>(B_fname, ram_use, BWT, true, compute_bwt, text_fname, block_offset);
+      partial_SAscan<uint40>(B_fname, ram_use, BWT, text_fname, block_offset);
  
     // Delete the temp file.
     utils::file_delete(B_fname);
