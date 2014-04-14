@@ -71,7 +71,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     for (long i = 0; i < length; ++i)
       if ((unsigned long)SA[i] != computed_SA[i].ull()) { eq = false; break; }
     if (!eq) {
-    fprintf(stderr, "\n\033[22;31mFAILED\033[0m\n");
+    printf("\n\033[22;31mFAILED\033[0m\n");
       if (length < 10000) {
         printf("  text = %s\n", text);
         printf("  computed SA: ");

@@ -16,27 +16,6 @@
 void partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
 
 // Compute SA of <filename> and write to <filename>.sa5 using given
-// block size. Optionally also compute the BWT during merging.
-template<typename block_offset_type, typename output_type>
-void SAscan_block_size(std::string input_filename, long length, long max_block_size,
-    long ram_use, unsigned char **BWT, bool compute_bwt,
-    std::string text_filename, long text_offset) {
-  fprintf(stderr, "Using block size = %ld\n", max_block_size);
-  fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
-  fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(block_offset_type));
-
-  partial_sufsort(input_filename, length, max_block_size, ram_use);
-  merge<block_offset_type, output_type>(input_filename,
-      length,
-      max_block_size,
-      ram_use,
-      BWT,
-      compute_bwt,
-      text_filename,
-      text_offset);
-}
-
-// Compute SA of <filename> and write to <filename>.sa5 using given
 // RAM limit. Optionally also compute the BWT.
 template<typename output_type>
 void SAscan(std::string      input_filename,
@@ -117,11 +96,19 @@ void SAscan(std::string      input_filename,
     delete[] text;
     delete sa_writer;
   } else {
-    if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH)
-      SAscan_block_size<int, output_type>(input_filename, length, max_block_size,
-        ram_use, BWT, compute_bwt, text_filename, text_offset);
-    else SAscan_block_size<uint40, output_type>(input_filename, length, max_block_size,
-        ram_use, BWT, compute_bwt, text_filename, text_offset);
+    fprintf(stderr, "Using block size = %ld\n", max_block_size);
+    fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
+    partial_sufsort(input_filename, length, max_block_size, ram_use);
+
+    if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
+      fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(int));
+      if (!in_recursion) merge<int>(input_filename, length, max_block_size, ram_use);
+      else partial_merge<int, output_type>(input_filename, length, max_block_size, ram_use, BWT, text_filename, text_offset);
+    } else {
+      fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(uint40));
+      if (!in_recursion) merge<uint40>(input_filename, length, max_block_size, ram_use);
+      else partial_merge<uint40, output_type>(input_filename, length, max_block_size, ram_use, BWT, text_filename, text_offset);
+    }
   }
   
   long double alg_time_abs = utils::wclock() - alg_start;
