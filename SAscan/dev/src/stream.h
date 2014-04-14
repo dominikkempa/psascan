@@ -103,7 +103,7 @@ delete sw;
 *******************************************************************************/
 template<typename T>
 struct stream_writer {
-  stream_writer(std::string fname, long bufsize)
+  stream_writer(std::string fname, long bufsize = (4 << 20))
       : m_bufelems((bufsize + sizeof(T) - 1) / sizeof(T)) {
     m_file = utils::open_file(fname.c_str(), "w");
     m_buffer = new T[m_bufelems];
@@ -260,5 +260,18 @@ private:
   
   std::FILE *m_file;
 };
+
+namespace utils {
+
+template<typename T, typename U>
+void stream_objects_to_file(T *tab, long length, std::string fname) {
+  stream_writer<U> *writer = new stream_writer<U>(fname);
+  for (long i = 0; i < length; ++i)
+    writer->write((T)tab[i]);
+
+  delete writer;
+}
+
+} // namespace utils
 
 #endif // __STREAM_H_INCLUDED

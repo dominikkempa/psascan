@@ -30,7 +30,7 @@ void SAscan(std::string input_filename, long ram_use, unsigned char **BWT,
 // INVARIANT: on entry to the function it holds: 5 * block_size <= ram_use
 void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     long max_block_size, long ram_use, std::string text_fname, std::string sa_fname,
-    bool compute_bwt, long n_block, bitvector *gt_eof_bv, unsigned char **BWT, long block_offset) {
+    bool compute_bwt, bitvector *gt_eof_bv, unsigned char **BWT, long block_offset) {
   fprintf(stderr, "  compute-bwt = %s\n", compute_bwt ? "TRUE" : "FALSE");
   if (block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
     // Easy case, just use use 32-bit divsufsort.
@@ -42,14 +42,12 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
 
     fprintf(stderr, "  Writing partial SA to disk ");
     long double writing_sa_start = utils::wclock();
-    if (n_block > 1 && max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
+    if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
       fprintf(stderr, "(using 32-bit ints): ");
       utils::write_objects_to_file<int>(SA, block_size, sa_fname);
     } else {
       fprintf(stderr, "(using 40-bit ints): ");
-      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 2L << 20);
-      for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
-      delete sa_writer;
+      utils::stream_objects_to_file<int, uint40>(SA, block_size, sa_fname);
     }
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
@@ -82,23 +80,9 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     divsufsort64(B, SA, block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
     
-    fprintf(stderr, "  Writing partial SA to disk ");
+    fprintf(stderr, "  Writing partial SA to disk (using 40-bit ints): ");
     long double writing_sa_start = utils::wclock();
-
-    // (max_block_size >= block_size > 2147483647) => use uint40.
-    // Currently for testing purposes we leave the checks below. In the final
-    // version always the 'else' branch will execute.
-    if (n_block > 1 && max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
-      fprintf(stderr, " (using 32-bit bits): ");
-      stream_writer<int> *sa_writer = new stream_writer<int>(sa_fname, 2L << 20);
-      for (long j = 0; j < block_size; ++j) sa_writer->write((int)SA[j]);
-      delete sa_writer;
-    } else {
-      fprintf(stderr, "(using 40-bit ints): ");
-      stream_writer<uint40> *sa_writer = new stream_writer<uint40>(sa_fname, 2L << 20);
-      for (long j = 0; j < block_size; ++j) sa_writer->write(uint40((unsigned long)SA[j]));
-      delete sa_writer;
-    }
+    utils::stream_objects_to_file<long, uint40>(SA, block_size, sa_fname);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
     if (compute_bwt) {
@@ -222,21 +206,19 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
 
     // 3. Compute the head of the new gt bitvector.
     long whole_suffix_rank = 0;
-    if (n_block > 1) {
-      fprintf(stderr, "  Compute new_gt_head_bv: ");
-      long double new_gt_head_bv_start = utils::wclock();
-      bitvector *new_gt_head_bv = new bitvector(block_size);
-      whole_suffix_rank = compute_new_gt_head_bv(B, block_size, new_gt_head_bv);
-      new_gt_head_bv->save(filename + ".new_gt_head");
-      delete new_gt_head_bv;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - new_gt_head_bv_start);
-    }
+    fprintf(stderr, "  Compute new_gt_head_bv: ");
+    long double new_gt_head_bv_start = utils::wclock();
+    bitvector *new_gt_head_bv = new bitvector(block_size);
+    whole_suffix_rank = compute_new_gt_head_bv(B, block_size, new_gt_head_bv);
+    new_gt_head_bv->save(filename + ".new_gt_head");
+    delete new_gt_head_bv;
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - new_gt_head_bv_start);
 
     // 4. Compute/save partial SA. Compute BWT if it's not the last block.
     unsigned char *BWT = NULL;
     std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
     compute_partial_sa_and_bwt(B, block_size, max_block_size, ram_use,
-        filename, sa_fname, need_streaming, n_block, gt_eof_bv, &BWT, beg);
+        filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
 
     if (need_streaming) {
       // 5a. Build the rank support for BWT.
@@ -321,8 +303,7 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
     prev_end = end;
     end = beg;
     --block_id;
-    if (n_block > 1)
-      utils::execute("mv " + filename + ".new_gt_head " + filename + ".gt_head");
+    utils::execute("mv " + filename + ".new_gt_head " + filename + ".gt_head");
   }
 
   if (utils::file_exists(filename + ".gt_head")) utils::file_delete(filename + ".gt_head");

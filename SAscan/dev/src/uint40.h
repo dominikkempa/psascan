@@ -66,6 +66,12 @@ public:
         assert( a <= 0xFFFFFFFFFFLU );
     }
 
+    inline uint40(const long& a)
+        : low(a & 0xFFFFFFFFL), high((a >> 32) & 0xFF)
+    {
+        assert( a <= 0xFFFFFFFFFFL );
+    }
+
     inline unsigned long ull() const
     {
         return ((unsigned long)high) << 32 | (unsigned long)low;

@@ -10,14 +10,13 @@
 
 // Merge partial suffix arrays and (optionally) compute BWT.
 template<typename offset_type, typename output_type>
-void merge(std::string input_filename, long length, long max_block_size, long n_block,
-    long ram_use, std::string out_filename, unsigned char **BWT, bool compute_bwt,
-    std::string text_filename, long text_offset) {
+void merge(std::string input_filename, long length, long max_block_size, long ram_use,
+    unsigned char **BWT, bool compute_bwt, std::string text_filename, long text_offset) {
+
+  std::string out_filename = input_filename + ".sa5";
+  long n_block = (length + max_block_size - 1) / max_block_size;
+
   // Invariant: 5 * length <= ram_use.
-  if (n_block <= 1) {
-    fprintf(stderr, "Error: trying to merge %ld blocks.\n", n_block);
-    std::exit(EXIT_FAILURE);
-  }
 
   unsigned char *text = NULL;
   long buffer_size = 0;
