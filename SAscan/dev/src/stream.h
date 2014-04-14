@@ -261,17 +261,27 @@ private:
   std::FILE *m_file;
 };
 
-namespace utils {
+namespace stream {
 
 template<typename T, typename U>
-void stream_objects_to_file(T *tab, long length, std::string fname) {
-  stream_writer<U> *writer = new stream_writer<U>(fname);
-  for (long i = 0; i < length; ++i)
-    writer->write((T)tab[i]);
-
-  delete writer;
+void write_objects_to_file(T *tab, long length, std::string fname) {
+  if (utils::is_same_type<T, U>::value) { // same type, just write
+    std::FILE *f = utils::open_file(fname, "w");
+    size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
+    if ((long)fwrite_ret != length) {
+      fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
+          STR(__LINE__), STR(__FILE__), fwrite_ret);
+      std::exit(EXIT_FAILURE);
+    }
+    std::fclose(f);
+  } else { // requires casting
+    stream_writer<U> *writer = new stream_writer<U>(fname);
+    for (long i = 0; i < length; ++i)
+      writer->write((T)tab[i]);
+    delete writer;
+  }
 }
 
-} // namespace utils
+} // namespace stream
 
 #endif // __STREAM_H_INCLUDED

@@ -100,6 +100,16 @@ std::string intToStr(int_type x) {
   return ss.str();
 }
 
+template<class T, class U>
+struct is_same_type {
+  enum { value = 0 };
+};
+
+template<class T>
+struct is_same_type<T, T> {
+  enum { value = 1 };
+};
+
 } // namespace utils
 
 #endif // __UTILS_H_INCLUDED

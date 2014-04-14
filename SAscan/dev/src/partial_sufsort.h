@@ -44,10 +44,10 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     long double writing_sa_start = utils::wclock();
     if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
       fprintf(stderr, "(using 32-bit ints): ");
-      utils::write_objects_to_file<int>(SA, block_size, sa_fname);
+      utils::write_objects_to_file(SA, block_size, sa_fname);
     } else {
       fprintf(stderr, "(using 40-bit ints): ");
-      utils::stream_objects_to_file<int, uint40>(SA, block_size, sa_fname);
+      stream::write_objects_to_file<int, uint40>(SA, block_size, sa_fname);
     }
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
@@ -82,7 +82,7 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     
     fprintf(stderr, "  Writing partial SA to disk (using 40-bit ints): ");
     long double writing_sa_start = utils::wclock();
-    utils::stream_objects_to_file<long, uint40>(SA, block_size, sa_fname);
+    stream::write_objects_to_file<long, uint40>(SA, block_size, sa_fname);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
     if (compute_bwt) {
@@ -115,7 +115,7 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
 
     // Save the remapped block to temp file.
     std::string B_fname = text_fname + ".current_block";
-    utils::write_objects_to_file<unsigned char>(B, block_size, B_fname);
+    utils::write_objects_to_file(B, block_size, B_fname);
 
     // Free all memory.
     delete gt_eof_bv;
