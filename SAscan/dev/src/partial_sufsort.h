@@ -20,17 +20,29 @@
 #include "settings.h"
 
 template<typename output_type> void SAscan(std::string input_filename, long ram_use);
-template<typename output_type> void partial_SAscan(std::string input_filename,
-    long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
+template<typename output_type> distributed_file<output_type> *partial_SAscan(std::string input_filename,
+  long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
 
 // Compute partial SA of B[0..block_size) and store on disk.
 // If block_id != n_block also compute the BWT of B.
 //
 // INVARIANT: on entry to the function it holds: 5 * block_size <= ram_use
-void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
-    long max_block_size, long ram_use, std::string text_fname, std::string sa_fname,
-    bool compute_bwt, bitvector *gt_eof_bv, unsigned char **BWT, long block_offset) {
+template<typename block_offset_type>
+distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
+    unsigned char *B,
+    long block_size,
+    long ram_use, // XXX is this always the same throughout the algorithm?
+    std::string text_fname,
+    std::string sa_fname,
+    bool compute_bwt,
+    bitvector *gt_eof_bv,
+    unsigned char **BWT,
+    long block_offset) {
+
+  distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(sa_fname.c_str(),
+      std::max((long)sizeof(block_offset_type), ram_use / 10L));
   fprintf(stderr, "  compute-bwt = %s\n", compute_bwt ? "TRUE" : "FALSE");
+
   if (block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
     // Easy case, just use use 32-bit divsufsort.
     fprintf(stderr, "  Computing partial SA (divsufsort): ");
@@ -39,15 +51,12 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     divsufsort(B, SA, (int)block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
 
-    fprintf(stderr, "  Writing partial SA to disk ");
+    fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
     long double writing_sa_start = utils::wclock();
-    if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
-      fprintf(stderr, "(using 32-bit ints): ");
-      utils::write_objects_to_file(SA, block_size, sa_fname);
-    } else {
-      fprintf(stderr, "(using 40-bit ints): ");
-      stream::write_objects_to_file<int, uint40>(SA, block_size, sa_fname);
-    }
+    result->initialize_writing(4 << 20);
+    for (long i = 0; i < block_size; ++i)
+      result->write((block_offset_type)SA[i]);
+    result->finish_writing();
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
     if (compute_bwt) {
@@ -70,18 +79,20 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     
     delete[] SA;
     delete gt_eof_bv;
-    
   } else if (9L * block_size <= ram_use) {
-    // Easy case: block_size > 2147483647 but enough RAM to use divsufsort64.
+    // Easy case: block_size >= 2GiB but enough RAM to use divsufsort64.
     fprintf(stderr, "  Computing partial SA (divsufsort64): ");
     long double sa_start = utils::wclock();
     long *SA = new long[block_size];
     divsufsort64(B, SA, block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
     
-    fprintf(stderr, "  Writing partial SA to disk (using 40-bit ints): ");
+    fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
     long double writing_sa_start = utils::wclock();
-    stream::write_objects_to_file<long, uint40>(SA, block_size, sa_fname);
+    result->initialize_writing(4 << 20);
+    for (long i = 0; i < block_size; ++i)
+      result->write((block_offset_type)SA[i]);
+    result->finish_writing();
     fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
     if (compute_bwt) {
@@ -104,11 +115,10 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     
     delete gt_eof_bv;
     delete[] SA;
-    
   } else {
-    // (block_size > 2147483647 and 8 * block_size > ram_use) => use recursion.
-    // To save I/O from recursion we also get the BWT, which is obtained during
-    // the storage of the resulting partial SA to disk.
+    // (block_size >= 2GiB and 9*block_size > ram_use) => use recursion.
+    // To save I/O from recursion we also get the BWT, which is obtained
+    // during the storage of the resulting partial SA to disk.
     fprintf(stderr, "  Recursively computing partial SA:\n");
     long double rec_partial_sa_start = utils::wclock();
 
@@ -120,24 +130,24 @@ void compute_partial_sa_and_bwt(unsigned char *B, long block_size,
     delete gt_eof_bv;
     delete[] B;
 
-    if (max_block_size <=  MAX_32BIT_DIVSUFSORT_LENGTH)
-      partial_SAscan<int>(B_fname, ram_use, BWT, text_fname, block_offset);
-    else
-      partial_SAscan<uint40>(B_fname, ram_use, BWT, text_fname, block_offset);
- 
-    // Delete the temp file.
-    utils::file_delete(B_fname);
-    utils::execute("mv " + B_fname + ".sa5 " + sa_fname);
+    result = partial_SAscan<block_offset_type>(B_fname, ram_use, BWT, text_fname, block_offset);
 
+    utils::file_delete(B_fname);
     fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
         utils::wclock() - rec_partial_sa_start);
   }
+
+  return result;
 }
 
 // Compute partial SAs and gap arrays and write to disk.
-void partial_sufsort(std::string filename, long length, long max_block_size, long ram_use) {
+// Return the array of handlers to distributed files as a result.
+template<typename block_offset_type>
+distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use) {
   long n_block = (length + max_block_size - 1) / max_block_size;
   long block_id = n_block - 1, prev_end = length;
+
+  distributed_file<block_offset_type> **distrib_files = new distributed_file<block_offset_type>*[n_block];
 
   while (block_id >= 0) {
     long beg = max_block_size * block_id;
@@ -216,8 +226,9 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
     // 4. Compute/save partial SA. Compute BWT if it's not the last block.
     unsigned char *BWT = NULL;
     std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
-    compute_partial_sa_and_bwt(B, block_size, max_block_size, ram_use,
-        filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
+
+    distrib_files[block_id] = compute_partial_sa_and_bwt<block_offset_type>
+      (B, block_size, ram_use, filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
 
     if (need_streaming) {
       // 5a. Build the rank support for BWT.
@@ -307,6 +318,8 @@ void partial_sufsort(std::string filename, long length, long max_block_size, lon
 
   if (utils::file_exists(filename + ".gt_head")) utils::file_delete(filename + ".gt_head");
   if (utils::file_exists(filename + ".gt_tail")) utils::file_delete(filename + ".gt_tail");
+
+  return distrib_files;
 }
 
 #endif // __PARTIAL_SUFSORT_H_INCLUDED

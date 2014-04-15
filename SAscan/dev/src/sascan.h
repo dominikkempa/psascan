@@ -12,7 +12,8 @@
 #include "uint40.h"
 #include "settings.h"
 
-void partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
+template<typename block_offset_type>
+distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
 
 // Compute SA of <filename> and write to <filename>.sa5 (as normal file).
 template<typename output_type>
@@ -26,7 +27,7 @@ void SAscan(std::string input_filename, long ram_use) {
   fprintf(stderr, "RAM use = %ld (%.1LfMiB)\n", ram_use, (long double)ram_use / (1 << 20));
   
   long length = utils::file_size(input_filename);
-  fprintf(stderr, "Input length = %ld (%.2LfMiB)\n", length, (long double)length / (1 << 20));
+  fprintf(stderr, "Input length = %ld (%.1LfMiB)\n", length, (long double)length / (1 << 20));
   
   long max_block_size;
 
@@ -78,34 +79,36 @@ void SAscan(std::string input_filename, long ram_use) {
     delete[] text;
     delete sa_writer;
   } else {
-    fprintf(stderr, "Using block size = %ld\n", max_block_size);
+    fprintf(stderr, "Using block size = %ld (%.1LfMiB)\n", max_block_size, (long double)max_block_size / (1 << 20));
     fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
-    partial_sufsort(input_filename, length, max_block_size, ram_use);
 
     if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
       fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(int));
-      merge<int>(input_filename, length, max_block_size, ram_use);
+      distributed_file<int> **sparseSA = partial_sufsort<int>(input_filename, length, max_block_size, ram_use);
+      merge<int>(input_filename, length, max_block_size, ram_use, sparseSA);
     } else {
+      distributed_file<uint40> **sparseSA = partial_sufsort<uint40>(input_filename, length, max_block_size, ram_use);
       fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(uint40));
-      merge<uint40>(input_filename, length, max_block_size, ram_use);
+      merge<uint40>(input_filename, length, max_block_size, ram_use, sparseSA);
     }
   }
   
   long double alg_time_abs = utils::wclock() - alg_start;
   long double alg_time_rel = alg_time_abs / ((1.L * length) / (1 << 20));
 
-  fprintf(stderr, "Total time: %.2Lfs (%.2Lfs/MiB)\n",
+  fprintf(stderr, "Total time: %.2Lfs (%.3Lfs/MiB)\n",
       alg_time_abs, alg_time_rel);
 }
 
 // Compute SA of <filename> and write to <filename>.sa5 (as distributed file)
 // (returned as a result). In addition also compute the BWT.
 template<typename output_type>
-void partial_SAscan(std::string      input_filename,
-            long             ram_use,
-            unsigned char ** BWT,
-            std::string      text_filename,
-            long             text_offset) {
+distributed_file<output_type> *partial_SAscan(
+    std::string      input_filename,
+    long             ram_use,
+    unsigned char  **BWT,
+    std::string      text_filename,
+    long             text_offset) {
   if (ram_use < 5L) {
     fprintf(stderr, "Error: not enough memory to run SAscan.\n");
     std::exit(EXIT_FAILURE);
@@ -115,9 +118,9 @@ void partial_SAscan(std::string      input_filename,
   fprintf(stderr, "Text file = %s\n", text_filename.c_str());
   fprintf(stderr, "Text offset = %ld\n", text_offset);
   fprintf(stderr, "RAM use = %ld (%.1LfMiB)\n", ram_use, (long double)ram_use / (1 << 20));
-  
+
   long length = utils::file_size(input_filename);
-  fprintf(stderr, "Input length = %ld (%.2LfMiB)\n", length, (long double)length / (1 << 20));
+  fprintf(stderr, "Input length = %ld (%.1LfMiB)\n", length, (long double)length / (1 << 20));
 
   long max_block_size = ram_use / 9L;
 
@@ -131,23 +134,28 @@ void partial_SAscan(std::string      input_filename,
     std::exit(EXIT_FAILURE);
   }
 
-  fprintf(stderr, "Using block size = %ld\n", max_block_size);
+  fprintf(stderr, "Using block size = %ld (%.1LfMiB)\n", max_block_size, (long double)max_block_size / (1 << 20));
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
-  partial_sufsort(input_filename, length, max_block_size, ram_use);
+
+  distributed_file<output_type> *result = NULL;
 
   if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
     fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(int));
-    partial_merge<int, output_type>(input_filename, length, max_block_size, ram_use, BWT, text_filename, text_offset);
+    distributed_file<int> **partialSA = partial_sufsort<int>(input_filename, length, max_block_size, ram_use);
+    result = partial_merge<int, output_type>(input_filename, length, max_block_size, ram_use, BWT, text_filename, text_offset, partialSA);
   } else {
     fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(uint40));
-    partial_merge<uint40, output_type>(input_filename, length, max_block_size, ram_use, BWT, text_filename, text_offset);
+    distributed_file<uint40> **partialSA = partial_sufsort<uint40>(input_filename, length, max_block_size, ram_use);
+    result = partial_merge<uint40, output_type>(input_filename, length, max_block_size, ram_use, BWT, text_filename, text_offset, partialSA);
   }
 
   long double alg_time_abs = utils::wclock() - alg_start;
   long double alg_time_rel = alg_time_abs / ((1.L * length) / (1 << 20));
 
-  fprintf(stderr, "Total time: %.2Lfs (%.2Lfs/MiB)\n",
+  fprintf(stderr, "Total time: %.2Lfs (%.3Lfs/MiB)\n",
       alg_time_abs, alg_time_rel);
+
+  return result;
 }
 
 void SAscan(std::string input_filename, long ram_use) {

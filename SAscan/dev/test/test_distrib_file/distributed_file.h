@@ -49,7 +49,7 @@ struct distributed_file {
     }
   }
 
-  void initialize_writing(long bufsize = 2 << 20) { // 2MiB default bufsize
+  void initialize_writing(long bufsize = 4 << 20) { // 4MiB default bufsize
     if (m_state != STATE_INIT) {
       fprintf(stderr, "Error: initializing writing while in state %s\n",
           state_string().c_str());
@@ -142,7 +142,7 @@ struct distributed_file {
     m_state = STATE_WRITTEN;
   }
 
-  void initialize_reading(long bufsize = 2 << 20) { // 2MiB default bufsize
+  void initialize_reading(long bufsize = 4 << 20) { // 4MiB default bufsize
     if (m_state != STATE_WRITTEN) {
       fprintf(stderr, "Error: initializing reading in state %s\n",
           state_string().c_str());
@@ -219,7 +219,7 @@ private:
       std::exit(EXIT_FAILURE);
     }
     std::fclose(m_file);
-    std::string cur_fname = m_filename + utils::intToStr(m_cur_file);
+    std::string cur_fname = m_filename + ".part" + utils::intToStr(m_cur_file);
     utils::file_delete(cur_fname);
 
     // debug //
@@ -281,11 +281,11 @@ private:
     }
 
     ++m_cur_file;
-    m_file = utils::open_file(m_filename + utils::intToStr(m_cur_file), "r");
+    m_file = utils::open_file(m_filename + ".part" + utils::intToStr(m_cur_file), "r");
     
     // debug //
     // fprintf(stderr, "opening file %s to reading\n",
-    //   (m_filename + utils::intToStr(m_cur_file)).c_str());
+    //   (m_filename + ".part" + utils::intToStr(m_cur_file)).c_str());
     ///////////
 
     m_cur_file_read = 0;
@@ -298,11 +298,11 @@ private:
       std::exit(EXIT_FAILURE);
     }
 
-    m_file = utils::open_file(m_filename + utils::intToStr(m_files_cnt), "w");
+    m_file = utils::open_file(m_filename + ".part" + utils::intToStr(m_files_cnt), "w");
 
     // debug //
     // fprintf(stderr, "opening file %s to writing\n",
-    //  (m_filename + utils::intToStr(m_files_cnt)).c_str());
+    //  (m_filename + ".part" + utils::intToStr(m_files_cnt)).c_str());
     ///////////
 
     ++m_files_cnt;
