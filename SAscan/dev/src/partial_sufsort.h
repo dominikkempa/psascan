@@ -233,12 +233,11 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
 
     if (need_streaming) {
       // 5a. Build the rank support for BWT.
-      fprintf(stderr, "  Building the rank data structure:\n");
+      fprintf(stderr, "  Building the rank data structure: ");
       long double building_rank_start = utils::wclock();
       context_rank_4n *rank = new context_rank_4n(BWT, block_size - 1);
       delete[] BWT;
-      fprintf(stderr, "  Building the rank data structure: %.2Lf\n",
-          utils::wclock() - building_rank_start);
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
 
       // 5b. Allocate the gap array, do the streaming and store gap to disk.
       fprintf(stderr, "  Stream:\r");

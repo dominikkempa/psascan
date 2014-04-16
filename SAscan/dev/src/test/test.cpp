@@ -64,7 +64,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     
     // Compare the result to correct SA.
     divsufsort64(text, SA, length); // recall that SAscan computes the SA of *reversed* text.
-    uint40 *computed_SA;
+    uint40 *computed_SA = new uint40[length];
     utils::read_n_objects_from_file(computed_SA, length, filename + ".sa5");
     utils::file_delete(filename + ".sa5");
     bool eq = true;
@@ -107,10 +107,10 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(5000, 10,      5);
-  test_random(5000, 10,     20);
-  test_random(5000, 10,    128);
-  test_random(5000, 10,    254);
+  test_random(500, 10,      5);
+  test_random(500, 10,     20);
+  test_random(500, 10,    128);
+  test_random(500, 10,    254);
   test_random(500, 100,      5);
   test_random(500, 100,     20);
   test_random(500, 100,    128);
