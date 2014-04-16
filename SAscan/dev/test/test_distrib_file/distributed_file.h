@@ -2,8 +2,8 @@
 // release the disk space for the already scanned prefix.
 //
 // The constructor is given a `filename' (partial files with be named
-// filename.0, filename.1, ...) and a maximal size (in bytes) of a single
-// file.
+// filename.part0, filename.part1, ...) and a maximal size (in bytes) of a
+// single file.
 //
 // Example: create, write and read a sequence distributed into 10MiB files.
 // ----------------------------------------------------------------------------

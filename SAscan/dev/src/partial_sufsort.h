@@ -31,6 +31,7 @@ template<typename block_offset_type>
 distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     unsigned char *B,
     long block_size,
+    long block_id,
     long ram_use, // XXX is this always the same throughout the algorithm?
     std::string text_fname,
     std::string sa_fname,
@@ -123,7 +124,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     long double rec_partial_sa_start = utils::wclock();
 
     // Save the remapped block to temp file.
-    std::string B_fname = text_fname + ".current_block";
+    std::string B_fname = text_fname + ".block" + utils::intToStr(block_id);
     utils::write_objects_to_file(B, block_size, B_fname);
 
     // Free all memory.
@@ -228,7 +229,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
 
     distrib_files[block_id] = compute_partial_sa_and_bwt<block_offset_type>
-      (B, block_size, ram_use, filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
+      (B, block_size, block_id, ram_use, filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
 
     if (need_streaming) {
       // 5a. Build the rank support for BWT.
