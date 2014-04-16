@@ -25,8 +25,8 @@
 // delete f;
 // ----------------------------------------------------------------------------
 
-#ifndef __DISTRIBUTED_FILE
-#define __DISTRIBUTED_FILE
+#ifndef __DISTRIBUTED_FILE_INCLUDED
+#define __DISTRIBUTED_FILE_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -336,5 +336,5 @@ private:
   std::FILE *m_file;
 };
 
-#endif // __DISTRIBUTED_FILE
+#endif // __DISTRIBUTED_FILE_INCLUDED
 

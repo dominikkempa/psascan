@@ -10,15 +10,15 @@
 
 struct buffered_gap_array {
   buffered_gap_array(long n) {
-    if (n <= 0) {
-      fprintf(stderr, "Error: constructing a gap array of length 0.\n");
+    if (n <= 0L) {
+      fprintf(stderr, "Error: attempting to construct empty gap array.\n");
       std::exit(EXIT_FAILURE);
     }
 
     m_length = n;
     m_count = new unsigned char[m_length];
     std::fill(m_count, m_count + m_length, 0);
-    m_buf = new long[k_bufsize];
+    m_buf = new long[k_bufsize]; // 4MiB
     m_filled = 0;
   }
 
@@ -45,10 +45,10 @@ struct buffered_gap_array {
     delete[] m_buf;
   }
   
-  // Store to file using v-byte encoding.  
+  // Store to file using v-byte encoding.
   void save_to_file(std::string fname) {
     flush();
-    
+
     fprintf(stderr, "  gap->excess.size() = %lu\n", m_excess.size());
     fprintf(stderr, "  Saving gap to file: ");
     long double gap_save_start = utils::wclock();
@@ -83,7 +83,7 @@ struct buffered_gap_array {
     fprintf(stderr, "%.2Lf\n", utils::wclock() - gap_save_start);
   }
 
-  static const int k_bufsize = (1 << 19); // 2MB
+  static const int k_bufsize = (1 << 19);
 
   unsigned char *m_count;
   std::vector<long> m_excess;

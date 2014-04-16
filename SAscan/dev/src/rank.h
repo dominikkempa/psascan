@@ -1,6 +1,6 @@
 // Data structure answering general rank queries over byte alphabet based
 // on the rank data structure from the 'bwtdisk' implementation of
-// algorithm from
+// algorithm (http://people.unipmn.it/manzini/bwtdisk/) from
 //
 //     Paolo Ferragina, Travis Gagie, Giovanni Manzini:
 //     Lightweight Data Indexing and Compression in External Memory.
