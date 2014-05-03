@@ -1,7 +1,7 @@
-// Suffix range matching algorithms described in
+// String range matching algorithms described in
 //
 // Juha Kärkkäinen, Dominik Kempa, Simon J. Puglisi:
-// String Range Matching. In Proc. CPM 2014
+// String Range Matching. In Proc. CPM 2014.
 
 #ifndef __SRANK_H_INCLUDED
 #define __SRANK_H_INCLUDED

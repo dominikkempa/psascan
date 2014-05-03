@@ -44,7 +44,14 @@ void merge(std::string input_filename,
   for (long i = 0, dbg = 0; i < length; ++i, ++dbg) {
     if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
-      fprintf(stderr, "Merging: %.1Lf%%. Time: %.2Lfs\r", (100.L * i) / length, elapsed);
+      long double scanned_m = i / (1024.L * 1024);
+      long inp_vol = i;
+      long out_vol = sizeof(uint40) * i;
+      long tot_vol = inp_vol + out_vol;
+      long double tot_vol_m = tot_vol / (1024.L * 1024);
+      long double io_speed = tot_vol_m / elapsed;
+      fprintf(stderr, "Merging: %.1Lf%%, time = %.2Lfs (%.3Lfs/MiB), io = %2.LfMiB/s\r",
+          (100.L * i) / length, elapsed, elapsed / scanned_m, io_speed);
       dbg = 0;
     }
 

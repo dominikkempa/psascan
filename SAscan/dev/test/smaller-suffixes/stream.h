@@ -95,46 +95,6 @@ private:
   std::FILE *m_file;
 };
 
-// Special version of backward stream reader that skips last 'skip_bytes'
-// bytes from the end of file.
-template<typename T>
-struct backward_skip_stream_reader {
-  backward_skip_stream_reader(std::string fname, long skip_bytes, long buf_bytes = (4L << 20))
-      : m_bufelems((buf_bytes + sizeof(T) - 1) / sizeof(T)), m_filled(0L) {
-    m_buffer = new T[m_bufelems];
-    m_file = utils::open_file(fname, "r");    
-    std::fseek(m_file, -skip_bytes, SEEK_END);
-    refill();
-  }
-
-  ~backward_skip_stream_reader() {
-    delete[] m_buffer;
-    std::fclose(m_file);
-  }
-
-  inline T read() {
-    T ret = m_buffer[m_pos--];
-    if (m_pos < 0L) refill();
-    
-    return ret;
-  }
-
-private:
-  void refill() {
-    long curpos = std::ftell(m_file) / sizeof(T);
-    long toread = std::min(m_bufelems, curpos - m_filled);
-
-    std::fseek(m_file, -(m_filled + toread), SEEK_CUR);
-    m_filled = std::fread(m_buffer, sizeof(T), toread, m_file);
-    m_pos = m_filled - 1L;
-  }
-
-  long m_bufelems, m_filled, m_pos;
-  T *m_buffer;
-
-  std::FILE *m_file;
-};
-
 /********************************* usage ***************************************
 stream_writer<int> *sw = new stream_writer<int>("output.txt", 1 << 22);
 for (int i = 0; i < n; ++i)

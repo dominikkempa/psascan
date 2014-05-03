@@ -57,6 +57,23 @@ struct buffered_gap_array {
       flush();
   }
 
+  void increment(long *buf, long elems) {
+    for (int i = 0; i < elems; ++i) {
+      long pos = buf[i];
+      ++m_count[pos];
+
+      if (!m_count[pos]) {
+        m_excess[m_excess_filled++] = pos;
+        ++m_total_excess;
+
+        if (m_excess_filled == k_excess_limit) {
+          utils::add_objects_to_file(m_excess, m_excess_filled, storage_filename);
+          m_excess_filled = 0;
+        }
+      }
+    }
+  }
+
   ~buffered_gap_array() {
     delete[] m_count;
     delete[] m_buf;
@@ -103,6 +120,7 @@ struct buffered_gap_array {
       writer->write(gap_j);
     }
     delete writer;
+    delete[] sorted_excess;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - gap_save_start);
   }
 
