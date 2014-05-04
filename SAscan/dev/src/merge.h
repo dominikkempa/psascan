@@ -45,7 +45,7 @@ void merge(std::string input_filename,
     if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
       long double scanned_m = i / (1024.L * 1024);
-      long inp_vol = i;
+      long inp_vol = (1L + sizeof(uint40)) * i;
       long out_vol = sizeof(uint40) * i;
       long tot_vol = inp_vol + out_vol;
       long double tot_vol_m = tot_vol / (1024.L * 1024);

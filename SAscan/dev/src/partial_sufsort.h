@@ -173,7 +173,7 @@ void parallel_stream(long j_beg, long j_end, long i, buffered_gap_array *gap,
   bit_stream_writer *gt_out = new bit_stream_writer(*tail_gt_filename);
 
   for (long j = j_end, dbg = 0; j > j_beg; --j, ++dbg) {
-    if (dbg == (1 << 24)) {
+    if (dbg == (1 << 26)) {
       long double elapsed = utils::wclock() - start;
       long double streamed_mib = (1.L * (j_end - j)) / (1 << 20);
       stdout_mutex.lock();
@@ -379,6 +379,8 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
 
     // Concatenate all bitvectors into one (but leave filename.gt_head, for now)
     //-------------------------------------------------------------------------
+    fprintf(stderr, "  Concatenating gt bitvectors: ");
+    long double gt_concat_start = utils::wclock();
     bit_stream_writer *gt = new bit_stream_writer(filename + ".gt");
     if (need_streaming) {
       for (long jj = starting_points - 1; jj >= 0; --jj) {
@@ -396,6 +398,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     for (long tt = end - 1; tt >= beg; --tt) gt->write(gt_head->read());
     delete gt_head;
     delete gt;
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - gt_concat_start);
     //--------------------------------------------------------------------------
 
     prev_end = end;
