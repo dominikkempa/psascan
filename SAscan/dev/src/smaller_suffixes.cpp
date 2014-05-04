@@ -241,6 +241,10 @@ private:
     std::string text_filename, long suffix_start_pos, long *ret) {
   long text_length = utils::file_size(text_filename);
   long pat_length = text_length - suffix_start_pos;
+  if (!pat_length) {
+    *ret = 0;
+    return;
+  }
   gt_accessor gt(text_filename + ".gt");
   pattern pat(text_filename, suffix_start_pos);
 
