@@ -18,7 +18,7 @@ int main(int argc, char **argv) {
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
 
   long ram_use = (long)atoi(argv[2]) << 20;
-  // ram_use -= (11L << 20) * max_threads; // subtract the RAM for threads.
+  ram_use -= (11L << 20) * max_threads; // subtract the RAM for threads.
                                   // Disabled for now for testing purposes.
   SAscan(argv[1], ram_use);
 }

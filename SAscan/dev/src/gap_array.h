@@ -21,15 +21,14 @@ struct buffered_gap_array {
 
     m_length = n;
     m_sections = sections;
+    m_excess_disk = 0L;
     m_count = new unsigned char[m_length];
     std::fill(m_count, m_count + m_length, 0);
 
     m_excess        = new long*[m_sections];
     m_excess_filled = new long[m_sections];
-    m_total_excess  = new long[m_sections];
     for (long i = 0L; i < m_sections; ++i) m_excess[i] = new long[k_excess_limit];
     for (long i = 0L; i < m_sections; ++i) m_excess_filled[i] = 0L;
-    for (long i = 0L; i < m_sections; ++i) m_total_excess[i] = 0L;
 
     // File used to store excess values.
     storage_filename = "excess." + utils::random_string_hash();
@@ -42,7 +41,6 @@ struct buffered_gap_array {
     int section_size = m_length / m_sections;
     long start = which * section_size;
     long end = (which == m_sections - 1) ? m_length : start + section_size;
-    long old_filled = excess_filled;
 
     for (long i = 0; i < elems; ++i) {
       if (start <= buf[i] && buf[i] < end) {
@@ -52,6 +50,7 @@ struct buffered_gap_array {
           excess[excess_filled++] = pos;
           if (excess_filled == k_excess_limit) {
             gap_writing.lock();
+            m_excess_disk += excess_filled;
             utils::add_objects_to_file(excess, excess_filled, storage_filename);
             excess_filled = 0L;
             gap_writing.unlock();
@@ -59,8 +58,6 @@ struct buffered_gap_array {
         }
       }
     }
-
-    m_total_excess[which] += m_excess_filled[which] - old_filled;
   }
 
   ~buffered_gap_array() {
@@ -69,7 +66,6 @@ struct buffered_gap_array {
       delete[] m_excess[i];
     delete[] m_excess;
     delete[] m_excess_filled;
-    delete[] m_total_excess;
 
     if (utils::file_exists(storage_filename))
       utils::file_delete(storage_filename);
@@ -77,13 +73,12 @@ struct buffered_gap_array {
   
   // Store to file using v-byte encoding.
   void save_to_file(std::string fname) {
-    long excess_filled = 0L, total_excess = 0L;
-    for (long i = 0L; i < m_sections; ++i) {
+    long excess_filled = 0L;
+    for (long i = 0L; i < m_sections; ++i)
       excess_filled += m_excess_filled[i];
-      total_excess += m_total_excess[i];
-    }
+    long total_excess = excess_filled + m_excess_disk;
     fprintf(stderr, "  Gap excess (inmem): %ld\n", excess_filled);
-    fprintf(stderr, "  Gap excess (disk): %ld\n", total_excess - excess_filled);
+    fprintf(stderr, "  Gap excess (disk): %ld\n", m_excess_disk);
     fprintf(stderr, "  Saving gap to file: ");
     long double gap_save_start = utils::wclock();
 
@@ -95,9 +90,9 @@ struct buffered_gap_array {
       std::copy(m_excess[i], m_excess[i] + m_excess_filled[i], sorted_excess + filled);
       filled += m_excess_filled[i];
     }
-    if (total_excess != excess_filled) {
+    if (m_excess_disk > 0L) {
       long *dest = sorted_excess + excess_filled;
-      long toread = total_excess - excess_filled;
+      long toread = m_excess_disk;
       utils::read_n_objects_from_file(dest, toread, storage_filename.c_str());
     }
 
@@ -129,9 +124,10 @@ struct buffered_gap_array {
 
   long m_length;
   long m_sections;
+  long m_excess_disk;
 
   static const int k_excess_limit = (1 << 17);
-  long **m_excess, *m_excess_filled, *m_total_excess;
+  long **m_excess, *m_excess_filled;
 
   std::string storage_filename;
 };
