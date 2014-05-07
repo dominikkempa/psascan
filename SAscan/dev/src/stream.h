@@ -253,7 +253,7 @@ struct bit_stream_writer {
   }
 
 private:
-  static const int bufsize = (2 << 20); // 2MB
+  static const int bufsize = (1 << 20); // 1MB
   
   unsigned char *buf;
   int filled, pos_bit;

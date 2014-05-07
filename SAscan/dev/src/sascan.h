@@ -12,6 +12,8 @@
 #include "uint40.h"
 #include "settings.h"
 
+extern long max_threads;
+
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
 

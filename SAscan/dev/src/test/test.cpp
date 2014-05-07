@@ -17,6 +17,8 @@
 #include "../utils.h"
 #include "../sascan.h"
 
+extern long max_threads;
+
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
   printf("TEST, testcases = %ld, max_n = %ld, max_sigma = %ld\r",
@@ -99,6 +101,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
 int main(int, char **) {
   std::srand(std::time(0) + getpid());
+  max_threads = 32L;
 
   // Redirect stderr to /dev/null
   int redir = open("/dev/null", O_WRONLY);
@@ -107,10 +110,10 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(500, 10,      5);
-  test_random(500, 10,     20);
-  test_random(500, 10,    128);
-  test_random(500, 10,    254);
+  test_random(5000, 10,      5);
+  test_random(5000, 10,     20);
+  test_random(5000, 10,    128);
+  test_random(5000, 10,    254);
   test_random(500, 100,      5);
   test_random(500, 100,     20);
   test_random(500, 100,    128);

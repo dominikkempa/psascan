@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 #include <mutex>
+#include <future>
 #include <algorithm>
 
 #include "divsufsort.h"
@@ -24,17 +25,27 @@
 #include "settings.h"
 #include "smaller_suffixes.h"
 
+long max_threads;
+
 std::mutex stdout_mutex;
-std::mutex gap_mutex;
+
+//-----------------------------------------------------------------------------
+// On Platform-L 6 is a good value (better than 4 and 8).
+// Bigger values make the program run slower.
+//-----------------------------------------------------------------------------
+const long max_gap_sections = 6;
+std::mutex gap_mutexes[max_gap_sections];
 
 template<typename output_type> void SAscan(std::string input_filename, long ram_use);
 template<typename output_type> distributed_file<output_type> *partial_SAscan(std::string input_filename,
   long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
 
+//=============================================================================
 // Compute partial SA of B[0..block_size) and store on disk.
 // If block_id != n_block also compute the BWT of B.
 //
 // INVARIANT: on entry to the function it holds: 5 * block_size <= ram_use
+//=============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     unsigned char *B,
@@ -125,9 +136,11 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     delete gt_eof_bv;
     delete[] SA;
   } else {
+    //-------------------------------------------------------------------------
     // (block_size >= 2GiB and 9*block_size > ram_use) => use recursion.
     // To save I/O from recursion we also get the BWT, which is obtained
     // during the storage of the resulting partial SA to disk.
+    //-------------------------------------------------------------------------
     fprintf(stderr, "  Recursively computing partial SA:\n");
     long double rec_partial_sa_start = utils::wclock();
 
@@ -149,39 +162,79 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
   return result;
 }
 
-/*********************** CODE EXECUTED IN PARALLEL *****************************/
+//=============================================================================
+// Used to store progress information for different threads during streaming.
+//=============================================================================
+struct stream_info {
+  stream_info(long thread_count, long tostream)
+    : m_update_count(0L),
+      m_thread_count(thread_count),
+      m_tostream(tostream) {
+    m_streamed = new long[thread_count];
+    std::fill(m_streamed, m_streamed + thread_count, 0L);
+    m_timestamp = utils::wclock();
+  }
+
+  ~stream_info() {
+    delete[] m_streamed;
+  }
+
+  long m_update_count;     // number of updates
+  long m_thread_count;     // number of threads
+  long m_tostream;         // total text length to stream
+  long double m_timestamp; // when the streaming started
+  long *m_streamed;        // how many bytes streamed by each thread
+};
+
+std::mutex stream_info_mutex;
+
+//=============================================================================
+// Parallel streaming
+//-----------------------------------------------------------------------------
+// Currently each thread is using about 11MiB of RAM.
+//=============================================================================
 void parallel_stream(long j_beg, long j_end, long i, buffered_gap_array *gap,
     long *count, long whole_suffix_rank, context_rank_4n *rank,
     unsigned char last, std::string text_filename, long length,
-    std::string *tail_gt_filename) {
-  long double start = utils::wclock();
-  stdout_mutex.lock();
-  std::cerr << "Thread " << std::this_thread::get_id() << " begins.\n";
-  std::cerr << "Thread " << std::this_thread::get_id() << " j-range: [" << j_beg << ", " << j_end << "]\n";
-  stdout_mutex.unlock();
-
-  static const int gap_buf_size = (1 << 19);
-  long *gap_buf = new long[gap_buf_size];
+    std::string *tail_gt_filename, stream_info *info, int thread_id) {
+  static const int gap_buf_size = (1 << 20);
+  long *gap_buf = new long[gap_buf_size]; // 8MiB. The bigger this buffer is, the better.
+                                          // 8MiB gives 49MiB/s streaming speed.
+                                          // 4MiB gives 47.5MiB/s.
   int gap_buf_filled = 0;
+  long gap_sections = std::min(max_gap_sections, length);
 
-  gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt"));
+  gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
   bool next_gt = (j_end + 1 == length) ? 0 : (*gt_in)[length - j_end - 2];
   backward_skip_stream_reader<unsigned char> *text_streamer
-    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_end);
+    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_end, 1 << 20); // 1MiB buffer
 
   *tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
-  bit_stream_writer *gt_out = new bit_stream_writer(*tail_gt_filename);
+  bit_stream_writer *gt_out = new bit_stream_writer(*tail_gt_filename); // 1MiB buffer
 
   for (long j = j_end, dbg = 0; j > j_beg; --j, ++dbg) {
-    if (dbg == (1 << 26)) {
-      long double elapsed = utils::wclock() - start;
-      long double streamed_mib = (1.L * (j_end - j)) / (1 << 20);
-      stdout_mutex.lock();
-      std::cerr << "Thread " << std::this_thread::get_id() << ": ";
-      fprintf(stderr,"  stream: %.1Lf%%. Time: %.2Lf. Speed: %.2LfMiB/s\n",
-        (100.L * (j_end - j)) / (j_end - j_beg), elapsed, streamed_mib / elapsed);
-      stdout_mutex.unlock();
-      dbg = 0;
+    if (dbg == (1 << 25)) {
+      stream_info_mutex.lock();
+      info->m_streamed[thread_id] = j_end - j;
+      info->m_update_count += 1;
+      if (info->m_update_count == info->m_thread_count) {
+        info->m_update_count = 0L;
+        long double elapsed = utils::wclock() - info->m_timestamp;
+        long total_streamed = 0L;
+
+        for (long t = 0; t < info->m_thread_count; ++t)
+          total_streamed += info->m_streamed[t];
+        long double speed = (total_streamed / (1024.L * 1024)) / elapsed;
+
+        stdout_mutex.lock();
+        fprintf(stderr, "\r  [PARALLEL]Stream: %.2Lf%%. Time: %.2Lf. Threads: %ld. "
+            "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)",
+            (total_streamed * 100.L) / info->m_tostream, elapsed,
+            info->m_thread_count, speed / info->m_thread_count, speed);
+        stdout_mutex.unlock();
+      }
+      stream_info_mutex.unlock();
+      dbg = 0L;
     }
 
     unsigned char c = text_streamer->read();
@@ -192,36 +245,33 @@ void parallel_stream(long j_beg, long j_end, long i, buffered_gap_array *gap,
 
     gap_buf[gap_buf_filled++] = i;
     if (gap_buf_filled == gap_buf_size) {
-      gap_mutex.lock();
-      gap->increment(gap_buf, gap_buf_filled);
-      gap_mutex.unlock();
-      gap_buf_filled = 0;    
+      for (int t = 0; t < gap_sections; ++t) {
+        gap_mutexes[t].lock();
+        gap->increment(gap_buf, gap_buf_filled, t);
+        gap_mutexes[t].unlock();
+      }
+      gap_buf_filled = 0L;
     }
   }
-
   if (gap_buf_filled) {
-    gap_mutex.lock();
-    gap->increment(gap_buf, gap_buf_filled);
-    gap_mutex.unlock();
+    for (int t = 0; t < gap_sections; ++t) {
+      gap_mutexes[t].lock();
+      gap->increment(gap_buf, gap_buf_filled, t);
+      gap_mutexes[t].unlock();
+    }
   }
   
   delete[] gap_buf;
   delete text_streamer;
-
   delete gt_in;
   delete gt_out;
-
-  long double elapsed = utils::wclock() - start;
-  stdout_mutex.lock();
-  std::cerr << "Thread " << std::this_thread::get_id() << " finished in "
-    << elapsed << "secs.\n";
-  stdout_mutex.unlock();
 }
-/********************* END OF CODE EXECUTED IN PARALLEL ************************/
 
 
+//=============================================================================
 // Compute partial SAs and gap arrays and write to disk.
 // Return the array of handlers to distributed files as a result.
+//=============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use) {
   long n_block = (length + max_block_size - 1) / max_block_size;
@@ -249,16 +299,16 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     unsigned char last = B[block_size - 1];
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
-#define MAX_THREADS 16L
-    int starting_points = std::min(MAX_THREADS, length - end);
+    int starting_points = std::min(max_threads, length - end);
     long *start_j = NULL, *start_i = NULL;
     std::string *tail_gt_filenames = NULL;
 
     long count[256] = {0};
     bitvector *gt_eof_bv = NULL;
     if (need_streaming) {
+      // Compute starting points for streaming.
       //-----------------------------------------------------------------------
-      fprintf(stderr, "  Computing starting points: ");
+      fprintf(stderr, "  [PARALLEL]Computing starting positions: ");
       long double starting_points_start = utils::wclock();
       start_j = new long[starting_points];
       start_i = new long[starting_points];
@@ -352,25 +402,30 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
 
       // 5b. Allocate the gap array, do the streaming and store gap to disk.
       //------------------------------------------------------------------------
-      fprintf(stderr, "Stream: \r");
+      fprintf(stderr, "  [PARALLEL]Stream:");
       long double stream_start = utils::wclock();
-      buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
+
+      long gap_sections = std::min(length, max_gap_sections);
+      buffered_gap_array *gap = new buffered_gap_array(block_size + 1, gap_sections);
       std::thread **threads = new std::thread*[starting_points];
+
+      stream_info info(starting_points, length - end);
       for (int jj = 0; jj < starting_points; ++jj) {
         long j_beg = (jj > 0) ? start_j[jj - 1] : end - 1;
         long j_end = start_j[jj];
         threads[jj] = new std::thread(parallel_stream,
             j_beg, j_end, start_i[jj], gap, count, whole_suffix_rank,
-            rank, last, filename, length, tail_gt_filenames + jj);
+            rank, last, filename, length, tail_gt_filenames + jj, &info, jj);
       }
       for (int jj = 0; jj < starting_points; ++jj) threads[jj]->join();
       for (int jj = 0; jj < starting_points; ++jj) delete threads[jj];
       delete[] threads;
       delete rank;
       long double stream_time = utils::wclock() - stream_start;
-      long double streamed_mib = (1.L * (length - end)) / (1 << 20);
-      fprintf(stderr,"  Stream: 100.0%%. Time: %.2Lf. Speed: %.2LfMiB/s\n",
-        stream_time, streamed_mib / stream_time);
+      long double speed = ((length - end) / (1024.L * 1024)) / stream_time;
+      fprintf(stderr,"\r  [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
+          "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
+          stream_time, info.m_thread_count, speed / starting_points, speed);
 
       // 5c. Save gap to file.
       gap->save_to_file(filename + ".gap." + utils::intToStr(block_id));

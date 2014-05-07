@@ -1,25 +1,26 @@
 //=============================================================================
-//
 // A module implementing the computation of rank necessary to initiate
 // parallel streaming in SAscan.
 //
 // The whole module implements one method, which should be passed to thread
 // constructor. The method is:
 //
-//    long parallel_smaller_suffixes(
+//    void parallel_smaller_suffixes(
 //         unsigned char*  block,
 //         long            block_size,
 //         std::string     text_filename,
-//         long            suffix_start_pos
+//         long            suffix_start_pos,
+//         long*           ret
 //    );
 //
 // The method takes the current SAscan block (it is in memory and can be
-// accessed sequentially) and computes the number of suffixes of text starting
+// random-accessed) and computes the number of suffixes of text starting
 // inside that block (and extending until the end of text) that are smaller
-// than the suffix of text starting at position suffix_starting_pos.
+// than the suffix of text starting at position suffix_start_pos. The
+// result is returned via ret pointer.
 //
 // In addition, the method assumes that there is a file named
-// text_filename.gt_head on disk containing the gt bitvector from the previous
+// text_filename.gt on disk containing the gt bitvector from the previous
 // iteration of SAscan. This file contains the bitvector defined as follows:
 //   
 //   gt[i] == 1
@@ -29,16 +30,13 @@
 //
 //   The suffix of text of length i + 1 is lexicographically larger than
 //   the suffix of text starting immediatelly after the 'block' in the text.
-//
 //-----------------------------------------------------------------------------
-//
 // The function requires random access to the block (which is in memory). In
 // addition, it allocates only 3 disk blocks (currently each block is 1MiB) of
-// disk space. These blocks are used to access pattern and gt bitvector. Also,
+// RAM. These blocks are used to access pattern and gt bitvector. Also,
 // some negligible space is required for the list of scopes of the pattern,
-// which is computed on demand by the 'GS_sets' class and its 'extend_pattern'
-// method.
-//
+// which is computed on demand by the 'extend_pattern' method of 'GS_sets'
+// class.
 //=============================================================================
 
 #include "smaller_suffixes.h"
@@ -53,7 +51,7 @@ struct triple {
   triple(long b_ = 0L, long e_ = 0L, long c_ = 0L)
     : b(b_), e(e_), c(c_) {}
 
-  bool operator == (const triple &t) const {
+  inline bool operator == (const triple &t) const {
     return b == t.b && e == t.e && c == t.c;
   }
 };
@@ -63,19 +61,19 @@ struct pair {
   pair(long b_ = 0L, long c_ = 0L)
     : b(b_), c(c_) {}
 
-  bool operator == (const pair &p) const {
+  inline bool operator == (const pair &p) const {
     return b == p.b && c == p.c;
   }
 };
 
-triple contains(std::vector<triple> &S_p, long j) {
+inline triple contains(std::vector<triple> &S_p, long j) {
   for (long i = 0L; i < (long)S_p.size(); ++i)
     if (S_p[i].b <= j && j < S_p[i].e) return S_p[i];
     else if (S_p[i].b > j) break;
   return triple(0L, 0L, 0L);
 }
 
-pair pred(std::vector<pair> &S_n, long j) {
+inline pair pred(std::vector<pair> &S_n, long j) {
   long i = 0;
   while (i + 1 < (long)S_n.size() && S_n[i + 1].b <= j) ++i;
   return S_n[i];
@@ -223,8 +221,6 @@ private:
     }
   }
 
-//  static const long bufsize = 2L * SMALLER_SUFFIXES_DISK_BLOCK_SIZE;
-
   unsigned char *buf;
   long filled, origin, length, fpos;
   std::FILE *f;
@@ -237,7 +233,7 @@ private:
 // is a substring of text stored in 'text_filename') that are smaller than
 // the suffix of text starting at position 'suffix_start_pos'.
 //==============================================================================
-/*long*/void parallel_smaller_suffixes(unsigned char *block, long block_size,
+void parallel_smaller_suffixes(unsigned char *block, long block_size,
     std::string text_filename, long suffix_start_pos, long *ret) {
   long text_length = utils::file_size(text_filename);
   long pat_length = text_length - suffix_start_pos;
@@ -267,6 +263,5 @@ private:
   }
 
   *ret = count;
-//  return count;
 }
 

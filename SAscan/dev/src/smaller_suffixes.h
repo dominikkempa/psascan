@@ -13,12 +13,12 @@
 // access gt bitvector sequentially so the class essentially just streams the
 // bitvector one disk block after another.
 //
-// However, it is optimized to perform well in 2 scenarions that often occur
+// However, it is optimized to perform well in 2 scenarios that often occur
 // in practice:
 // * only a very small number of bits in gt are accessed. This is why the
 //   class does not actually stream the whole file, but whenever the accessed
-//   bit is further apart from the bits inside the buffer than one disk block
-//   it fseek's to that place in file and then refills the buffer.
+//   bit is further apart from the bits inside the buffer than one disk block,
+//   it fseeks to that place in file and then refills the buffer.
 // * almost all bits are accessed. In this case the access is also efficient
 //   because we read the data in disk blocks.
 //=============================================================================
@@ -101,12 +101,12 @@ struct gt_accessor {
   std::FILE *f;
   unsigned char *buf;
   static const long bufsize = SMALLER_SUFFIXES_DISK_BLOCK_SIZE;
-  long filled;  // the buffer holds 8 * filled bits
+  long filled;     // the buffer holds 8 * filled bits
   long bit_offset; // index of the first bit in the buffer
 };
 
 
-/*long*/void parallel_smaller_suffixes(unsigned char *block, long block_size,
+void parallel_smaller_suffixes(unsigned char *block, long block_size,
     std::string text_filename, long suffix_start_pos, long *ret);
 
 #endif // __SMALLER_SUFFIXES_H_INCLUDED
