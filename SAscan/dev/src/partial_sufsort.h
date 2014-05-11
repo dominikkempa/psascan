@@ -25,13 +25,15 @@
 #include "sascan.h"
 #include "settings.h"
 #include "smaller_suffixes.h"
+#include "radixsort.h"
 
+template<typename block_offset_type>
 struct buffer {  
-  buffer(long size)
+  buffer(long size_bytes)
       : m_filled(0L),
-        m_size(size),
+        m_size(size_bytes / sizeof(block_offset_type)),
         is_full(false) {
-    m_content = new long[size];
+    m_content = new block_offset_type[m_size];
   }
   
   ~buffer() {
@@ -40,10 +42,9 @@ struct buffer {
 
   long m_filled;
   long m_size;
-
   bool is_full;
 
-  long *m_content;
+  block_offset_type *m_content;
   std::mutex m_mutex;
   std::condition_variable m_cv;
 };
@@ -226,8 +227,9 @@ std::mutex stream_info_mutex;
 //-----------------------------------------------------------------------------
 // Currently each thread is using about 11MiB of RAM.
 //=============================================================================
-void parallel_stream(buffer *active, buffer *inactive, long j_beg, long j_end, long i,
-    long *count, long whole_suffix_rank, context_rank_4n *rank,
+template<typename block_offset_type>
+void parallel_stream(buffer<block_offset_type> *active, buffer<block_offset_type> *inactive,
+    long j_beg, long j_end, block_offset_type i, long *count, block_offset_type whole_suffix_rank, context_rank_4n *rank,
     unsigned char last, std::string text_filename, long length,
     std::string *tail_gt_filename, stream_info *info, int thread_id) {
   gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
@@ -241,7 +243,7 @@ void parallel_stream(buffer *active, buffer *inactive, long j_beg, long j_end, l
   long j = j_end, dbg = 0L;
   long double idle_time = 0.L, idle_start, idle_end;
   while (j > j_beg) {
-    if (dbg > (1 << 25)) {
+    if (dbg > (1 << 26)) {
       stream_info_mutex.lock();
       info->m_streamed[thread_id] = j_end - j;
       info->m_update_count += 1;
@@ -277,11 +279,11 @@ void parallel_stream(buffer *active, buffer *inactive, long j_beg, long j_end, l
     dbg += active->m_filled;
     for (long t = 0L; t < active->m_filled; ++t, --j) {
       unsigned char c = text_streamer->read();
-      i = count[c] + rank->rank(i - (i > whole_suffix_rank), c);
+      i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
       if (c == last && next_gt) ++i;
       gt_out->write(i > whole_suffix_rank);
       next_gt = (*gt_in)[length - j - 1];
-      active->m_content[t] = i; // LOL, forgot about that.
+      active->m_content[t] = i;
     }
 
     active->is_full = true;
@@ -299,7 +301,9 @@ void parallel_stream(buffer *active, buffer *inactive, long j_beg, long j_end, l
   delete gt_out;
 }
 
-void parallel_update(buffer *active, buffer *inactive, long toprocess, buffered_gap_array *gap,
+template<typename block_offset_type>
+void parallel_update(buffer<block_offset_type> *active, buffer<block_offset_type> *inactive,
+    long toprocess, buffered_gap_array *gap,
     stream_info *info, long thread_id, long gap_sections) {
   long processed = 0L;
   long double idle_time = 0.L, idle_start, idle_end;
@@ -310,6 +314,8 @@ void parallel_update(buffer *active, buffer *inactive, long toprocess, buffered_
       active->m_cv.wait(lk);
     idle_end = utils::wclock();
     idle_time += idle_end - idle_start;
+
+    // radixsort8msb_copy2(active->m_content, active->m_content + active->m_filled, sizeof(block_offset_type) - 1);
     for (int t = 0; t < gap_sections; ++t) {
       gap_mutexes[t].lock();
       gap->increment(active->m_content, active->m_filled, t);
@@ -472,18 +478,18 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
 
       stream_info info(starting_points, length - end);
 
-      buffer **buffers = new buffer*[starting_points * 2];
+      buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[starting_points * 2];
       for (long t = 0L; t < starting_points * 2L; ++t)
-        buffers[t] = new buffer(1 << 19);
+        buffers[t] = new buffer<block_offset_type>(4 << 20);
       for (int jj = 0; jj < starting_points; ++jj) {
         long j_beg = (jj > 0) ? start_j[jj - 1] : end - 1;
         long j_end = start_j[jj];
 
-        workers[jj]  = new std::thread(parallel_stream, buffers[2 * jj], buffers[2 * jj + 1],
+        workers[jj]  = new std::thread(parallel_stream<block_offset_type>, buffers[2 * jj], buffers[2 * jj + 1],
                                        j_beg, j_end, start_i[jj], count, whole_suffix_rank,
                                        rank, last, filename, length, tail_gt_filenames + jj,
                                        &info, jj);
-        updaters[jj] = new std::thread(parallel_update, buffers[2 * jj], buffers[2 * jj + 1],
+        updaters[jj] = new std::thread(parallel_update<block_offset_type>, buffers[2 * jj], buffers[2 * jj + 1],
                                        j_end - j_beg, gap, &info, jj, gap_sections);
       }
       for (int jj = 0; jj < starting_points; ++jj) {

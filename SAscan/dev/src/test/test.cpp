@@ -110,10 +110,10 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(5000, 10,      5);
-  test_random(5000, 10,     20);
-  test_random(5000, 10,    128);
-  test_random(5000, 10,    254);
+  test_random(500, 10,      5);
+  test_random(500, 10,     20);
+  test_random(500, 10,    128);
+  test_random(500, 10,    254);
   test_random(500, 100,      5);
   test_random(500, 100,     20);
   test_random(500, 100,    128);

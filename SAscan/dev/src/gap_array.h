@@ -34,13 +34,14 @@ struct buffered_gap_array {
     storage_filename = "excess." + utils::random_string_hash();
   }
 
-  inline void increment(long *buf, long elems, unsigned char which) {
+  template<typename block_offset_type>
+  inline void increment(block_offset_type *buf, long elems, unsigned char which) {
     long *excess = m_excess[which];
     long &excess_filled = m_excess_filled[which];
 
-    int section_size = m_length / m_sections;
-    long start = which * section_size;
-    long end = (which == m_sections - 1) ? m_length : start + section_size;
+    long section_size = m_length / m_sections;
+    block_offset_type start = which * section_size;
+    block_offset_type end = (which == m_sections - 1) ? m_length : start + section_size;
 
     for (long i = 0; i < elems; ++i) {
       if (start <= buf[i] && buf[i] < end) {
@@ -59,6 +60,39 @@ struct buffered_gap_array {
       }
     }
   }
+
+  /*template<typename block_offset_type>
+  inline void increment(block_offset_type *buf, long elems, unsigned char which) {
+    long *excess = m_excess[which];
+    long &excess_filled = m_excess_filled[which];
+
+    long section_size = m_length / m_sections;
+    block_offset_type start = which * section_size;
+    block_offset_type end = (which == m_sections - 1) ? m_length : start + section_size;
+
+    // Find the starting position.
+    long i = 0L;
+    while (i < elems && buf[i] < start) i += std::min(elems - i, 1000L);
+    while (i > 0 && buf[i - 1] >= start) --i; // Did we overshoot?
+
+    for (; i < elems; ++i) {
+      if (buf[i] < end) {
+        long pos = buf[i];
+        ++m_count[pos];
+        if (!m_count[pos]) {
+          excess[excess_filled++] = pos;
+          if (excess_filled == k_excess_limit) {
+            gap_writing.lock();
+            m_excess_disk += excess_filled;
+            utils::add_objects_to_file(excess, excess_filled, storage_filename);
+            excess_filled = 0L;
+            gap_writing.unlock();
+          }
+        }
+      } else break;
+    }
+  }*/
+
 
   ~buffered_gap_array() {
     delete[] m_count;
