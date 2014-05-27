@@ -13,6 +13,10 @@
 #include "settings.h"
 
 extern long max_threads;
+extern long n_updaters;
+extern long stream_buffer_size;
+extern long n_stream_buffers;
+extern long max_gap_sections;
 
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
@@ -82,6 +86,12 @@ void SAscan(std::string input_filename, long ram_use) {
     delete sa_writer;
   } else {
     fprintf(stderr, "Using block size = %ld (%.1LfMiB)\n", max_block_size, (long double)max_block_size / (1 << 20));
+    fprintf(stderr, "Parallel settings:\n");
+    fprintf(stderr, "  Working threads = %ld\n", max_threads);
+    fprintf(stderr, "  Updating threads = %ld\n", n_updaters);
+    fprintf(stderr, "  Buffer size = %.1LfMiB\n", (long double)stream_buffer_size / (1 << 20));
+    fprintf(stderr, "  Number of buffers = %ld\n", n_stream_buffers);
+    fprintf(stderr, "  Max gap sections = %ld\n", max_gap_sections);
     fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
 
     if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {

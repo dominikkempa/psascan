@@ -18,6 +18,9 @@
 #include "../sascan.h"
 
 extern long max_threads;
+extern long n_updaters;
+extern long stream_buffer_size;
+extern long n_stream_buffers;
 
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
@@ -101,7 +104,12 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
 int main(int, char **) {
   std::srand(std::time(0) + getpid());
-  max_threads = 32L;
+
+  max_threads = 24;
+  n_updaters = 24;
+  n_stream_buffers = 48;
+  stream_buffer_size = (2 << 20);
+  max_gap_sections = 4;
 
   // Redirect stderr to /dev/null
   int redir = open("/dev/null", O_WRONLY);

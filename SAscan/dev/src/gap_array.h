@@ -21,6 +21,8 @@ struct buffered_gap_array {
 
     m_length = n;
     m_sections = sections;
+    m_mutexes = new std::mutex[sections];
+
     m_excess_disk = 0L;
     m_count = new unsigned char[m_length];
     std::fill(m_count, m_count + m_length, 0);
@@ -34,8 +36,19 @@ struct buffered_gap_array {
     storage_filename = "excess." + utils::random_string_hash();
   }
 
+public:
   template<typename block_offset_type>
-  inline void increment(block_offset_type *buf, long elems, unsigned char which) {
+  inline void increment(block_offset_type *buf, long elems) {
+    for (long i = 0L; i < m_sections; ++i) {
+      m_mutexes[i].lock();
+      safe_increment(buf, elems, i);
+      m_mutexes[i].unlock();
+    }
+  }
+
+private:
+  template<typename block_offset_type>
+  inline void safe_increment(block_offset_type *buf, long elems, unsigned char which) {
     long *excess = m_excess[which];
     long &excess_filled = m_excess_filled[which];
 
@@ -60,6 +73,8 @@ struct buffered_gap_array {
       }
     }
   }
+
+public:
 
   /*template<typename block_offset_type>
   inline void increment(block_offset_type *buf, long elems, unsigned char which) {
@@ -100,6 +115,7 @@ struct buffered_gap_array {
       delete[] m_excess[i];
     delete[] m_excess;
     delete[] m_excess_filled;
+    delete[] m_mutexes;
 
     if (utils::file_exists(storage_filename))
       utils::file_delete(storage_filename);
@@ -157,13 +173,15 @@ struct buffered_gap_array {
   unsigned char *m_count;
 
   long m_length;
-  long m_sections;
   long m_excess_disk;
 
   static const int k_excess_limit = (1 << 17);
   long **m_excess, *m_excess_filled;
 
   std::string storage_filename;
+
+  long m_sections;
+  std::mutex *m_mutexes;
 };
 
 #endif // __GAP_ARRAY_H_INCLUDED

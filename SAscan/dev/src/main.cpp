@@ -4,6 +4,10 @@
 #include "sascan.h"
 
 extern long max_threads;
+extern long n_updaters;
+extern long stream_buffer_size;
+extern long n_stream_buffers;
+extern long max_gap_sections;
 
 int main(int argc, char **argv) {
   if (argc != 3) {
@@ -13,12 +17,16 @@ int main(int argc, char **argv) {
     std::exit(EXIT_FAILURE);
   }
 
-  max_threads = 32L;
   // NOTE: the number of threads can (?) be obtained using STL method:
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
+  max_threads = 24;
+  n_updaters = 24;
+  stream_buffer_size = (2 << 20);
+  n_stream_buffers = 48;
+  max_gap_sections = 6;
 
   long ram_use = (long)atoi(argv[2]) << 20;
-  ram_use -= (11L << 20) * max_threads; // subtract the RAM for threads.
-                                  // Disabled for now for testing purposes.
+  ram_use -= stream_buffer_size * n_stream_buffers; // RAM for buffers
+
   SAscan(argv[1], ram_use);
 }
