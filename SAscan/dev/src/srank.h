@@ -1,7 +1,9 @@
+//==============================================================================
 // String range matching algorithms described in
 //
 // Juha Kärkkäinen, Dominik Kempa, Simon J. Puglisi:
 // String Range Matching. In Proc. CPM 2014.
+//==============================================================================
 
 #ifndef __SRANK_H_INCLUDED
 #define __SRANK_H_INCLUDED
@@ -10,6 +12,7 @@
 #include <algorithm>
 
 #include "bitvector.h"
+#include "smaller_suffixes.h"
 
 // Update ms-decomposition of T[0..n) from T[0..n-1).
 void next(unsigned char *T, long n, long &s, long &p, long &r) {
@@ -26,12 +29,12 @@ void next(unsigned char *T, long n, long &s, long &p, long &r) {
 
 void compute_gt_eof_bv(unsigned char *A, long A_length,
                        unsigned char *B, long B_length,
-                       bitvector *gt_head_bv, bitvector *gt_eof_bv) {
+                       gt_accessor &gt, long gt_length, bitvector *gt_eof_bv) {
   long i = 0, el = 0, s = 0, p = 0, r = 0;
   long i_max = 0, el_max = 0, s_max = 0, p_max = 0, r_max = 0;
   while (i < B_length) {
     while (i + el < B_length && el < A_length && B[i + el] == A[el]) next(A, ++el, s, p, r);
-    if (el == A_length || (i + el == B_length && gt_head_bv->get(A_length - 1 - el) == false) ||
+    if (el == A_length || (i + el == B_length && !gt[gt_length - el]) ||
         (i + el < B_length && B[i + el] > A[el])) gt_eof_bv->set(i);
     long j = i_max;
     if (el > el_max) {

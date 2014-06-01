@@ -409,6 +409,33 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     fprintf(stderr, "  block_size = %ld (%.2LfMiB)\n", block_size,
         (long double)block_size / (1 << 20));
 
+    //--------------------------------------------------------------------------
+    // Invariant: if the current block [beg..end) is not the last block of
+    // text, there is a file called filename.gt on disk containing bitvector of
+    // size length - end defined as follows:
+    //
+    // gt[i] == 1
+    //
+    //   iff
+    //
+    // the suffix of text of length i + 1 is lexicographically greater
+    // than the current tail of the text, text[end..length).
+    //--------------------------------------------------------------------------
+    // The bitvector is required during the streaming and other computations,
+    // e.g. during the computation of gt_eof bitvector required for renaming
+    // the block.
+    //
+    // Typically the bitvector is accessed via the 'gt_accessor' class (see
+    // smaller_suffixes.h). This class implements random access via
+    // operator []. Access is efficient (essentially streaming) if its
+    // sequential.
+    //
+    // Example:
+    //
+    // gt_accessor *gt = new gt_accessor(filename + ".gt");
+    // printf("%d", gt[5]);
+    //--------------------------------------------------------------------------
+
     // 1. Read current block.
     fprintf(stderr, "  Reading block: ");
     long double read_start = utils::wclock();
@@ -471,9 +498,10 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       fprintf(stderr, "  Compute gt_eof_bv: ");
       long double gt_eof_start = utils::wclock();
       gt_eof_bv = new bitvector(block_size);
-      bitvector *gt_head_bv = new bitvector(filename + ".gt_head");
-      compute_gt_eof_bv(extprevB, ext_prev_block_size, B, block_size, gt_head_bv, gt_eof_bv);
-      delete gt_head_bv;
+      gt_accessor *gt = new gt_accessor(filename + ".gt");
+      long gt_length = length - end;
+      compute_gt_eof_bv(extprevB, ext_prev_block_size, B, block_size, *gt, gt_length, gt_eof_bv);
+      delete gt;
       delete[] extprevB;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - gt_eof_start);
 
@@ -574,6 +602,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       delete empty_buffers;
       delete full_buffers;
       delete rank;
+      utils::file_delete(filename + ".gt");
 
       long double stream_time = utils::wclock() - stream_start;
       long double speed = ((length - end) / (1024.L * 1024)) / stream_time;
@@ -612,6 +641,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     bit_stream_reader *gt_head = new bit_stream_reader(filename + ".gt_head");
     for (long tt = end - 1; tt >= beg; --tt) gt->write(gt_head->read());
     delete gt_head;
+    utils::file_delete(filename + ".gt_head");
     delete gt;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - gt_concat_start);
     //--------------------------------------------------------------------------
@@ -620,9 +650,6 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     end = beg;
     --block_id;
   }
-
-  if (utils::file_exists(filename + ".gt_head")) utils::file_delete(filename + ".gt_head");
-  if (utils::file_exists(filename + ".gt")) utils::file_delete(filename + ".gt");
 
   return distrib_files;
 }
