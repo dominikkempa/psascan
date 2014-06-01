@@ -11,9 +11,6 @@ namespace utils {
 #define STRX(x) #x
 #define STR(x) STRX(x)
 
-/******************************* SYSTEM CALLS *********************************/
-void execute(std::string cmd);
-
 /****************************** MEASURING TIME ********************************/
 long double wclock();
 

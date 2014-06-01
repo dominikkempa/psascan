@@ -1,0 +1,10 @@
+This code demonstrates a bug occurring on ahti-1 and ahti-2 machines.
+Usage:
+
+make
+./gen ./temp
+./del ./temp
+
+Then see comment in main_del.cpp
+
+NOTE: requires about 80GiB of RAM.
