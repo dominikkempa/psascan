@@ -107,6 +107,6 @@ struct gt_accessor {
 
 
 void parallel_smaller_suffixes(unsigned char *block, long block_size,
-    std::string text_filename, long suffix_start_pos, long *ret);
+    std::string text_filename, long suffix_start_pos, long &ret);
 
 #endif // __SMALLER_SUFFIXES_H_INCLUDED

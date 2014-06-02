@@ -13,6 +13,7 @@
 #include <condition_variable>
 #include <future>
 #include <algorithm>
+#include <vector>
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
@@ -27,6 +28,21 @@
 #include "settings.h"
 #include "smaller_suffixes.h"
 #include "radixsort.h"
+
+// Stores information about a contigous subsequence of bits
+// of gt bitvector produced by a single thread. The bits are
+// stored in file m_fname and their range is [m_start..m_end).
+struct gt_substring_info {
+  gt_substring_info() {}
+  gt_substring_info(long start, long end, std::string fname)
+    : m_start(start),
+      m_end(end),
+      m_fname(fname) {}
+
+  long m_start;
+  long m_end;
+  std::string m_fname;
+};
 
 template<typename T>
 struct buffer {  
@@ -266,25 +282,34 @@ struct stream_info {
 std::mutex stream_info_mutex;
 
 template<typename block_offset_type>
-void parallel_stream(buffer_poll<block_offset_type> *full_buffers,
+void parallel_stream(
+    buffer_poll<block_offset_type> *full_buffers,
     buffer_poll<block_offset_type> *empty_buffers,
-    long j_beg, long j_end, block_offset_type i, long *count, block_offset_type
-    whole_suffix_rank, context_rank_4n *rank,
-    unsigned char last, std::string text_filename, long length,
-    std::string *tail_gt_filename, stream_info *info, int thread_id) {
+    long j_start,
+    long j_end,
+    block_offset_type i,
+    long *count,
+    block_offset_type whole_suffix_rank,
+    context_rank_4n *rank,
+    unsigned char last,
+    std::string text_filename,
+    long length,
+    std::string &tail_gt_filename,
+    stream_info *info,
+    int thread_id) {
   gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
-  bool next_gt = (j_end + 1 == length) ? 0 : (*gt_in)[length - j_end - 2];
+  bool next_gt = (j_start + 1 == length) ? 0 : (*gt_in)[length - j_start - 2];
   backward_skip_stream_reader<unsigned char> *text_streamer
-    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_end, 1 << 20); // 1MiB buffer
+    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_start, 1 << 20); // 1MiB buffer
 
-  *tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
-  bit_stream_writer *gt_out = new bit_stream_writer(*tail_gt_filename); // 1MiB buffer
+  tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
+  bit_stream_writer *gt_out = new bit_stream_writer(tail_gt_filename); // 1MiB buffer
 
-  long j = j_end, dbg = 0L;
-  while (j > j_beg) {
+  long j = j_start, dbg = 0L;
+  while (j > j_end) {
     if (dbg > (1 << 26)) {
       stream_info_mutex.lock();
-      info->m_streamed[thread_id] = j_end - j;
+      info->m_streamed[thread_id] = j_start - j;
       info->m_update_count += 1;
       if (info->m_update_count == info->m_thread_count) {
         info->m_update_count = 0L;
@@ -315,7 +340,7 @@ void parallel_stream(buffer_poll<block_offset_type> *full_buffers,
     empty_buffers->m_cv.notify_one(); // let others know they should re-check
 
     // Process buffer -- fill with gap values.
-    long left = j - j_beg;
+    long left = j - j_end;
     b->m_filled = std::min(left, b->m_size);
     dbg += b->m_filled;
     for (long t = 0L; t < b->m_filled; ++t, --j) {
@@ -444,9 +469,9 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     unsigned char last = B[block_size - 1];
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
-    int starting_points = std::min(max_threads, length - end);
-    long *start_j = NULL, *start_i = NULL;
-    std::string *tail_gt_filenames = NULL;
+    int starting_positions = std::min(max_threads, length - end);
+    std::vector<gt_substring_info> gt_info(starting_positions);
+    std::vector<long> initial_rank(starting_positions);
 
     long count[256] = {0};
     bitvector *gt_eof_bv = NULL;
@@ -454,31 +479,30 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       // Compute starting points for streaming.
       //-----------------------------------------------------------------------
       fprintf(stderr, "  [PARALLEL]Computing starting positions: ");
-      long double starting_points_start = utils::wclock();
-      start_j = new long[starting_points];
-      start_i = new long[starting_points];
-      tail_gt_filenames = new std::string[starting_points];
+      long double starting_positions_start = utils::wclock();
 
       // Evenly distribute the starting points (start_j).
-      long parallel_block = (length - end) / starting_points;
-      long prev_start_j = end - 1;
-      for (int jj = 0; jj < starting_points; ++jj) {
-        start_j[jj] = std::min(prev_start_j + parallel_block, length - 1);
-        prev_start_j = start_j[jj];
+      long parallel_block = (length - end) / starting_positions;
+      long prev_start = end - 1;
+      for (int t = 0; t < starting_positions; ++t) {
+        gt_info[t].m_end = prev_start;
+        gt_info[t].m_start = std::min(prev_start + parallel_block, length - 1);
+        prev_start = gt_info[t].m_start;
       }
-      start_j[starting_points - 1] = length - 1;
+      gt_info[starting_positions - 1].m_start = length - 1;
 
       // Run string range matching in parallel
-      std::thread **threads = new std::thread*[starting_points];
-      for (int jj = 0; jj < starting_points; ++jj)
-        threads[jj] = new std::thread(parallel_smaller_suffixes,
-            B, block_size, filename, start_j[jj] + 1, start_i + jj);
-      for (int jj = 0; jj < starting_points; ++jj) threads[jj]->join();
-      for (int jj = 0; jj < starting_points; ++jj) delete threads[jj];
+      std::thread **threads = new std::thread*[starting_positions];
+      for (int t = 0; t < starting_positions; ++t) {
+        threads[t] = new std::thread(parallel_smaller_suffixes,
+            B, block_size, filename, gt_info[t].m_start + 1, std::ref(initial_rank[t]));
+      }
+      for (int t = 0; t < starting_positions; ++t) threads[t]->join();
+      for (int t = 0; t < starting_positions; ++t) delete threads[t];
       delete[] threads;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - starting_points_start);
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - starting_positions_start);
       //-----------------------------------------------------------------------
-    
+ 
       // 2a. Compute symbols counts of B.
       fprintf(stderr, "  Compute counts: ");
       long double compute_counts_start = utils::wclock();
@@ -562,23 +586,23 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
 
       // Create poll of empty and full buffers.
       buffer_poll<block_offset_type> *empty_buffers = new buffer_poll<block_offset_type>();
-      buffer_poll<block_offset_type> *full_buffers = new buffer_poll<block_offset_type>(starting_points);
+      buffer_poll<block_offset_type> *full_buffers = new buffer_poll<block_offset_type>(starting_positions);
 
       // Add empty buffers to empty poll.
       for (long i = 0L; i < n_stream_buffers; ++i)
         empty_buffers->add(buffers[i]);
       
       // Start workers.
-      stream_info info(starting_points, length - end);
-      std::thread **workers = new std::thread*[starting_points];
-      for (long i = 0L; i < starting_points; ++i) {
-        long j_beg = (i > 0) ? start_j[i - 1] : end - 1;
-        long j_end = start_j[i];
+      stream_info info(starting_positions, length - end);
+      std::thread **streamers = new std::thread*[starting_positions];
+      for (long t = 0L; t < starting_positions; ++t) {
+        long j_start = gt_info[t].m_start;
+        long j_end = gt_info[t].m_end;
 
-        workers[i] = new std::thread(parallel_stream<block_offset_type>,
-            full_buffers, empty_buffers, j_beg, j_end, start_i[i], count,
-            whole_suffix_rank, rank, last, filename, length,
-            tail_gt_filenames + i, &info, i);
+        streamers[t] = new std::thread(parallel_stream<block_offset_type>,
+            full_buffers, empty_buffers, j_start, j_end, initial_rank[t],
+            count, whole_suffix_rank, rank, last, filename, length,
+            std::ref(gt_info[t].m_fname), &info, t);
       }
 
       // Start updaters.
@@ -589,15 +613,15 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       }
 
       // Wait for all threads to finish.        
-      for (long i = 0L; i < starting_points; ++i) workers[i]->join();       
+      for (long i = 0L; i < starting_positions; ++i) streamers[i]->join();
       for (long i = 0L; i < n_updaters; ++i) updaters[i]->join();
 
       // Clean up.
-      for (long i = 0L; i < starting_points; ++i) delete workers[i];
+      for (long i = 0L; i < starting_positions; ++i) delete streamers[i];
       for (long i = 0L; i < n_updaters; ++i) delete updaters[i];
       for (long i = 0L; i < n_stream_buffers; ++i) delete buffers[i];
       delete[] updaters;
-      delete[] workers;
+      delete[] streamers;
       delete[] buffers;
       delete empty_buffers;
       delete full_buffers;
@@ -608,7 +632,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       long double speed = ((length - end) / (1024.L * 1024)) / stream_time;
       fprintf(stderr,"\r  [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
           "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
-          stream_time, info.m_thread_count, speed / starting_points, speed);
+          stream_time, info.m_thread_count, speed / starting_positions, speed);
 
       //-----------------------------------------------------------------------
       // for (long t = 0L; t < starting_points; ++t)
@@ -627,16 +651,14 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     long double gt_concat_start = utils::wclock();
     bit_stream_writer *gt = new bit_stream_writer(filename + ".gt");
     if (need_streaming) {
-      for (long jj = starting_points - 1; jj >= 0; --jj) {
-        long j_beg = (jj > 0) ? start_j[jj - 1] : end - 1, j_end = start_j[jj];
-        bit_stream_reader *gt_tail = new bit_stream_reader(tail_gt_filenames[jj]);
-        for (long tt = 0; tt < j_end - j_beg; ++tt) gt->write(gt_tail->read());
+      for (long jj = starting_positions - 1; jj >= 0; --jj) {
+        long j_start = gt_info[jj].m_start;
+        long j_end = gt_info[jj].m_end;
+        bit_stream_reader *gt_tail = new bit_stream_reader(gt_info[jj].m_fname);
+        for (long tt = 0; tt < j_start - j_end; ++tt) gt->write(gt_tail->read());
         delete gt_tail;
-        utils::file_delete(tail_gt_filenames[jj]);
+        utils::file_delete(gt_info[jj].m_fname);
       }
-      delete[] start_i;
-      delete[] start_j;
-      delete[] tail_gt_filenames;
     }
     bit_stream_reader *gt_head = new bit_stream_reader(filename + ".gt_head");
     for (long tt = end - 1; tt >= beg; --tt) gt->write(gt_head->read());
