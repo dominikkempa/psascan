@@ -62,6 +62,26 @@ void file_delete(std::string fname) {
   }
 }
 
+std::string absolute_path(std::string fname) {
+  char path[1 << 18];
+  bool created = false;
+
+  if (!file_exists(fname)) {
+    // We need to create the file, since realpath fails on non-existing files.
+    std::fclose(open_file(fname, "w"));
+    created = true;
+  }
+  if (!realpath(fname.c_str(), path)) {
+    fprintf(stderr, "Error: realpath failed for %s\n", fname.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (created)
+    file_delete(fname);
+
+  return std::string(path);
+}
+
 void read_block(std::FILE *f, long beg, long length, unsigned char *b) {
   std::fseek(f, beg, SEEK_SET);
   read_objects_from_file<unsigned char>(b, length, f);

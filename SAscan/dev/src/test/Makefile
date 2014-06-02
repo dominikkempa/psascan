@@ -16,4 +16,4 @@ test: test_sascan
 	@./test_sascan
 
 nuclear:
-	/bin/rm -f test_sascan *.o gap.* sparseSA.* gt_head new_gt_head gt_tail new_gt_tail
+	/bin/rm -f test_sascan *.o

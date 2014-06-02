@@ -106,7 +106,7 @@ private:
   std::queue<buffer<T>* > m_queue;
 };
 
-long max_threads;
+long n_streamers;
 long n_updaters;
 long stream_buffer_size;
 long n_stream_buffers;
@@ -127,7 +127,7 @@ template<typename output_type> distributed_file<output_type> *partial_SAscan(std
 // Compute partial SA of B[0..block_size) and store on disk.
 // If block_id != n_block also compute the BWT of B.
 //
-// INVARIANT: on entry to the function it holds: 5 * block_size <= ram_use
+// INVARIANT: on entry to the function it holds: 5.2 * block_size <= ram_use
 //=============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
@@ -469,7 +469,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     unsigned char last = B[block_size - 1];
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
-    int starting_positions = std::min(max_threads, length - end);
+    int starting_positions = std::min(n_streamers, length - end);
     std::vector<gt_substring_info> gt_info(starting_positions);
     std::vector<long> initial_rank(starting_positions);
 
@@ -579,7 +579,6 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       buffered_gap_array *gap = new buffered_gap_array(block_size + 1, gap_sections);
 
       // Allocate buffers.
-      fprintf(stderr, "n_stream_buffers = %ld\n", n_stream_buffers);
       buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[n_stream_buffers];
       for (long i = 0L; i < n_stream_buffers; ++i)
         buffers[i] = new buffer<block_offset_type>(stream_buffer_size);
@@ -672,6 +671,9 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     end = beg;
     --block_id;
   }
+
+  if (utils::file_exists(filename + ".gt"))
+    utils::file_delete(filename + ".gt");
 
   return distrib_files;
 }

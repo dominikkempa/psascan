@@ -10,14 +10,14 @@
 #include "distributed_file.h"
 
 // Merge partial suffix arrays into final suffix array (stored in normal file).
-// INVARIANT: 5 * length <= ram_use.
+// INVARIANT: 5.2 * length <= ram_use.
 template<typename block_offset_type>
 void merge(std::string input_filename,
+           std::string out_filename,
            long length,
            long max_block_size,
            long ram_use,
            distributed_file<block_offset_type> **sparseSA) {
-  std::string out_filename = input_filename + ".sa5";
 
   long n_block = (length + max_block_size - 1) / max_block_size;
   long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
@@ -85,10 +85,11 @@ void merge(std::string input_filename,
 // Merge partial suffix arrays (inside recursive call) into bigger partial
 // suffix array and compute BWT associated with this SA. The resulting SA is
 // stored using distrbuted file (which it returned).
-// INVARIANT: 5 * length <= ram_use.
+// INVARIANT: 5.2 * length <= ram_use.
 template<typename block_offset_type, typename output_type>
 distributed_file<output_type> *partial_merge(
     std::string input_filename,
+    std::string output_filename,
     long length,
     long max_block_size,
     long ram_use,
@@ -96,7 +97,7 @@ distributed_file<output_type> *partial_merge(
     std::string text_filename,
     long text_offset,
     distributed_file<block_offset_type> **sparseSA) {
-  std::string out_filename = input_filename + ".sa5";
+
   long n_block = (length + max_block_size - 1) / max_block_size;
 
   unsigned char *text = NULL;
@@ -115,7 +116,7 @@ distributed_file<output_type> *partial_merge(
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
   
   // TODO: ram_use/10 -> std::max(1<<20, ram_use/10) 
-  distributed_file<output_type> *output = new distributed_file<output_type>(out_filename.c_str(), ram_use / 10);
+  distributed_file<output_type> *output = new distributed_file<output_type>(output_filename.c_str(), ram_use / 10);
   output->initialize_writing(sizeof(output_type) * buffer_size);
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {

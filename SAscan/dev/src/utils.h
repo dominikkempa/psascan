@@ -20,6 +20,7 @@ FILE *open_file(std::string fname, std::string mode);
 long file_size(std::string fname);
 bool file_exists(std::string fname);
 void file_delete(std::string fname);
+std::string absolute_path(std::string fname);
 
 template<typename T>
 void write_objects_to_file(T *tab, long length, std::string fname) {

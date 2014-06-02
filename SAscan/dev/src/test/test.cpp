@@ -17,10 +17,11 @@
 #include "../utils.h"
 #include "../sascan.h"
 
-extern long max_threads;
+extern long n_streamers;
 extern long n_updaters;
 extern long stream_buffer_size;
 extern long n_stream_buffers;
+extern long max_gap_sections;
 
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
@@ -43,9 +44,18 @@ void test_random(long testcases, long max_length, long max_sigma) {
     // Generate string.
     long length = utils::random_long(1, max_length);
     long sigma = utils::random_long(1, max_sigma);
-    long ram_use = 0;
-    do ram_use = utils::random_long(5L, 5L * length);
-    while (4L * ram_use < length);
+
+    n_streamers = utils::random_long(1, 10);
+    n_updaters = utils::random_long(1, 10);
+    n_stream_buffers = utils::random_long(1, 10);
+    stream_buffer_size = utils::random_long(8, 20);
+    max_gap_sections = utils::random_long(1, 10);
+
+    long ram_use = n_stream_buffers * stream_buffer_size;
+    long n_blocks = utils::random_int(1, 50);
+    long max_block_size = (length + n_blocks - 1) / n_blocks;
+    ram_use += std::max(6L, (long)(max_block_size * 5.2L));
+
     if (max_sigma <= 26) utils::fill_random_letters(text, length, sigma);
     else utils::fill_random_string(text, length, sigma);
 
@@ -65,7 +75,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     ///////////
 
     // Run the test on generated string.
-    SAscan(filename, ram_use);
+    SAscan(filename, filename + ".sa5", ram_use);
     
     // Compare the result to correct SA.
     divsufsort64(text, SA, length); // recall that SAscan computes the SA of *reversed* text.
@@ -104,12 +114,6 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
 int main(int, char **) {
   std::srand(std::time(0) + getpid());
-
-  max_threads = 24;
-  n_updaters = 24;
-  n_stream_buffers = 48;
-  stream_buffer_size = (2 << 20);
-  max_gap_sections = 4;
 
   // Redirect stderr to /dev/null
   int redir = open("/dev/null", O_WRONLY);

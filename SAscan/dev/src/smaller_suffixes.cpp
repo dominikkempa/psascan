@@ -239,7 +239,6 @@ void parallel_smaller_suffixes(unsigned char *block, long block_size,
   long pat_length = text_length - suffix_start_pos;
   if (!pat_length) {
     ret = 0L;
-    fprintf(stderr, "smaller_sufs returned %ld\n", 0L);
     return;
   }
 
@@ -264,7 +263,6 @@ void parallel_smaller_suffixes(unsigned char *block, long block_size,
     else { pair bc = pred(GS.S_n, (L / 3L) + 1L); count += bc.c; i += bc.b; L = 0L; }
   }
 
-  fprintf(stderr, "smaller_sufs returning %ld\n", count);
   ret = count;
 }
 
