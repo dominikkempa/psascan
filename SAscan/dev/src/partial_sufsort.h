@@ -476,12 +476,16 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     long count[256] = {0};
     bitvector *gt_eof_bv = NULL;
     if (need_streaming) {
-      // Compute starting points for streaming.
+      // Compute initial ranks for streaming.
       //-----------------------------------------------------------------------
-      fprintf(stderr, "  [PARALLEL]Computing starting positions: ");
-      long double starting_positions_start = utils::wclock();
+      fprintf(stderr, "  [PARALLEL]Computing initial ranks: ");
+      long double initial_ranks_start = utils::wclock();
 
-      // Evenly distribute the starting points (start_j).
+      // Evenly distribute the starting positions across the range [end..length).
+      //
+      // Thread t streams symbols of text from gt_info[t].m_start to
+      // gt_info[t].m_end - 1 (note that m_end < m_start since streaming goes
+      // backwards).
       long parallel_block = (length - end) / starting_positions;
       long prev_start = end - 1;
       for (int t = 0; t < starting_positions; ++t) {
@@ -491,7 +495,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       }
       gt_info[starting_positions - 1].m_start = length - 1;
 
-      // Run string range matching in parallel
+      // Compute initial ranks for all threads in parallel.
       std::thread **threads = new std::thread*[starting_positions];
       for (int t = 0; t < starting_positions; ++t) {
         threads[t] = new std::thread(parallel_smaller_suffixes,
@@ -500,7 +504,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       for (int t = 0; t < starting_positions; ++t) threads[t]->join();
       for (int t = 0; t < starting_positions; ++t) delete threads[t];
       delete[] threads;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - starting_positions_start);
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_start);
       //-----------------------------------------------------------------------
  
       // 2a. Compute symbols counts of B.
@@ -559,8 +563,9 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     unsigned char *BWT = NULL;
     std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
 
-    distrib_files[block_id] = compute_partial_sa_and_bwt<block_offset_type>
-      (B, block_size, block_id, ram_use, filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
+    distrib_files[block_id] =
+      compute_partial_sa_and_bwt<block_offset_type>(B, block_size, block_id,
+          ram_use, filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
 
     if (need_streaming) {
       // 5a. Build the rank support for BWT.
@@ -571,7 +576,6 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
 
       // 5b. Allocate the gap array, do the streaming and store gap to disk.
-      //------------------------------------------------------------------------
       fprintf(stderr, "  [PARALLEL]Stream:");
       long double stream_start = utils::wclock();
 
@@ -644,7 +648,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       delete gap;
     }
 
-    // Concatenate all bitvectors into one (but leave filename.gt_head, for now)
+    // Concatenate all bitvectors into one.
     //-------------------------------------------------------------------------
     fprintf(stderr, "  Concatenating gt bitvectors: ");
     long double gt_concat_start = utils::wclock();
