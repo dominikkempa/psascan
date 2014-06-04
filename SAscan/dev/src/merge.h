@@ -91,6 +91,7 @@ distributed_file<output_type> *partial_merge(
     std::string input_filename,
     std::string output_filename,
     long length,
+    bool compute_bwt,
     long max_block_size,
     long ram_use,
     unsigned char **BWT,
@@ -103,20 +104,23 @@ distributed_file<output_type> *partial_merge(
   unsigned char *text = NULL;
   long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(output_type);
 
-  // Read the original block of text
-  text = new unsigned char[length];
-  utils::read_block(text_filename, text_offset, length, text);
-
-  *BWT = new unsigned char[length - 1];
-  long merge_ram_use = ram_use - 2 * length; // > 0
+  fprintf(stderr, "compute-bwt = %s\n", compute_bwt ? "TRUE" : "FALSE");
+  long merge_ram_use = 0L;
+  if (compute_bwt) {
+    // Read the original block of text
+    text = new unsigned char[length];
+    *BWT = new unsigned char[length - 1];
+    utils::read_block(text_filename, text_offset, length, text);
+    merge_ram_use = ram_use - 2 * length; // > 0
+  } else merge_ram_use = ram_use;
   long buffer_size = (merge_ram_use + pieces - 1) / pieces;
 
   fprintf(stderr, "Buffer size for merging: %ld\n", buffer_size);
   fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(block_offset_type));
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
   
-  // TODO: ram_use/10 -> std::max(1<<20, ram_use/10) 
-  distributed_file<output_type> *output = new distributed_file<output_type>(output_filename.c_str(), ram_use / 10);
+  distributed_file<output_type> *output = new distributed_file<output_type>(output_filename.c_str(),
+      std::max(2L << 20, ram_use / 10L));
   output->initialize_writing(sizeof(output_type) * buffer_size);
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
@@ -145,13 +149,14 @@ distributed_file<output_type> *partial_merge(
     long SA_i = sparseSA[k]->read() + k * max_block_size;
 
     output->write(SA_i);
-    if (SA_i) (*BWT)[bwt_ptr++] = text[SA_i - 1];
+    if (compute_bwt && SA_i) (*BWT)[bwt_ptr++] = text[SA_i - 1];
   }
   long double merge_time = utils::wclock() - merge_start;
   fprintf(stderr, "Merging: 100.0%%. Time: %.2Lfs\n", merge_time);
 
   // Clean up.
-  delete[] text;
+  if (compute_bwt)
+    delete[] text;
 
   for (long i = 0; i < n_block; ++i) {
     sparseSA[i]->finish_reading();

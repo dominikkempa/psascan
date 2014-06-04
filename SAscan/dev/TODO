@@ -1,0 +1,11 @@
+The algorithm is supposed to be inplace -- meaning that the space allocated for
+the output should be used for temp files. Currently this is not the case, as
+names of all temp files are created based on the filename of input text, meaning
+they will always be created along with the input file.
+
+gt_eof bitvector should probably be deleted rather than kept in memory, when the
+peak occurrs.
+
+rare_trunk computation should be first simulated, so know exactly how much memory
+to allocate and we don't have to use vector (which can be two times larger than
+necesary -- this shows quite significantly when using large RAM sizes).

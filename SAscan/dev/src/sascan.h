@@ -21,7 +21,8 @@ extern long max_gap_sections;
 const long kMiB = (1L << 20);
 
 template<typename block_offset_type>
-distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
+distributed_file<block_offset_type> **partial_sufsort(std::string filename,
+    long length, long max_block_size, long ram_use);
 
 // Compute SA of input_filename and write to output_filename (as normal file).
 template<typename output_type>
@@ -143,6 +144,7 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
 template<typename output_type>
 distributed_file<output_type> *partial_SAscan(
     std::string      input_filename,
+    bool             compute_bwt,
     long             ram_use,
     unsigned char**  BWT,
     std::string      text_filename,
@@ -190,14 +192,16 @@ distributed_file<output_type> *partial_SAscan(
     fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(int));
     distributed_file<int> **partialSA =
       partial_sufsort<int>(input_filename, length, max_block_size, ram_use);
-    result = partial_merge<int, output_type>(input_filename, output_filename,
-        length, max_block_size, ram_use, BWT, text_filename, text_offset, partialSA);
+    result = partial_merge<int, output_type>(input_filename,
+        output_filename, length, compute_bwt, max_block_size,
+        ram_use, BWT, text_filename, text_offset, partialSA);
   } else {
     fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(uint40));
     distributed_file<uint40> **partialSA =
       partial_sufsort<uint40>(input_filename, length, max_block_size, ram_use);
-    result = partial_merge<uint40, output_type>(input_filename, output_filename,
-        length, max_block_size, ram_use, BWT, text_filename, text_offset, partialSA);
+    result = partial_merge<uint40, output_type>(input_filename,
+        output_filename, length, compute_bwt, max_block_size,
+        ram_use, BWT, text_filename, text_offset, partialSA);
   }
 
   long double alg_time_abs = utils::wclock() - alg_start;

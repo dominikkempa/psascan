@@ -121,7 +121,7 @@ std::mutex stdout_mutex;
 
 template<typename output_type> void SAscan(std::string input_filename, long ram_use);
 template<typename output_type> distributed_file<output_type> *partial_SAscan(std::string input_filename,
-  long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
+    bool compute_bwt, long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
 
 //=============================================================================
 // Compute partial SA of B[0..block_size) and store on disk.
@@ -235,7 +235,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     delete gt_eof_bv;
     delete[] B;
 
-    result = partial_SAscan<block_offset_type>(B_fname, ram_use, BWT, text_fname, block_offset);
+    result = partial_SAscan<block_offset_type>(B_fname, compute_bwt, ram_use, BWT, text_fname, block_offset);
 
     utils::file_delete(B_fname);
     fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
