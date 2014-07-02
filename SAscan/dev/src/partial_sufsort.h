@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <string>
 #include <algorithm>
 
@@ -242,6 +243,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       // 5b. Allocate the gap array, do the streaming and store gap to disk.
       fprintf(stderr, "  Stream:\r");
       long double stream_start = utils::wclock();
+      clock_t stream_cpu_start = clock();
       buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
       bit_stream_writer *new_gt_tail = new bit_stream_writer(filename + ".new_gt_tail");
       bit_stream_reader *gt_tail = prev_end < length ? new bit_stream_reader(filename + ".gt_tail") : NULL;
@@ -294,9 +296,12 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
 
       long double stream_time = utils::wclock() - stream_start;
       long double streamed_mib = (1.L * (length - end)) / (1 << 20);
-      fprintf(stderr,"  Stream: 100.0%%. Time: %.2Lf. Speed: %.2LfMiB/s\n",
+      fprintf(stderr,"  Stream: 100.0%%. Time: %.2Lf. Speed: %.2LfMiB/s [WALLCLOCK-TIME]\n",
         stream_time,
         streamed_mib / stream_time);
+      long double stream_cpu_time = (long double)(clock() - stream_cpu_start) / CLOCKS_PER_SEC;
+      fprintf(stderr,"  Stream: 100.0%%. Time: %.2Lf. Speec: %.2LfMiB/s [CPU-TIME]\n",
+          stream_cpu_time, streamed_mib / stream_cpu_time);
 
       delete text_streamer;
       delete gt_head;
