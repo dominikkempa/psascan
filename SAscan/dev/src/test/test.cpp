@@ -18,10 +18,8 @@
 #include "../sascan.h"
 
 extern long n_streamers;
-extern long n_updaters;
 extern long stream_buffer_size;
 extern long n_stream_buffers;
-extern long max_gap_sections;
 
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
@@ -46,10 +44,8 @@ void test_random(long testcases, long max_length, long max_sigma) {
     long sigma = utils::random_long(1, max_sigma);
 
     n_streamers = utils::random_long(1, 10);
-    n_updaters = utils::random_long(1, 10);
     n_stream_buffers = utils::random_long(1, 10);
     stream_buffer_size = utils::random_long(8, 20);
-    max_gap_sections = utils::random_long(1, 10);
 
     long ram_use = n_stream_buffers * stream_buffer_size;
     long n_blocks = utils::random_int(1, 50);
@@ -78,7 +74,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     SAscan(filename, filename + ".sa5", ram_use);
     
     // Compare the result to correct SA.
-    divsufsort64(text, SA, length); // recall that SAscan computes the SA of *reversed* text.
+    divsufsort64(text, SA, length);
     uint40 *computed_SA = new uint40[length];
     utils::read_n_objects_from_file(computed_SA, length, filename + ".sa5");
     utils::file_delete(filename + ".sa5");
@@ -122,10 +118,10 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(500, 10,      5);
-  test_random(500, 10,     20);
-  test_random(500, 10,    128);
-  test_random(500, 10,    254);
+  test_random(500, 10,       5);
+  test_random(500, 10,      20);
+  test_random(500, 10,     128);
+  test_random(500, 10,     254);
   test_random(500, 100,      5);
   test_random(500, 100,     20);
   test_random(500, 100,    128);
@@ -134,7 +130,7 @@ int main(int, char **) {
   test_random(50, 1000,     20);
   test_random(50, 1000,    128);
   test_random(50, 1000,    254);
-  test_random(50, 10000,     5);
+  test_random(50, 1000,      5);
   test_random(50, 10000,    20);
   test_random(50, 10000,   128);
   test_random(50, 10000,   254);

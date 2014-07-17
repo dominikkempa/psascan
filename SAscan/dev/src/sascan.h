@@ -13,10 +13,8 @@
 #include "settings.h"
 
 extern long n_streamers;
-extern long n_updaters;
 extern long stream_buffer_size;
 extern long n_stream_buffers;
-extern long max_gap_sections;
 
 const long kMiB = (1L << 20);
 
@@ -84,11 +82,9 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
 
     fprintf(stderr, "Parallel settings:\n");
     fprintf(stderr, "  Streaming threads = %ld\n", n_streamers);
-    fprintf(stderr, "  Updating threads = %ld\n", n_updaters);
     fprintf(stderr, "  Stream-buffer size = %ld (%.1LfMiB)\n",
         stream_buffer_size, 1.L * stream_buffer_size / kMiB);
     fprintf(stderr, "  Number of stream-buffers = %ld\n", n_stream_buffers);
-    fprintf(stderr, "  Max gap sections = %ld\n", max_gap_sections);
 
     long ram_use_excluding_threads = ram_use - n_stream_buffers * stream_buffer_size;
     if (ram_use_excluding_threads < 6L) {

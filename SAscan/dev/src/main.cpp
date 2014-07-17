@@ -22,10 +22,8 @@ void usage(int status) {
 }
 
 extern long n_streamers;
-extern long n_updaters;
 extern long stream_buffer_size;
 extern long n_stream_buffers;
-extern long max_gap_sections;
 
 int main(int argc, char **argv) {
   program_name = argv[0];
@@ -110,10 +108,8 @@ int main(int argc, char **argv) {
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
   //----------------------------------------------------------------------------
   n_streamers = 24;
-  n_updaters = 24;
   stream_buffer_size = (4 << 20);
   n_stream_buffers = 48;
-  max_gap_sections = 6;
 
   SAscan(text_fname, out_fname, ram_use);
 }

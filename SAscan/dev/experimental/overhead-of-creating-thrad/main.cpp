@@ -9,9 +9,9 @@
 std::mutex sum_mutex;
 
 void add_random(int *tab, long *sum, int i) {
-  std::unique_lock<std::mutex> lk(sum_mutex);
+//  std::unique_lock<std::mutex> lk(sum_mutex);
   *sum += tab[i];
-  lk.unlock();
+//  lk.unlock();
 }
 
 int main() {

@@ -28,6 +28,9 @@
 #include "settings.h"
 #include "smaller_suffixes.h"
 #include "radixsort.h"
+#include "buffer.h"
+#include "update.h"
+#include "stream_info.h"
 
 // Stores information about a contigous subsequence of bits
 // of gt bitvector produced by a single thread. The bits are
@@ -44,73 +47,9 @@ struct gt_substring_info {
   std::string m_fname;
 };
 
-template<typename T>
-struct buffer {  
-  buffer(long size_bytes)
-      : m_filled(0L),
-        m_size(size_bytes / sizeof(T)) {
-    m_content = new T[m_size];
-  }
-  
-  ~buffer() {
-    delete[] m_content;
-  }
-
-  long m_filled, m_size;
-  T *m_content;
-};
-
-// Same class for the poll of empty and full buffers.  
-template<typename T>
-struct buffer_poll {
-  buffer_poll(long worker_threads = 0L) {
-    m_worker_threads = worker_threads; // unused for the poll of empty buffers.
-    m_worker_threads_finished = 0L;
-  }
-  
-  void add(buffer<T> *b) {
-    m_queue.push(b);
-  }
-  
-  bool available() const {
-    return m_queue.size() > 0;
-  }
-
-  buffer<T> *get() {
-    if (m_queue.empty()) {
-      fprintf(stderr, "Error: requesting a buffer from empty poll!\n");
-      std::exit(EXIT_FAILURE);
-    }
-
-    buffer<T> *ret = m_queue.front();
-    m_queue.pop();
-
-    return ret;
-  }
-
-  bool finished() const {
-    return m_worker_threads_finished == m_worker_threads;
-  }
-
-  void increment_finished_workers() {
-    ++m_worker_threads_finished;
-  }
-
-  std::condition_variable m_cv;
-  std::mutex m_mutex;
-
-private:
-  long m_worker_threads; // used to detect that worker threads are done
-  long m_worker_threads_finished;
-
-  std::queue<buffer<T>* > m_queue;
-};
-
 long n_streamers;
-long n_updaters;
 long stream_buffer_size;
 long n_stream_buffers;
-long max_gap_sections;
 
 std::mutex stdout_mutex;
 
@@ -245,41 +184,6 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
   return result;
 }
 
-//=============================================================================
-// Used to store progress information for different threads during streaming.
-//=============================================================================
-struct stream_info {
-  stream_info(long thread_count, long tostream)
-    : m_update_count(0L),
-      m_thread_count(thread_count),
-      m_tostream(tostream) {
-    m_streamed = new long[thread_count];
-    std::fill(m_streamed, m_streamed + thread_count, 0L);
-
-    m_idle_update = new long double[thread_count];
-    m_idle_work  = new long double[thread_count];
-    std::fill(m_idle_update, m_idle_update + thread_count, 0.L);
-    std::fill(m_idle_work, m_idle_work + thread_count, 0.L);
-
-    m_timestamp = utils::wclock();
-  }
-
-  ~stream_info() {
-    delete[] m_streamed;
-    delete[] m_idle_work;
-    delete[] m_idle_update;
-  }
-
-  long m_update_count;     // number of updates
-  long m_thread_count;     // number of threads
-  long m_tostream;         // total text length to stream
-  long double m_timestamp; // when the streaming started
-  long *m_streamed;        // how many bytes streamed by each thread
-  long double *m_idle_update;
-  long double *m_idle_work;
-};
-
-std::mutex stream_info_mutex;
 
 template<typename block_offset_type>
 void parallel_stream(
@@ -308,7 +212,7 @@ void parallel_stream(
   long j = j_start, dbg = 0L;
   while (j > j_end) {
     if (dbg > (1 << 26)) {
-      stream_info_mutex.lock();
+      info->m_mutex.lock();
       info->m_streamed[thread_id] = j_start - j;
       info->m_update_count += 1;
       if (info->m_update_count == info->m_thread_count) {
@@ -327,14 +231,22 @@ void parallel_stream(
             info->m_thread_count, speed / info->m_thread_count, speed);
         stdout_mutex.unlock();
       }
-      stream_info_mutex.unlock();
+      info->m_mutex.unlock();
       dbg = 0L;
     }
 
     // Get a buffer from the poll of empty buffers.
+//    long double acquire_start = utils::wclock(); // measure the acquisition time
+
     std::unique_lock<std::mutex> lk(empty_buffers->m_mutex);
     while (!empty_buffers->available())
       empty_buffers->m_cv.wait(lk);
+
+//    long double acquire_end = utils::wclock(); // account the acquisition time
+//    info->m_mutex.lock();
+//    info->m_idle_work[thread_id] += acquire_end - acquire_start;
+//    info->m_mutex.unlock();
+
     buffer<block_offset_type> *b = empty_buffers->get();
     lk.unlock();
     empty_buffers->m_cv.notify_one(); // let others know they should re-check
@@ -371,44 +283,6 @@ void parallel_stream(
   // Notify waiting update threads in case no more buffers
   // are going to be produces by worker threads.
   full_buffers->m_cv.notify_one();
-}
-
-//=============================================================================
-// Parallel streaming
-//-----------------------------------------------------------------------------
-// Currently each thread is using about 11MiB of RAM.
-//=============================================================================
-template<typename block_offset_type>
-void gap_update(buffer_poll<block_offset_type> *full_buffers,
-    buffer_poll<block_offset_type> *empty_buffers,
-    buffered_gap_array *gap) {
-  while (true) {
-    // Get a buffer from the poll of full buffers.
-    std::unique_lock<std::mutex> lk(full_buffers->m_mutex);
-    while (!full_buffers->available() && !full_buffers->finished())
-      full_buffers->m_cv.wait(lk);
-
-    if (!full_buffers->available() && full_buffers->finished()) {
-      // All workers finished. We're exiting, but before, we're letting
-      // other updating threads know that they also should check for exit.
-      lk.unlock();
-      full_buffers->m_cv.notify_one();
-      break;
-    }
-
-    buffer<block_offset_type> *b = full_buffers->get();
-    lk.unlock();
-    full_buffers->m_cv.notify_one(); // let others know they should try
-
-    // Process buffer.
-    gap->increment(b->m_content, b->m_filled);
-
-    // Add the buffer to the poll of empty buffers and notify waiting thread.
-    std::unique_lock<std::mutex> lk2(empty_buffers->m_mutex);
-    empty_buffers->add(b);
-    lk2.unlock();
-    empty_buffers->m_cv.notify_one();
-  }
 }
 
 //=============================================================================
@@ -579,8 +453,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       fprintf(stderr, "  [PARALLEL]Stream:");
       long double stream_start = utils::wclock();
 
-      long gap_sections = std::min(block_size + 1, max_gap_sections);
-      buffered_gap_array *gap = new buffered_gap_array(block_size + 1, gap_sections);
+      buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
 
       // Allocate buffers.
       buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[n_stream_buffers];
@@ -609,21 +482,17 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       }
 
       // Start updaters.
-      std::thread **updaters = new std::thread*[n_updaters];
-      for (long i = 0L; i < n_updaters; ++i) {
-        updaters[i] = new std::thread(gap_update<block_offset_type>,
-            full_buffers, empty_buffers, gap);
-      }
+      std::thread *updater = new std::thread(gap_updater<block_offset_type>,
+            full_buffers, empty_buffers, gap, stream_buffer_size);
 
       // Wait for all threads to finish.        
       for (long i = 0L; i < starting_positions; ++i) streamers[i]->join();
-      for (long i = 0L; i < n_updaters; ++i) updaters[i]->join();
+      updater->join();
 
       // Clean up.
       for (long i = 0L; i < starting_positions; ++i) delete streamers[i];
-      for (long i = 0L; i < n_updaters; ++i) delete updaters[i];
       for (long i = 0L; i < n_stream_buffers; ++i) delete buffers[i];
-      delete[] updaters;
+      delete updater;
       delete[] streamers;
       delete[] buffers;
       delete empty_buffers;
@@ -638,9 +507,9 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
           stream_time, info.m_thread_count, speed / starting_positions, speed);
 
       //-----------------------------------------------------------------------
-      // for (long t = 0L; t < starting_points; ++t)
-      //   fprintf(stderr, "  IDLE(%ld) = %.3Lfsec (work), %.3Lfsec (update)\n",
-      //       t, info.m_idle_work[t], info.m_idle_update[t]);
+//      for (long t = 0L; t < starting_positions; ++t)
+//        fprintf(stderr, "  IDLE(%ld) = %.3Lfsec (work), %.3Lfsec (update)\n",
+//            t, info.m_idle_work[t], info.m_idle_update[t]);
       //-----------------------------------------------------------------------
 
       // 5c. Save gap to file.
