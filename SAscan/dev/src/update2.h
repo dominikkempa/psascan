@@ -1,3 +1,10 @@
+
+//
+// TODO:
+//   I don't understand why this version is slower than the one in update.h
+//   should be exactly as fast, the houskeeping cannot make such a big difference.
+//
+
 #ifndef __UPDATE_H_INCLUDED
 #define __UPDATE_H_INCLUDED
 

@@ -13,8 +13,10 @@
 const long n_updaters = 24;
 const long n_counters = 24;
 
-long threads_created;
-long double thread_time_creation;
+long double housekeeping_time;
+long double counting_time;
+long double permuting_time;
+long double increasing_time;
 
 static const long max_buckets = 1048; // not necessarily a power of 2
 long bucket_size_bits;
@@ -90,6 +92,7 @@ void update_gap(buffer<block_offset_type> *b, buffered_gap_array *gap, block_off
   // Compute the smallest bucket_size that results in
   // distributing elements from range [0..gap->m_length)
   // into at most max_buckets buckets.
+  long double tt = utils::wclock();
   long bucket_size = 1;
   bucket_size_bits = 0;
   while ((gap->m_length + bucket_size - 1) / bucket_size > max_buckets)
@@ -107,21 +110,22 @@ void update_gap(buffer<block_offset_type> *b, buffered_gap_array *gap, block_off
   //
   // For each block compute the number of elements in each bucket.
   int **block_counts = new int*[n_counters];
-  std::thread **counters = new std::thread*[n_counters];
-  for (long t = 0, beg = 0, end; t < n_counters; ++t, beg = end) {
-    end = std::min(b->m_filled, beg + block_size);
+  for (long t = 0; t < n_counters; ++t) {
     block_counts[t] = new int[n_buckets];
     std::fill(block_counts[t], block_counts[t] + n_buckets, 0);
-    long double creation_start = utils::wclock();
+  }
+  std::thread **counters = new std::thread*[n_counters];
+  housekeeping_time += utils::wclock() - tt;
+  tt = utils::wclock();
+  for (long t = 0, beg = 0, end; t < n_counters; ++t, beg = end) {
+    end = std::min(b->m_filled, beg + block_size);
     counters[t] = new std::thread(parallel_count<block_offset_type>,
         b, beg, end, block_counts[t]);
-    thread_time_creation += utils::wclock() - creation_start;
-    ++threads_created;
   }
-  for (long i = 0; i < n_counters; ++i) {
-    counters[i]->join();
-    delete counters[i];
-  }
+  for (long i = 0; i < n_counters; ++i) counters[i]->join();
+  counting_time += utils::wclock() - tt;
+  tt = utils::wclock();
+  for (long i = 0; i < n_counters; ++i) delete counters[i];
   delete[] counters;
 
 
@@ -208,17 +212,17 @@ void update_gap(buffer<block_offset_type> *b, buffered_gap_array *gap, block_off
   //
   // Create and run threads performing the placement.
   std::thread **permuters = new std::thread*[n_counters];
-  long double creation_start = utils::wclock();
+  housekeeping_time += utils::wclock() - tt;
+  tt = utils::wclock();
   for (long i = 0, beg = 0, end; i < n_counters; ++i, beg = end) {
     end = std::min(b->m_filled, beg + block_size);
     permuters[i] = new std::thread(parallel_permute<block_offset_type>,
         b, temp, beg, end, placement_pointers[i], sbucket_beg, oracle + beg);
-    ++threads_created;
   }
-  thread_time_creation += utils::wclock() - creation_start;
-
+  for (long i = 0; i < n_counters; ++i) permuters[i]->join();
+  permuting_time += utils::wclock() - tt;
+  tt = utils::wclock();
   for (long i = 0; i < n_counters; ++i) {
-    permuters[i]->join();
     delete permuters[i];
     delete[] placement_pointers[i];
   }
@@ -235,22 +239,21 @@ void update_gap(buffer<block_offset_type> *b, buffered_gap_array *gap, block_off
     sblock_beg[t] = curbeg;
 
   std::thread **increasers = new std::thread*[n_updaters];
-  creation_start = utils::wclock();
+  housekeeping_time += utils::wclock() - tt;
+  tt = utils::wclock();
   for (long t = 0; t < n_updaters; ++t) {
     increasers[t] = new std::thread(parallel_increase<block_offset_type>,
         temp, gap, sblock_beg[t], sblock_beg[t] + sblock_size[t]);
-    ++threads_created;
   }
-  thread_time_creation += utils::wclock() - creation_start;
-
-  for (long t = 0; t < n_updaters; ++t) {
-    increasers[t]->join();
-    delete increasers[t];
-  }
+  for (long t = 0; t < n_updaters; ++t) increasers[t]->join();
+  increasing_time += utils::wclock() - tt;
+  tt = utils::wclock();
+  for (long t = 0; t < n_updaters; ++t) delete increasers[t];
   delete[] increasers;
 
   delete[] sblock_size;
   delete[] sblock_beg;
+  housekeeping_time += utils::wclock() - tt;
 }
 
 template<typename block_offset_type>
@@ -258,8 +261,10 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
     buffer_poll<block_offset_type> *empty_buffers,
     buffered_gap_array *gap, long stream_buf_size) {
 
-  threads_created = 0;
-  thread_time_creation = 0.L;
+  housekeeping_time = 0.L;
+  counting_time = 0.L;
+  permuting_time = 0.L;
+  increasing_time = 0.L;
 
   long max_buffer_elems = stream_buf_size / sizeof(block_offset_type);
   block_offset_type *temp = new block_offset_type[max_buffer_elems];
@@ -296,8 +301,10 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
   delete[] temp;
   delete[] oracle;
 
-  fprintf(stderr, "\nthreads created = %ld\n", threads_created);
-  fprintf(stderr, "thread time creation = %.2Lfs\n", thread_time_creation);
+  fprintf(stderr, "\nhousekeeping_time: %.2Lfs\n", housekeeping_time);
+  fprintf(stderr, "counting_time: %.2Lfs\n", counting_time);
+  fprintf(stderr, "permuting_time: %.2Lfs\n", permuting_time);
+  fprintf(stderr, "increasing_time: %.2Lfs\n", increasing_time);
 }
 
 #endif // __UPDATE_H_INCLUDED
