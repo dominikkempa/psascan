@@ -506,6 +506,13 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
           "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
           stream_time, info.m_thread_count, speed / starting_positions, speed);
 
+      long double stream_time2 = stream_time - thread_time_creation;
+      long double speed2 = ((length - end) / (1024.L * 1024)) / stream_time2;
+      fprintf(stderr,"\r  [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
+          "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total, no thread creation time)\n",
+          stream_time2, info.m_thread_count, speed2 / starting_positions, speed2);
+
+
       //-----------------------------------------------------------------------
 //      for (long t = 0L; t < starting_positions; ++t)
 //        fprintf(stderr, "  IDLE(%ld) = %.3Lfsec (work), %.3Lfsec (update)\n",

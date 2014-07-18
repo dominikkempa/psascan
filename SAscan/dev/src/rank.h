@@ -55,6 +55,62 @@ struct context_rank_4n {
     // freq_cnt_total = rare_cnt_total = 0;
     ////////////////
 
+    // Compute rare trunk size.
+    long rare_trunk_size = 0;
+    for (long start = 0; start < n_block * k_block_size; start += k_block_size) {
+      long end = start + k_block_size; // text[start..end) is current block
+
+      // 1. Sort symbols in the current block by frequency.
+      unsigned count[256] = {0};
+      for (long i = start; i < end; ++i) ++count[(i < length ? text[i] : 0)];
+      std::vector<std::pair<unsigned, unsigned> > sorted_chars;
+      for (int i = 0; i < 256; ++i) if (count[i])
+        sorted_chars.push_back(std::make_pair(count[i], i));
+      std::sort(sorted_chars.begin(), sorted_chars.end());
+
+      // 2. Separate (at most, due to rounding of freq_cnt) ~3% of rarest symbols.
+      long rare_cnt = 0, rare_sum = 0;
+      while (rare_cnt < (int)sorted_chars.size() && 16 * (rare_sum + sorted_chars[rare_cnt].first) <= k_block_size)
+        rare_sum += sorted_chars[rare_cnt++].first;
+      long freq_cnt = (int)sorted_chars.size() - rare_cnt; // Compute freq_cnt. Then round up freq_cnt + 1 (+1 is
+      long freq_cnt_bits = utils::log2ceil(freq_cnt + 1);  // for rare char marker) to the smallest power of two.
+      freq_cnt = (1 << freq_cnt_bits);                     // NOTE: this does not work when freq_cnt == 256.
+      rare_cnt = std::max(0L, (long)sorted_chars.size() - freq_cnt + 1); // Recompute rare_cnt (note the +1)
+      std::vector<unsigned char> freq_chars, rare_chars;
+      for (int i = 0; i < rare_cnt; ++i) {
+        rare_chars.push_back(sorted_chars[i].second);
+        rare_cnt_total += sorted_chars[i].first;
+      }
+      for (int i = rare_cnt; i < (int)sorted_chars.size(); ++i) {
+        freq_chars.push_back(sorted_chars[i].second);
+        freq_cnt_total += sorted_chars[i].first;
+      }
+      long rare_cnt_bits = 0;
+      if (rare_cnt) {                              // If there are rare symbols,
+        rare_cnt_bits = utils::log2ceil(rare_cnt); // round up rare_cnt to the
+        rare_cnt = (1 << rare_cnt_bits);           // smallest power of two.
+      }
+
+      // 3. Compute and store symbols mapping.
+      bool is_freq[256] = {false};
+      for (unsigned i = 0; i < freq_chars.size(); ++i) {
+        unsigned char c = freq_chars[i];
+        is_freq[c] = true;
+      }
+
+      for (long i = start, nofreq_cnt = 0; i < end; ++i) {
+        unsigned char c = (i < length ? text[i] : 0);
+        if (!is_freq[c]) {
+          if (nofreq_cnt % rare_cnt == 0)
+            rare_trunk_size += rare_cnt;
+          ++nofreq_cnt;
+        }
+      }
+      rare_trunk_size += rare_cnt;
+    }
+    
+    rare_trunk.reserve(rare_trunk_size);
+
     std::fill(c_rank, c_rank + 256, 0);
     for (long start = 0, sb_ptr = 0; start < n_block * k_block_size; start += k_block_size) {
       long end = start + k_block_size; // text[start..end) is current block
@@ -148,6 +204,15 @@ struct context_rank_4n {
       }
     }
     c_rank[0] -= n_block * k_block_size - length;
+
+    if (rare_trunk_size != (long)rare_trunk.size() ||
+        rare_trunk_size != (long)rare_trunk.capacity()) {
+      fprintf(stderr, "\n\nError during rank initialization:\n");
+      fprintf(stderr, "\trare_trunk_size = %ld\n", rare_trunk_size);
+      fprintf(stderr, "\trare_trunk.size() = %ld\n", (long)rare_trunk.size());
+      fprintf(stderr, "\trare_trunk.capacity() = %ld\n", (long)rare_trunk.capacity());
+      std::exit(EXIT_FAILURE);
+    }
 
     // debug //
     // fprintf(stderr, "  rare_trunk.size() = %lu (%.2Lf millions)\n",
