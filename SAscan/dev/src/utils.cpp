@@ -63,7 +63,7 @@ void file_delete(std::string fname) {
 }
 
 std::string absolute_path(std::string fname) {
-  char path[1 << 18];
+  char path[1 << 12];
   bool created = false;
 
   if (!file_exists(fname)) {
