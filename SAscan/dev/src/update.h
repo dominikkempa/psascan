@@ -18,15 +18,16 @@ long double counting_time;
 long double permuting_time;
 long double increasing_time;
 
-static const long max_buckets = 1048; // not necessarily a power of 2
+static const long max_buckets = 1024; // not necessarily a power of 2
 long bucket_size_bits;
+int *block_id_to_sblock_id;
 
 template<typename block_offset_type>
-void parallel_count(buffer<block_offset_type> *b,
-    long block_beg, long block_end, int *count) {
+void parallel_count(buffer<block_offset_type> *b, long block_beg,
+    long block_end, int *count) {
   for (long i = block_beg; i < block_end; ++i) {
-    long x = (long)b->m_content[i];
-    ++count[x >> bucket_size_bits];
+    long id = ((b->m_content[i]) >> bucket_size_bits);
+    ++count[id];
   }
 }
 
@@ -34,9 +35,8 @@ template<typename block_offset_type>
 void parallel_permute(buffer<block_offset_type> *b, block_offset_type *temp,
     long block_beg, long block_end, int *placement_ptrs, long *sbucket_beg, long *oracle) {
   for (long i = block_beg; i < block_end; ++i) {
-    long x = (long)b->m_content[i];
-    long sblock_id = n_updaters - 1;
-    while (sbucket_beg[sblock_id] > x) --sblock_id;
+    long id = ((b->m_content[i]) >> bucket_size_bits);
+    long sblock_id = block_id_to_sblock_id[id];
     oracle[i - block_beg] = placement_ptrs[sblock_id]++;
   }
 
@@ -163,8 +163,10 @@ void update_gap(buffer<block_offset_type> *b, buffered_gap_array *gap, block_off
     // Compute the contribution of each block to this superblock.
     for (long i = 0; i < n_counters; ++i) {
       block_to_sblock_contrib[i][t] = 0;
-      for (long id = bucket_id_beg; id < bucket_id_end; ++id)
+      for (long id = bucket_id_beg; id < bucket_id_end; ++id) {
         block_to_sblock_contrib[i][t] += block_counts[i][id];
+        block_id_to_sblock_id[id] = t;
+      }
     }
 
     bucket_id_beg = bucket_id_end;
@@ -269,6 +271,7 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
   long max_buffer_elems = stream_buf_size / sizeof(block_offset_type);
   block_offset_type *temp = new block_offset_type[max_buffer_elems];
   long *oracle = new long[max_buffer_elems];
+  block_id_to_sblock_id = new int[max_buckets];
 
   while (true) {
     // Get a buffer from the poll of full buffers.
@@ -305,6 +308,8 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
   fprintf(stderr, "counting_time: %.2Lfs\n", counting_time);
   fprintf(stderr, "permuting_time: %.2Lfs\n", permuting_time);
   fprintf(stderr, "increasing_time: %.2Lfs\n", increasing_time);
+
+  delete[] block_id_to_sblock_id;
 }
 
 #endif // __UPDATE_H_INCLUDED
