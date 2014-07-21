@@ -154,7 +154,7 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
     buffered_gap_array *gap) {
 
   gap_parallel_updater<block_offset_type> *updater =
-    new gap_parallel_updater<block_offset_type>(gap, 24);
+    new gap_parallel_updater<block_offset_type>(gap, n_increasers);
 
   while (true) {
     // Get a buffer from the poll of full buffers.

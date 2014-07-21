@@ -1,8 +1,8 @@
 #ifndef __BUFFER_H_INCLUDED
 #define __BUFFER_H_INCLUDED
 
-#include <cstdio> // fprintf
-#include <cstdlib> // exit
+#include <cstdio>
+#include <cstdlib>
 
 #include <queue>
 #include <condition_variable>

@@ -43,7 +43,7 @@ void parallel_stream(
     long gap_range_size,
     long stream_buf_size) {
 
-  static const int max_buckets = 1024;
+  static const int max_buckets = 4092;
   int *block_id_to_sblock_id = new int[max_buckets];
   
   long bucket_size = 1;
@@ -56,6 +56,11 @@ void parallel_stream(
   long max_buffer_elems = stream_buf_size / sizeof(block_offset_type);
   block_offset_type *temp = new block_offset_type[max_buffer_elems];
   int *oracle = new int[max_buffer_elems];
+
+  static const long buffer_sample_size = 500;
+  std::vector<block_offset_type> samples(buffer_sample_size);
+  long *ptr = new long[n_increasers];
+  block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
   gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
   bool next_gt = (j_start + 1 == length) ? 0 : (*gt_in)[length - j_start - 2];
@@ -128,20 +133,63 @@ void parallel_stream(
       bucket_id_beg = bucket_id_end;
     }
 
-    long *ptr = new long[n_increasers];
-    for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
-      b->sblock_beg[t] = ptr[t] = curbeg;
+    if (/*the partition above is good, TBA*/true) {
+      for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+        b->sblock_beg[t] = ptr[t] = curbeg;
 
-    // Permute the elements of the buffer.
-    for (long t = 0; t < b->m_filled; ++t) {
-      long id = (temp[t] >> bucket_size_bits);
-      long sblock_id = block_id_to_sblock_id[id];
-      oracle[t] = ptr[sblock_id]++;
-    }
-    delete[] ptr;
-    for (long t = 0; t < b->m_filled; ++t) {
-      long addr = oracle[t];
-      b->m_content[addr] = temp[t];
+      // Permute the elements of the buffer.
+      for (long t = 0; t < b->m_filled; ++t) {
+        long id = (temp[t] >> bucket_size_bits);
+        long sblock_id = block_id_to_sblock_id[id];
+        oracle[t] = ptr[sblock_id]++;
+      }
+
+      for (long t = 0; t < b->m_filled; ++t) {
+        long addr = oracle[t];
+        b->m_content[addr] = temp[t];
+      }
+    } else {
+      // Repeat the partition into sbuckets, this time using random sample.
+      // This is a fallback mechanism in case the quick partition failed.
+      // It is not suppose to happen to often.
+
+      // Compute random sample of elements in the buffer.
+      for (long t = 0; t < buffer_sample_size; ++t)
+        samples[t] = temp[utils::random_long(0L, b->m_filled - 1)];
+      std::sort(samples.begin(), samples.end());
+      samples.erase(std::unique(samples.begin(), samples.end()), samples.end());
+
+      // Compute bucket boundaries (lower bound is enough).
+      std::fill(bucket_lbound, bucket_lbound + n_increasers + 1, gap_range_size);
+
+      long step = (samples.size() + n_increasers - 1) / n_increasers;
+      for (size_t t = 1, p = step; p < samples.size(); ++t, p += step)
+        bucket_lbound[t] = (samples[p - 1] + samples[p] + 1) / 2;
+      bucket_lbound[0] = 0;
+
+      // Compute bucket sizes and sblock id into oracle array.
+      std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
+      for (long t = 0; t < b->m_filled; ++t) {
+        block_offset_type x = temp[t];
+        int id = n_increasers;
+        while (bucket_lbound[id] > x) --id;
+        oracle[t] = id;
+        b->sblock_size[id]++;
+      }
+
+      // Permute elements into their own buckets using oracle.
+      for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+        b->sblock_beg[t] = ptr[t] = curbeg;
+
+      for (long t = 0; t < b->m_filled; ++t) { // not sure if this scan is really necessary.
+        long sblock_id = oracle[t];
+        oracle[t] = ptr[sblock_id]++;
+      }
+
+      for (long t = 0; t < b->m_filled; ++t) {
+        long addr = oracle[t];
+        b->m_content[addr] = temp[t];
+      }
     }
 
     // Add the buffer to the poll of full buffers and notify waiting thread.
@@ -168,6 +216,8 @@ void parallel_stream(
   delete[] block_id_to_sblock_id;
   delete[] temp;
   delete[] oracle;
+  delete[] ptr;
+  delete[] bucket_lbound;
 }
 
 
