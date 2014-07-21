@@ -1,327 +1,174 @@
-// Various types of streamers.
+// Parallel backward search.
 #ifndef __STREAM_H_INCLUDED
 #define __STREAM_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
-#include <algorithm>
+#include <cstring>
+
+#include <iostream>
+#include <queue>
 #include <string>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <future>
+#include <algorithm>
 
 #include "utils.h"
+#include "rank.h"
+#include "io_streamer.h"
+#include "buffer.h"
+#include "update.h"
+#include "stream_info.h"
 
-/********************************* usage ***************************************
-stream_reader<int> *sr = new stream_reader<int>("input.txt", 1 << 22);
-while (!sr->empty()) {
-  int next = sr->read();
-  fprintf("%d\n", next);
-}
-delete sr;
-*******************************************************************************/
-template<typename T>
-struct stream_reader {
-  stream_reader(std::string fname, long buf_bytes = (4L << 20))
-      : m_bufelems((buf_bytes + sizeof(T) - 1) / sizeof(T)) {
-    m_file = utils::open_file(fname, "r");
-    m_buffer = new T[m_bufelems];
-    refill();
-  }
+std::mutex stdout_mutex;
 
-  ~stream_reader() {
-    delete[] m_buffer;
-    std::fclose(m_file);
-  }
+template<typename block_offset_type>
+void parallel_stream(
+    buffer_poll<block_offset_type> *full_buffers,
+    buffer_poll<block_offset_type> *empty_buffers,
+    long j_start,
+    long j_end,
+    block_offset_type i,
+    long *count,
+    block_offset_type whole_suffix_rank,
+    context_rank_4n *rank,
+    unsigned char last,
+    std::string text_filename,
+    long length,
+    std::string &tail_gt_filename,
+    stream_info *info,
+    int thread_id,
+    long gap_range_size,
+    long stream_buf_size) {
 
-  inline T read() {
-    T ret = m_buffer[m_pos++];
-    if (m_pos == m_filled)
-      refill();
-
-    return ret;
-  }
-
-  inline bool empty() {
-    return (!m_filled && !refill());
-  }
+  static const int max_buckets = 1024;
+  int *block_id_to_sblock_id = new int[max_buckets];
   
-private:
-  long refill() {
-    m_filled = std::fread(m_buffer, sizeof(T), m_bufelems, m_file);
-    m_pos = 0;
+  long bucket_size = 1;
+  long bucket_size_bits = 0;
+  while ((gap_range_size + bucket_size - 1) / bucket_size > max_buckets)
+    bucket_size <<= 1, ++bucket_size_bits;
+  long n_buckets = (gap_range_size + bucket_size - 1) / bucket_size;
+  int *block_count = new int[n_buckets];
 
-    return m_filled;
-  }
+  long max_buffer_elems = stream_buf_size / sizeof(block_offset_type);
+  block_offset_type *temp = new block_offset_type[max_buffer_elems];
+  int *oracle = new int[max_buffer_elems];
 
-  long m_bufelems, m_filled, m_pos;
-  T *m_buffer;
+  gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
+  bool next_gt = (j_start + 1 == length) ? 0 : (*gt_in)[length - j_start - 2];
+  backward_skip_stream_reader<unsigned char> *text_streamer
+    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_start, 1 << 20); // 1MiB buffer
 
-  std::FILE *m_file;
-};
+  tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
+  bit_stream_writer *gt_out = new bit_stream_writer(tail_gt_filename); // 1MiB buffer
 
-template<typename T>
-struct backward_stream_reader {
-  backward_stream_reader(std::string fname, long buf_bytes = (4L << 20))
-      : m_bufelems((buf_bytes + sizeof(T) - 1) / sizeof(T)), m_filled(0L) {
-    m_buffer = new T[m_bufelems];
-    m_file = utils::open_file(fname, "r");    
-    std::fseek(m_file, 0L, SEEK_END);
-    refill();
-  }
+  long j = j_start, dbg = 0L;
+  while (j > j_end) {
+    if (dbg > (1 << 26)) {
+      info->m_mutex.lock();
+      info->m_streamed[thread_id] = j_start - j;
+      info->m_update_count += 1;
+      if (info->m_update_count == info->m_thread_count) {
+        info->m_update_count = 0L;
+        long double elapsed = utils::wclock() - info->m_timestamp;
+        long total_streamed = 0L;
 
-  ~backward_stream_reader() {
-    delete[] m_buffer;
-    std::fclose(m_file);
-  }
+        for (long t = 0; t < info->m_thread_count; ++t)
+          total_streamed += info->m_streamed[t];
+        long double speed = (total_streamed / (1024.L * 1024)) / elapsed;
 
-  inline T read() {
-    T ret = m_buffer[m_pos--];
-    if (m_pos < 0L) refill();
-    
-    return ret;
-  }
-  
-private:
-  void refill() {
-    long curpos = std::ftell(m_file) / sizeof(T);
-    long toread = std::min(m_bufelems, curpos - m_filled);
-
-    std::fseek(m_file, -(m_filled + toread), SEEK_CUR);
-    m_filled = std::fread(m_buffer, sizeof(T), toread, m_file);
-    m_pos = m_filled - 1L;
-  }
-
-  long m_bufelems, m_filled, m_pos;
-  T *m_buffer;
-
-  std::FILE *m_file;
-};
-
-// Special version of backward stream reader that skips last 'skip_bytes'
-// bytes from the end of file.
-template<typename T>
-struct backward_skip_stream_reader {
-  backward_skip_stream_reader(std::string fname, long skip_bytes, long buf_bytes = (4L << 20))
-      : m_bufelems((buf_bytes + sizeof(T) - 1) / sizeof(T)), m_filled(0L) {
-    m_buffer = new T[m_bufelems];
-    m_file = utils::open_file(fname, "r");    
-    std::fseek(m_file, -skip_bytes, SEEK_END);
-    refill();
-  }
-
-  ~backward_skip_stream_reader() {
-    delete[] m_buffer;
-    std::fclose(m_file);
-  }
-
-  inline T read() {
-    T ret = m_buffer[m_pos--];
-    if (m_pos < 0L) refill();
-    
-    return ret;
-  }
-
-private:
-  void refill() {
-    long curpos = std::ftell(m_file) / sizeof(T);
-    long toread = std::min(m_bufelems, curpos - m_filled);
-
-    std::fseek(m_file, -(m_filled + toread), SEEK_CUR);
-    m_filled = std::fread(m_buffer, sizeof(T), toread, m_file);
-    m_pos = m_filled - 1L;
-  }
-
-  long m_bufelems, m_filled, m_pos;
-  T *m_buffer;
-
-  std::FILE *m_file;
-};
-
-/********************************* usage ***************************************
-stream_writer<int> *sw = new stream_writer<int>("output.txt", 1 << 22);
-for (int i = 0; i < n; ++i)
-  sw->write(SA[i]);
-delete sw;
-*******************************************************************************/
-template<typename T>
-struct stream_writer {
-  stream_writer(std::string fname, long bufsize = (4 << 20))
-      : m_bufelems((bufsize + sizeof(T) - 1) / sizeof(T)) {
-    m_file = utils::open_file(fname.c_str(), "w");
-    m_buffer = new T[m_bufelems];
-    m_filled = 0;
-  }
-
-  inline void flush() {
-    utils::add_objects_to_file(m_buffer, m_filled, m_file);
-    m_filled = 0;
-  }
-
-  void write(T x) {
-    m_buffer[m_filled++] = x;
-
-    if (m_filled == m_bufelems)
-      flush();
-  }
-
-  ~stream_writer() {
-    if (m_filled)
-      flush();
-
-    delete[] m_buffer;
-    std::fclose(m_file);
-  }
-
-private:
-  long m_bufelems, m_filled;
-  T *m_buffer;
-
-  std::FILE *m_file;
-};
-
-struct bit_stream_reader {
-  bit_stream_reader(std::string filename) {
-    m_file = utils::open_file(filename.c_str(), "r");
-    m_buf = new unsigned char[k_bufsize];
-    refill();
-  }
-
-  inline bool read() {
-    bool ret = m_buf[m_pos_byte] & (1 << m_pos_bit);
-    ++m_pos_bit;
-    if (m_pos_bit == 8) {
-      m_pos_bit = 0;
-      ++m_pos_byte;
-      if (m_pos_byte == m_filled)
-        refill();
+        stdout_mutex.lock();
+        fprintf(stderr, "\r  [PARALLEL]Stream: %.2Lf%%. Time: %.2Lf. Threads: %ld. "
+            "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)",
+            (total_streamed * 100.L) / info->m_tostream, elapsed,
+            info->m_thread_count, speed / info->m_thread_count, speed);
+        stdout_mutex.unlock();
+      }
+      info->m_mutex.unlock();
+      dbg = 0L;
     }
 
-    return ret;
-  }
+    // Get a buffer from the poll of empty buffers.
+    std::unique_lock<std::mutex> lk(empty_buffers->m_mutex);
+    while (!empty_buffers->available())
+      empty_buffers->m_cv.wait(lk);
 
-  ~bit_stream_reader() {
-    delete[] m_buf;
-    std::fclose(m_file);
-  }
+    buffer<block_offset_type> *b = empty_buffers->get();
+    lk.unlock();
+    empty_buffers->m_cv.notify_one(); // let others know they should re-check
 
-private:
-  inline void refill() {
-    m_filled = fread(m_buf, 1, k_bufsize, m_file);
-    m_pos_byte = m_pos_bit = 0;
-  }
-
-  static const int k_bufsize = (2 << 20); // 2MB
-
-  std::FILE *m_file;
-
-  unsigned char *m_buf;
-  int m_filled, m_pos_byte, m_pos_bit;
-};
-
-struct bit_stream_writer {
-  bit_stream_writer(std::string filename) {
-    f = utils::open_file(filename, "w");
-    buf = new unsigned char[bufsize];
-    if (!buf) {
-      fprintf(stderr, "Error: allocation error in bit_stream_writer\n");
-      std::exit(EXIT_FAILURE);
+    // Process buffer -- fill with gap values.
+    long left = j - j_end;
+    b->m_filled = std::min(left, b->m_size);
+    dbg += b->m_filled;
+    std::fill(block_count, block_count + n_buckets, 0);
+    for (long t = 0L; t < b->m_filled; ++t, --j) {
+      unsigned char c = text_streamer->read();
+      i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
+      if (c == last && next_gt) ++i;
+      gt_out->write(i > whole_suffix_rank);
+      next_gt = (*gt_in)[length - j - 1];
+      temp[t] = i;
+      block_count[i >> bucket_size_bits]++;
     }
-    std::fill(buf, buf + bufsize, 0);
-    filled = pos_bit = 0;
-  }
 
-  inline void flush() {
-    if (pos_bit) ++filled; // final flush?
-    utils::add_objects_to_file<unsigned char>(buf, filled, f);
-    filled = pos_bit = 0;
-    std::fill(buf, buf + bufsize, 0);
-  }
-
-  void write(int bit) {
-    buf[filled] |= (bit << pos_bit);
-    ++pos_bit;
-    if (pos_bit == 8) {
-      pos_bit = 0;
-      ++filled;
-      if (filled == bufsize)
-        flush();
+    // Compute super-buckets.
+    long ideal_sblock_size = (b->m_filled + n_increasers - 1) / n_increasers;
+    long bucket_id_beg = 0;
+    for (long t = 0; t < n_increasers; ++t) {
+      long bucket_id_end = bucket_id_beg, size = 0L;
+      while (bucket_id_end < n_buckets && size < ideal_sblock_size)
+        size += block_count[bucket_id_end++];
+      b->sblock_size[t] = size;
+      for (long id = bucket_id_beg; id < bucket_id_end; ++id)
+        block_id_to_sblock_id[id] = t;
+      bucket_id_beg = bucket_id_end;
     }
-  }
-  
-  ~bit_stream_writer() {
-    flush();
-    std::fclose(f);
-    delete[] buf;
-  }
 
-private:
-  static const int bufsize = (1 << 20); // 1MB
-  
-  unsigned char *buf;
-  int filled, pos_bit;
+    long *ptr = new long[n_increasers];
+    for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      b->sblock_beg[t] = ptr[t] = curbeg;
 
-  std::FILE *f;
-};
-
-struct vbyte_stream_reader {
-  vbyte_stream_reader(std::string fname, long bufsize)
-      : m_bufsize(bufsize) {
-    m_file = utils::open_file(fname, "r");
-    m_buf = new unsigned char[m_bufsize];
-    refill();
-  }
-
-  inline long read() {
-    long ret = 0, offset = 0;
-    while (m_buf[m_pos] & 0x80) {
-      ret |= ((m_buf[m_pos++] & 0x7f) << offset);
-      if (m_pos == m_filled)
-        refill();
-      offset += 7;
+    // Permute the elements of the buffer.
+    for (long t = 0; t < b->m_filled; ++t) {
+      long id = (temp[t] >> bucket_size_bits);
+      long sblock_id = block_id_to_sblock_id[id];
+      oracle[t] = ptr[sblock_id]++;
     }
-    ret |= (m_buf[m_pos++] << offset);
-    if (m_pos == m_filled)
-      refill();
-
-    return ret;
-  }
-  
-  ~vbyte_stream_reader() {
-    delete[] m_buf;
-    std::fclose(m_file);
-  }
-  
-private:
-  inline void refill() {
-    m_filled = std::fread(m_buf, 1, m_bufsize, m_file);
-    m_pos = 0;
-  }
-
-  long m_bufsize, m_filled, m_pos;
-  unsigned char *m_buf;
-  
-  std::FILE *m_file;
-};
-
-namespace stream {
-
-template<typename T, typename U>
-void write_objects_to_file(T *tab, long length, std::string fname) {
-  if (utils::is_same_type<T, U>::value) { // same type, just write
-    std::FILE *f = utils::open_file(fname, "w");
-    size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
-    if ((long)fwrite_ret != length) {
-      fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
-          STR(__LINE__), STR(__FILE__), fwrite_ret);
-      std::exit(EXIT_FAILURE);
+    delete[] ptr;
+    for (long t = 0; t < b->m_filled; ++t) {
+      long addr = oracle[t];
+      b->m_content[addr] = temp[t];
     }
-    std::fclose(f);
-  } else { // requires casting
-    stream_writer<U> *writer = new stream_writer<U>(fname);
-    for (long i = 0; i < length; ++i)
-      writer->write((T)tab[i]);
-    delete writer;
+
+    // Add the buffer to the poll of full buffers and notify waiting thread.
+    std::unique_lock<std::mutex> lk2(full_buffers->m_mutex);
+    full_buffers->add(b);
+    lk2.unlock();
+    full_buffers->m_cv.notify_one();
   }
+
+  delete text_streamer;
+  delete gt_in;
+  delete gt_out;
+  
+  // Report that another worker thread has finished.
+  std::unique_lock<std::mutex> lk(full_buffers->m_mutex);
+  full_buffers->increment_finished_workers();
+  lk.unlock();
+
+  // Notify waiting update threads in case no more buffers
+  // are going to be produces by worker threads.
+  full_buffers->m_cv.notify_one();
+
+  delete[] block_count;
+  delete[] block_id_to_sblock_id;
+  delete[] temp;
+  delete[] oracle;
 }
 
-} // namespace stream
 
-#endif // __STREAM_H_INCLUDED
+#endif  // __STREAM_H_INCLUDED

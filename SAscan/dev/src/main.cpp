@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
   //----------------------------------------------------------------------------
   n_streamers = 24;
-  stream_buffer_size = (4 << 20);
+  stream_buffer_size = (1 << 20);
   n_stream_buffers = 48;
 
   SAscan(text_fname, out_fname, ram_use);

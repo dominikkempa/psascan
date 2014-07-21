@@ -8,7 +8,7 @@
 #include <algorithm>
 
 #include "utils.h"
-#include "stream.h"
+#include "io_streamer.h"
 
 struct buffered_gap_array {
   buffered_gap_array(long n) {

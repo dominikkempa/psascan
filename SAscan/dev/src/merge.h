@@ -5,7 +5,7 @@
 #include <algorithm>
 
 #include "utils.h"
-#include "stream.h"
+#include "io_streamer.h"
 #include "uint40.h"
 #include "distributed_file.h"
 

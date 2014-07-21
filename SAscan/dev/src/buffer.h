@@ -8,20 +8,30 @@
 #include <condition_variable>
 #include <mutex>
 
+const int n_increasers = 24;
+
 template<typename T>
 struct buffer {  
   buffer(long size_bytes)
       : m_filled(0L),
         m_size(size_bytes / sizeof(T)) {
     m_content = new T[m_size];
+
+    sblock_size = new long[n_increasers];
+    sblock_beg = new long[n_increasers];
   }
   
   ~buffer() {
     delete[] m_content;
+    delete[] sblock_size;
+    delete[] sblock_beg;
   }
 
   long m_filled, m_size;
   T *m_content;
+
+  long *sblock_size;
+  long *sblock_beg;
 };
 
 // Same class for the poll of empty and full buffers.  

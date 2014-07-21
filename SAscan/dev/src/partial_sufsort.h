@@ -24,6 +24,7 @@
 #include "merge.h"
 #include "bitvector.h"
 #include "stream.h"
+#include "io_streamer.h"
 #include "sascan.h"
 #include "settings.h"
 #include "smaller_suffixes.h"
@@ -50,8 +51,6 @@ struct gt_substring_info {
 long n_streamers;
 long stream_buffer_size;
 long n_stream_buffers;
-
-std::mutex stdout_mutex;
 
 //-----------------------------------------------------------------------------
 // On Platform-L 6 is a good value (better than 4 and 8).
@@ -182,107 +181,6 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
   }
 
   return result;
-}
-
-
-template<typename block_offset_type>
-void parallel_stream(
-    buffer_poll<block_offset_type> *full_buffers,
-    buffer_poll<block_offset_type> *empty_buffers,
-    long j_start,
-    long j_end,
-    block_offset_type i,
-    long *count,
-    block_offset_type whole_suffix_rank,
-    context_rank_4n *rank,
-    unsigned char last,
-    std::string text_filename,
-    long length,
-    std::string &tail_gt_filename,
-    stream_info *info,
-    int thread_id) {
-  gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
-  bool next_gt = (j_start + 1 == length) ? 0 : (*gt_in)[length - j_start - 2];
-  backward_skip_stream_reader<unsigned char> *text_streamer
-    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_start, 1 << 20); // 1MiB buffer
-
-  tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
-  bit_stream_writer *gt_out = new bit_stream_writer(tail_gt_filename); // 1MiB buffer
-
-  long j = j_start, dbg = 0L;
-  while (j > j_end) {
-    if (dbg > (1 << 26)) {
-      info->m_mutex.lock();
-      info->m_streamed[thread_id] = j_start - j;
-      info->m_update_count += 1;
-      if (info->m_update_count == info->m_thread_count) {
-        info->m_update_count = 0L;
-        long double elapsed = utils::wclock() - info->m_timestamp;
-        long total_streamed = 0L;
-
-        for (long t = 0; t < info->m_thread_count; ++t)
-          total_streamed += info->m_streamed[t];
-        long double speed = (total_streamed / (1024.L * 1024)) / elapsed;
-
-        stdout_mutex.lock();
-        fprintf(stderr, "\r  [PARALLEL]Stream: %.2Lf%%. Time: %.2Lf. Threads: %ld. "
-            "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)",
-            (total_streamed * 100.L) / info->m_tostream, elapsed,
-            info->m_thread_count, speed / info->m_thread_count, speed);
-        stdout_mutex.unlock();
-      }
-      info->m_mutex.unlock();
-      dbg = 0L;
-    }
-
-    // Get a buffer from the poll of empty buffers.
-//    long double acquire_start = utils::wclock(); // measure the acquisition time
-
-    std::unique_lock<std::mutex> lk(empty_buffers->m_mutex);
-    while (!empty_buffers->available())
-      empty_buffers->m_cv.wait(lk);
-
-//    long double acquire_end = utils::wclock(); // account the acquisition time
-//    info->m_mutex.lock();
-//    info->m_idle_work[thread_id] += acquire_end - acquire_start;
-//    info->m_mutex.unlock();
-
-    buffer<block_offset_type> *b = empty_buffers->get();
-    lk.unlock();
-    empty_buffers->m_cv.notify_one(); // let others know they should re-check
-
-    // Process buffer -- fill with gap values.
-    long left = j - j_end;
-    b->m_filled = std::min(left, b->m_size);
-    dbg += b->m_filled;
-    for (long t = 0L; t < b->m_filled; ++t, --j) {
-      unsigned char c = text_streamer->read();
-      i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
-      if (c == last && next_gt) ++i;
-      gt_out->write(i > whole_suffix_rank);
-      next_gt = (*gt_in)[length - j - 1];
-      b->m_content[t] = i;
-    }
-
-    // Add the buffer to the poll of full buffers and notify waiting thread.
-    std::unique_lock<std::mutex> lk2(full_buffers->m_mutex);
-    full_buffers->add(b);
-    lk2.unlock();
-    full_buffers->m_cv.notify_one();    
-  }
-
-  delete text_streamer;
-  delete gt_in;
-  delete gt_out;
-  
-  // Report that another worker thread has finished.
-  std::unique_lock<std::mutex> lk(full_buffers->m_mutex);
-  full_buffers->increment_finished_workers();
-  lk.unlock();
-  
-  // Notify waiting update threads in case no more buffers
-  // are going to be produces by worker threads.
-  full_buffers->m_cv.notify_one();
 }
 
 //=============================================================================
@@ -478,12 +376,12 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
         streamers[t] = new std::thread(parallel_stream<block_offset_type>,
             full_buffers, empty_buffers, j_start, j_end, initial_rank[t],
             count, whole_suffix_rank, rank, last, filename, length,
-            std::ref(gt_info[t].m_fname), &info, t);
+            std::ref(gt_info[t].m_fname), &info, t, gap->m_length, stream_buffer_size);
       }
 
       // Start updaters.
       std::thread *updater = new std::thread(gap_updater<block_offset_type>,
-            full_buffers, empty_buffers, gap, stream_buffer_size);
+            full_buffers, empty_buffers, gap);
 
       // Wait for all threads to finish.        
       for (long i = 0L; i < starting_positions; ++i) streamers[i]->join();
