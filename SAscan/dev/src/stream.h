@@ -57,7 +57,7 @@ void parallel_stream(
   block_offset_type *temp = new block_offset_type[max_buffer_elems];
   int *oracle = new int[max_buffer_elems];
 
-  static const long buffer_sample_size = 500;
+  static const long buffer_sample_size = 512;
   std::vector<block_offset_type> samples(buffer_sample_size);
   long *ptr = new long[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
@@ -122,18 +122,20 @@ void parallel_stream(
 
     // Compute super-buckets.
     long ideal_sblock_size = (b->m_filled + n_increasers - 1) / n_increasers;
+    long max_sbucket_size = 0;
     long bucket_id_beg = 0;
     for (long t = 0; t < n_increasers; ++t) {
       long bucket_id_end = bucket_id_beg, size = 0L;
       while (bucket_id_end < n_buckets && size < ideal_sblock_size)
         size += block_count[bucket_id_end++];
       b->sblock_size[t] = size;
+      max_sbucket_size = std::min(max_sbucket_size, size);
       for (long id = bucket_id_beg; id < bucket_id_end; ++id)
         block_id_to_sblock_id[id] = t;
       bucket_id_beg = bucket_id_end;
     }
 
-    if (/*the partition above is good, TBA*/true) {
+    if (max_sbucket_size < 4L * ideal_sblock_size) {
       for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
@@ -181,7 +183,7 @@ void parallel_stream(
       for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
-      for (long t = 0; t < b->m_filled; ++t) { // not sure if this scan is really necessary.
+      for (long t = 0; t < b->m_filled; ++t) {
         long sblock_id = oracle[t];
         oracle[t] = ptr[sblock_id]++;
       }
