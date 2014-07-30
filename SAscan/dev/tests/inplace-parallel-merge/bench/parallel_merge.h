@@ -22,12 +22,12 @@
 #include <thread>
 #include <mutex>
 
-template<typename T>
-void parallel_merge(T *tab, long *gap, long length, unsigned pagesize_bits,
-    T** pageindex, long left_idx, long right_idx, long remaining_gap,
-    long res_beg, long res_size) {
-  unsigned pagesize = (1U << pagesize_bits);
-  unsigned pagesize_mask = pagesize - 1;
+template<typename T, unsigned pagesize_bits>
+void parallel_merge(T *tab, long *gap, long length,
+    T** pageindex, long left_idx, long right_idx,
+    long remaining_gap, long res_beg, long res_size) {
+  static const unsigned pagesize = (1U << pagesize_bits);
+  static const unsigned pagesize_mask = pagesize - 1;
 
   std::stack<T*> freepages;
   T *dest = NULL;
@@ -78,9 +78,9 @@ void parallel_merge(T *tab, long *gap, long length, unsigned pagesize_bits,
   }
 }
 
-template<typename T>
-void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_threads) {
-  unsigned pagesize = (1U << pagesize_bits);
+template<typename T, unsigned pagesize_bits>
+void merge(T *tab, long n1, long n2, long *gap, long max_threads) {
+  static const unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
   long n_pages = (length + pagesize - 1) / pagesize;
@@ -117,15 +117,17 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
   }
   
   // Okay, we can start the threads.
+  long double start = utils::wclock();
+  fprintf(stderr, "Merging: ");
   std::thread **threads = new std::thread*[n_threads];
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
     long res_end = std::min(res_beg + pages_per_thread * pagesize, length);
     long res_size = res_end - res_beg;
 
-    threads[i] = new std::thread(parallel_merge<T>,
-      tab, gap, length, pagesize_bits, pageindex, left_idx[i],
-      right_idx[i], remaining_gap[i], res_beg, res_size);
+    threads[i] = new std::thread(parallel_merge<T, pagesize_bits>,
+      tab, gap, length, pageindex, left_idx[i], right_idx[i],
+      remaining_gap[i], res_beg, res_size);
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
@@ -133,7 +135,10 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
   delete[] left_idx;
   delete[] right_idx;
   delete[] remaining_gap;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
+  start = utils::wclock();
+  fprintf(stderr, "Finalizing: ");
   // If the last input page was incomplete, handle
   // it separatelly and exclude from the computation.
   if (length % pagesize) {
@@ -174,14 +179,15 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
     }
   }
   delete[] usedpage;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // Permute the pages, for now sequentially.
-  T *output = new T[length];
+  /*T *output = new T[length];
   T *dest = output;
   for (long i = 0; i < n_pages; ++i, dest += pagesize)
     std::copy(pageindex[i], pageindex[i] + pagesize, dest);
   std::copy(output, output + length, tab);
-  delete[] output;
+  delete[] output;*/
   delete[] pageindex;
 }
 

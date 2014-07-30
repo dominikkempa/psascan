@@ -9,7 +9,8 @@
 #include "parallel_merge.h"
 
 template<typename T>
-void test(T *tab, long n1, long n2, long *gap, long pagesize, long max_threads) {
+void test(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_threads) {
+  static const unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
   T *tab_copy = new T[length];
@@ -29,7 +30,7 @@ void test(T *tab, long n1, long n2, long *gap, long pagesize, long max_threads) 
   }
 
   // Merge elements using parallel in-place procedure.
-  merge<T>(tab, n1, n2, gap, pagesize, max_threads);
+  merge<T>(tab, n1, n2, gap, pagesize_bits,/*pagesize,*/ max_threads);
   if (!std::equal(tab, tab + length, correct_answer)) {
     fprintf(stderr, "\nError:\n");
     fprintf(stderr, "\ttab: ");
@@ -37,7 +38,7 @@ void test(T *tab, long n1, long n2, long *gap, long pagesize, long max_threads) 
       fprintf(stderr, "%ld ", (long)tab_copy[j]);
     fprintf(stderr, "\n");
     fprintf(stderr, "\tn1 = %ld, n2 = %ld\n", n1, n2);
-    fprintf(stderr, "\tpagesize = %ld\n", pagesize);
+    fprintf(stderr, "\tpagesize = %u\n", pagesize);
     fprintf(stderr, "\tmax_threads = %ld\n", max_threads);
     fprintf(stderr, "\tgap: ");
     for (long j = 0; j <= n1; ++j)
@@ -67,6 +68,7 @@ void test_random(int testcases, long max_length, long maxval) {
 
   for (int tc = 0; tc < testcases; ++tc) {
     // Print progress information.
+    if (tc % 1000 == 0)
     fprintf(stderr,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
 
     // Generate input.
@@ -81,7 +83,7 @@ void test_random(int testcases, long max_length, long maxval) {
       ++gap[utils::random_long(0, n1)];
 
     long max_threads = utils::random_long(1, 50);
-    long pagesize = utils::random_long(1, 100);
+    unsigned pagesize_bits = utils::random_long(0U, 7U);
 
     /*long n1 = 3;
     long n2 = 4;
@@ -91,7 +93,7 @@ void test_random(int testcases, long max_length, long maxval) {
     gap[0] = 2; gap[1] = 0; gap[2] = 1; gap[3] = 1;*/
 
     // Run the test on generated input.
-    test<int>(tab, n1, n2, gap, pagesize, max_threads);
+    test<int>(tab, n1, n2, gap, pagesize_bits, max_threads);
   }
 
   // Clean up.
@@ -100,8 +102,8 @@ void test_random(int testcases, long max_length, long maxval) {
 }
 
 int main() {
-  std::srand(std::time(0) + getpid());
   static const long maxval = 1000000000L;
+  std::srand(std::time(0) + getpid());
 
   test_random(10000000, 10,        maxval);
   test_random(1000000,  100,       maxval);
