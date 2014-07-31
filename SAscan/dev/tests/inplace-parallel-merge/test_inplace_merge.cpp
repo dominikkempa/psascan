@@ -9,15 +9,12 @@
 #include "parallel_merge.h"
 
 template<typename T>
-void test(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_threads) {
+void test(T *tab, long n1, long n2, int *gap, unsigned pagesize_bits, long max_threads) {
   unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
   T *tab_copy = new T[length];
   std::copy(tab, tab + length, tab_copy);
-
-  long *gap_copy = new long[n1 + 1];
-  std::copy(gap, gap + n1 + 1, gap_copy);
 
   // First, compute the answer naively.
   T *correct_answer = new T[length];
@@ -42,7 +39,7 @@ void test(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_
     fprintf(stderr, "\tmax_threads = %ld\n", max_threads);
     fprintf(stderr, "\tgap: ");
     for (long j = 0; j <= n1; ++j)
-      fprintf(stderr, "%ld ", gap_copy[j]);
+      fprintf(stderr, "%d ", gap[j]);
     fprintf(stderr, "\n");
     fprintf(stderr, "Correct: ");
     for (long j = 0; j < length; ++j)
@@ -57,14 +54,13 @@ void test(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_
 
   delete[] correct_answer;
   delete[] tab_copy;
-  delete[] gap_copy;
 }
 
 void test_random(int testcases, long max_length, long maxval) {
   fprintf(stderr,"TEST, testcases = %d, max_n = %ld\n", testcases, max_length);
 
   int *tab = new int[max_length * 2];
-  long *gap = new long[max_length + 1];
+  int *gap = new int[max_length + 1];
 
   for (int tc = 0; tc < testcases; ++tc) {
     // Print progress information.

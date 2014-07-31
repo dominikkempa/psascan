@@ -1,15 +1,3 @@
-/*******************************************************************************
-  Generic parallel inplace merging.
-
-  The input is an array tab[0..n) where tab[0..n1) contains elements the
-  first subarray nad tab[n1..n) the second. In addition we expect an array
-  gap[0..n1] such that gap[i] is the number of elements from the right subarray
-  that goes in between tab[i] and tab[i - 1] (or at the beginning if i = 0).
-
-  The procedure computes the resulting ordering of elements and places it
-  in tab[0..n). It uses O(1) pages per each thread of extra space.
-*******************************************************************************/
-
 #ifndef __PARALLEL_MERGE_H_INCLUDED
 #define __PARALLEL_MERGE_H_INCLUDED
 
@@ -23,9 +11,8 @@
 #include <mutex>
 
 template<typename T>
-void parallel_merge(T *tab, long *gap, long length, unsigned pagesize_bits,
-    T** pageindex, long left_idx, long right_idx, long remaining_gap,
-    long res_beg, long res_size) {
+void parallel_merge(T *tab, int *gap, long length, T** pageindex, long left_idx,
+    long right_idx, int remaining_gap, long res_beg, long res_size, long pagesize_bits) {
   unsigned pagesize = (1U << pagesize_bits);
   unsigned pagesize_mask = pagesize - 1;
 
@@ -80,8 +67,7 @@ void parallel_merge(T *tab, long *gap, long length, unsigned pagesize_bits,
 
 template<typename T>
 void parallel_permute(T *tab, T** index, std::mutex *mutexes,
-    long length, long n_pages, unsigned pagesize_bits,
-    long &selector, std::mutex &selector_mutex) {
+    long length, long n_pages, long &selector, std::mutex &selector_mutex, long pagesize_bits) {
   unsigned pagesize = (1U << pagesize_bits);
   // Invariant: at all times, index[i] for any i points
   // to content that should be placed at i-th page of tab.
@@ -140,7 +126,7 @@ void parallel_permute(T *tab, T** index, std::mutex *mutexes,
 }
 
 template<typename T>
-void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_threads) {
+void merge(T *tab, long n1, long n2, int *gap, long pagesize_bits, long max_threads) {
   unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
@@ -149,32 +135,30 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
 
   //----------------------------------------------------------------------------
   // STEP 1: compute the initial parameters for each thread. For now, we do it
-  //         seqentially.
+  //         seqentially. Each thread gets:
   //
-  // Each thread gets:
-  //   * long left_idx, right_idx -- indices to first elems from aubarrays
-  //   * initial_bckt_size -- how many element from right seq goes first
-  //   * res_size --  number of elements to process
-  //   * res_beg -- index to the first elements of the output
+  //  - long left_idx, right_idx -- indices to first elems from aubarrays
+  //  - initial_bckt_size -- how many element from right seq goes first
+  //  - res_size --  number of elements to process
+  //  - res_beg -- index to the first elements of the output
   //
   // In short, if we did it sequentially, the thread would just produce the
   // elements of the output in the range [res_beg .. rea_beg + res_size).
   //----------------------------------------------------------------------------
-
   long pages_per_thread = (n_pages + max_threads - 1) / max_threads;
   long n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
 
   // Compute initial parameters for each thread.
   long *left_idx = new long[n_threads];
   long *right_idx = new long[n_threads];
-  long *remaining_gap = new long[n_threads];
+  int *remaining_gap = new int[n_threads];
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
     long j = 0, jpos = gap[0];
     while (jpos < res_beg) jpos += gap[++j] + 1;
     left_idx[i] = j;
     right_idx[i] = n1 + res_beg - j;
-    remaining_gap[i] = jpos - res_beg;
+    remaining_gap[i] = (int)(jpos - res_beg);
   }
   
   // Okay, we can start the threads.
@@ -185,8 +169,8 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
     long res_size = res_end - res_beg;
 
     threads[i] = new std::thread(parallel_merge<T>,
-      tab, gap, length, pagesize_bits, pageindex, left_idx[i],
-      right_idx[i], remaining_gap[i], res_beg, res_size);
+      tab, gap, length, pageindex, left_idx[i], right_idx[i],
+      remaining_gap[i], res_beg, res_size, pagesize_bits);
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
@@ -236,7 +220,7 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
   }
   delete[] usedpage;
 
-  // Permute the pages in parallel.
+  // Parallel permutation of pages.
   long selector = 0;
   std::mutex selector_mutex;
   std::mutex *mutexes = new std::mutex[n_pages];
@@ -244,8 +228,8 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
   
   for (long i = 0; i < max_threads; ++i)
     threads[i] = new std::thread(parallel_permute<T>,
-        tab, pageindex, mutexes, length, n_pages, pagesize_bits,
-        std::ref(selector), std::ref(selector_mutex));
+        tab, pageindex, mutexes, length, n_pages,
+        std::ref(selector), std::ref(selector_mutex), pagesize_bits);
 
   for (long i = 0; i < max_threads; ++i) threads[i]->join();
   for (long i = 0; i < max_threads; ++i) delete threads[i];
