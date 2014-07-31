@@ -23,9 +23,9 @@
 #include <mutex>
 
 template<typename T, unsigned pagesize_bits>
-void parallel_merge(T *tab, long *gap, long length,
+void parallel_merge(T *tab, int *gap, long length,
     T** pageindex, long left_idx, long right_idx,
-    long remaining_gap, long res_beg, long res_size) {
+    int remaining_gap, long res_beg, long res_size) {
   static const unsigned pagesize = (1U << pagesize_bits);
   static const unsigned pagesize_mask = pagesize - 1;
 
@@ -79,7 +79,86 @@ void parallel_merge(T *tab, long *gap, long length,
 }
 
 template<typename T, unsigned pagesize_bits>
-void merge(T *tab, long n1, long n2, long *gap, long max_threads) {
+void parallel_permute(T *tab, T** index, std::mutex *mutexes,
+    long length, long n_pages, long &selector, std::mutex &selector_mutex) {
+  unsigned pagesize = (1U << pagesize_bits);
+  long attempts = 0;
+  long double waited_total = 0.L;
+  // Invariant: at all times, index[i] for any i points
+  // to content that should be placed at i-th page of tab.
+  while (true) {
+    // Find starting point on some cycle.
+    long start;
+    ++attempts;
+    while (true) {
+      // Get the candidate using selector.
+      long double st = utils::wclock();
+      std::unique_lock<std::mutex> lk(selector_mutex);
+      waited_total += utils::wclock() - st;
+      while (selector < n_pages &&
+          (index[selector] == tab + (selector << pagesize_bits) ||
+           index[selector] < tab || tab + length <= index[selector]))
+          ++selector;
+
+      // Exit, if the selector does not give any candidate.
+      if (selector == n_pages) {
+        lk.unlock();
+        fprintf(stderr, "thread waited %.2Lf sec for lock\n", waited_total);
+        fprintf(stderr, "attempted begins: %ld\n", attempts);
+        return;
+      }
+
+      // Unlock selector lock, allow other threads
+      // to look for candidates in the meantime.
+      start = selector++;
+      lk.unlock();
+
+      // Lock a candidate page and check if it's still good.
+      // If yes, keep lock and proceed to process it.
+      if (mutexes[start].try_lock() &&
+          index[start] != tab + (start << pagesize_bits) &&
+          tab <= index[start] && index[start] < tab + length) break;
+    }
+
+    // Invariant: we have found a good candidate
+    // page and have lock on mutexes[start].
+
+    // First, we create temporary space for the
+    // content of page at index[start] and move
+    // the content at index[start] to that temp space.
+    T *temp = new T[pagesize];
+    std::copy(index[start], index[start] + pagesize, temp);
+    std::swap(index[start], temp);
+    mutexes[start].unlock();
+
+    // We now have free space at temp. Keep placing there
+    // elements from the cycle and moving temp pointer.
+    do {
+      // Invariant: temp points to a page inside tab.
+      long next = (temp - tab) >> pagesize_bits;
+      std::unique_lock<std::mutex> lk(mutexes[next]);
+      std::copy(index[next], index[next] + pagesize, temp);
+      std::swap(index[next], temp);
+      lk.unlock();
+    } while (tab <= temp && temp < tab + length);
+    delete[] temp;
+  }
+}
+
+// Permute pages in index[beg..end).
+template<typename T, unsigned pagesize_bits>
+void parallel_permute_out_of_place(T* output, T** index, long beg, long end) {
+  static const unsigned pagesize = (1U << pagesize_bits);
+
+  for (long i = beg; i < end; ++i) {
+    T *src = index[i];
+    T *dest = output + (i << pagesize_bits);
+    std::copy(src, src + pagesize, dest);
+  }
+}
+
+template<typename T, unsigned pagesize_bits>
+void merge(T *tab, long n1, long n2, int *gap, long max_threads) {
   static const unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
@@ -106,14 +185,14 @@ void merge(T *tab, long n1, long n2, long *gap, long max_threads) {
   // Compute initial parameters for each thread.
   long *left_idx = new long[n_threads];
   long *right_idx = new long[n_threads];
-  long *remaining_gap = new long[n_threads];
+  int *remaining_gap = new int[n_threads];
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
     long j = 0, jpos = gap[0];
     while (jpos < res_beg) jpos += gap[++j] + 1;
     left_idx[i] = j;
     right_idx[i] = n1 + res_beg - j;
-    remaining_gap[i] = jpos - res_beg;
+    remaining_gap[i] = (int)(jpos - res_beg);
   }
   
   // Okay, we can start the threads.
@@ -138,7 +217,7 @@ void merge(T *tab, long n1, long n2, long *gap, long max_threads) {
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   start = utils::wclock();
-  fprintf(stderr, "Finalizing: ");
+  fprintf(stderr, "Detect and erase aux pages: ");
   // If the last input page was incomplete, handle
   // it separatelly and exclude from the computation.
   if (length % pagesize) {
@@ -181,13 +260,79 @@ void merge(T *tab, long n1, long n2, long *gap, long max_threads) {
   delete[] usedpage;
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
-  // Permute the pages, for now sequentially.
+
+
+  // Compute cycle-length distribution.
+  std::vector<long> cycle_lens;
+  bool *visited = new bool[n_pages];
+  std::fill(visited, visited + n_pages, false);
+  start = utils::wclock();
+  fprintf(stderr, "Traversing cycles: ");
+  for (long i = 0; i < n_pages; ++i) {
+    if (!visited[i]) {
+      visited[i] = true;
+      long cycle_len = 1L;
+      long j = ((pageindex[i] - tab) >> pagesize_bits);
+      while (!visited[j]) {
+        ++cycle_len;
+        visited[j] = true;
+        j = ((pageindex[j] - tab) >> pagesize_bits);
+      }
+      cycle_lens.push_back(cycle_len);
+    }
+  }
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  delete[] visited;
+  std::sort(cycle_lens.begin(), cycle_lens.end());
+  fprintf(stderr, "cycle distribution:\n");
+  for (size_t beg = 0, end; beg < cycle_lens.size(); beg = end) {
+    end = beg;
+    while (end < cycle_lens.size() && cycle_lens[end] == cycle_lens[beg]) ++end;
+    fprintf(stderr, "cycles[%ld] = %ld\n", cycle_lens[beg], end - beg);
+  }
+
+
+  // Parallel paermutation of pages, about 50% slower than
+  // above in practice, does not require decomposition of
+  // permutation into cycles.
+  start = utils::wclock();
+  fprintf(stderr, "Permuting: ");
+  long selector = 0;
+  std::mutex selector_mutex;
+  std::mutex *mutexes = new std::mutex[n_pages];
+  threads = new std::thread*[max_threads];
+  
+  for (long i = 0; i < max_threads; ++i)
+    threads[i] = new std::thread(parallel_permute<T, pagesize_bits>,
+        tab, pageindex, mutexes, length, n_pages,
+        std::ref(selector), std::ref(selector_mutex));
+
+  for (long i = 0; i < max_threads; ++i) threads[i]->join();
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  for (long i = 0; i < max_threads; ++i) delete threads[i];
+  delete[] threads;
+  delete[] mutexes;
+
+  // Sequential-out-of-place-permutation
   /*T *output = new T[length];
-  T *dest = output;
-  for (long i = 0; i < n_pages; ++i, dest += pagesize)
-    std::copy(pageindex[i], pageindex[i] + pagesize, dest);
+  std::fill(output, output + length, (T)0);
+  start = utils::wclock();
+  fprintf(stderr, "Permuting (out-of-place): ");
+  threads = new std::thread*[n_threads];
+  for (long i = 0; i < n_threads; ++i) {
+    long page_range_beg = i * pages_per_thread;
+    long page_range_end = std::min(page_range_beg + pages_per_thread, n_pages);
+    threads[i] = new std::thread(parallel_permute_out_of_place<T, pagesize_bits>,
+        output, pageindex, page_range_beg, page_range_end);
+  }
+  for (long i = 0; i < n_threads; ++i) threads[i]->join();
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  for (long i = 0; i < n_threads; ++i) delete threads[i];
+  delete[] threads;
   std::copy(output, output + length, tab);
   delete[] output;*/
+
+
   delete[] pageindex;
 }
 

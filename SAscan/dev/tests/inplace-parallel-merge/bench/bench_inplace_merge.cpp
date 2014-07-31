@@ -8,8 +8,10 @@
 #include "utils.h"
 #include "parallel_merge.h"
 
+// Unused, times were the same as using 1 thread
+// Means that sequential inplace merging works ok.
 template<typename T>
-void sequential(T *tab, long n1, long n2, long *gap) {
+void sequential(T *tab, long n1, long n2, int *gap) {
   long length = n1 + n2;
 
   long double start = utils::wclock();
@@ -33,8 +35,7 @@ void test(long n1, long n2) {
 
   long length = n1 + n2;
   int *tab = new int[length];
-  long *gap = new long[n1 + 1];
-  long *gap2 = new long[n1 + 1];
+  int *gap = new int[n1 + 1];
 
   for (long i = 0; i < length; ++i) {
     if ((i % (1 << 20)) == 0)
@@ -43,40 +44,44 @@ void test(long n1, long n2) {
   }
   fprintf(stderr, "\n");
 
-  std::fill(gap2, gap2 + n1 + 1, 0L);
+  std::fill(gap, gap + n1 + 1, 0L);
   static const long bufsize = (1 << 20);
   long *buf = new long[bufsize];
-  for (long j = 0; j < n2; j += bufsize) {
-      fprintf(stderr, "generating gap: %.2Lf%%\r", (100.L * j) / n2);
-    long this_buf_size = std::min(n2 - j, bufsize);
-    for (long jj = 0; jj < this_buf_size; ++jj)
-      buf[jj] = utils::random_long(0, n1);
-    for (long jj = 0; jj < this_buf_size; ++jj)
-      ++gap2[buf[jj]];
+  int *buf2 = new int[bufsize];
+  long left = n2;
+  while (left) {
+    fprintf(stderr, "generating gap: %.2Lf%%\r", (100.L * (n2 - left)) / n2);
+    for (long j = 0; j < bufsize; ++j) {
+      buf[j] = utils::random_long(0, n1);
+      buf2[j] = (int)utils::random_long(0L, std::min(5L, left));
+      left -= buf2[j];
+    }
+    for (long j = 0; j < bufsize; ++j)
+      gap[buf[j]] += buf2[j];
   }
   delete[] buf;
+  delete[] buf2;
   fprintf(stderr, "\n");
-
-  // The same as inplace using 1 thread -- quite nice :)
-  // sequential<int>(tab, n1, n2, gap2);
 
   for (long t = 1; t <= 32; t *= 2) {
     long thr = std::min(24L, t);
     fprintf(stderr, "======= threads = %ld =======\n", thr);
 
-    std::copy(gap2, gap2 + n1 + 1, gap);
+    /*merge<int, 8 >(tab, n1, n2, gap, thr);
+    merge<int, 9 >(tab, n1, n2, gap, thr);
+    merge<int, 10>(tab, n1, n2, gap, thr);*/
     merge<int, 11>(tab, n1, n2, gap, thr);
-    // Any pagesize between 2^8 - 2^13 was equally good.
-    // Of course the larger, the better: smaller
-    // overhead of the sequential scans over page index.
+    /*merge<int, 12>(tab, n1, n2, gap, thr);
+    merge<int, 13>(tab, n1, n2, gap, thr);
+    merge<int, 14>(tab, n1, n2, gap, thr);
+    merge<int, 15>(tab, n1, n2, gap, thr);*/
   }
 
   delete[] tab;
   delete[] gap;
-  delete[] gap2;
 }
 
 int main() {
   std::srand(std::time(0) + getpid());
-  test(1L << 32, 1L << 32);
+  test(1L << 33, 1L << 33);
 }

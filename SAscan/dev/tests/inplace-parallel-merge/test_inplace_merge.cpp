@@ -10,7 +10,7 @@
 
 template<typename T>
 void test(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_threads) {
-  static const unsigned pagesize = (1U << pagesize_bits);
+  unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
   T *tab_copy = new T[length];
@@ -68,7 +68,7 @@ void test_random(int testcases, long max_length, long maxval) {
 
   for (int tc = 0; tc < testcases; ++tc) {
     // Print progress information.
-    if (tc % 1000 == 0)
+    if (tc % 10 == 0)
     fprintf(stderr,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
 
     // Generate input.
@@ -105,8 +105,8 @@ int main() {
   static const long maxval = 1000000000L;
   std::srand(std::time(0) + getpid());
 
-  test_random(10000000, 10,        maxval);
-  test_random(1000000,  100,       maxval);
+  test_random(100000,  10,        maxval);
+  test_random(100000,  100,       maxval);
   test_random(100000,   1000,      maxval);
   test_random(10000,    10000,     maxval);
   test_random(1000,     100000,    maxval);

@@ -79,6 +79,67 @@ void parallel_merge(T *tab, long *gap, long length, unsigned pagesize_bits,
 }
 
 template<typename T>
+void parallel_permute(T *tab, T** index, std::mutex *mutexes,
+    long length, long n_pages, unsigned pagesize_bits,
+    long &selector, std::mutex &selector_mutex) {
+  unsigned pagesize = (1U << pagesize_bits);
+  // Invariant: at all times, index[i] for any i points
+  // to content that should be placed at i-th page of tab.
+  while (true) {
+    // Find starting point on some cycle.
+    long start;
+    while (true) {
+      // Get the candidate using selector.
+      std::unique_lock<std::mutex> lk(selector_mutex);
+      while (selector < n_pages &&
+          (index[selector] == tab + (selector << pagesize_bits) ||
+           index[selector] < tab || tab + length <= index[selector]))
+          ++selector;
+
+      // Exit, if the selector does not give any candidate.
+      if (selector == n_pages) {
+        lk.unlock();
+        return;
+      }
+
+      // Unlock selector lock, allow other threads
+      // to look for candidates in the meantime.
+      start = selector++;
+      lk.unlock();
+
+      // Lock a candidate page and check if it's still good.
+      // If yes, keep lock and proceed to process it.
+      if (mutexes[start].try_lock() &&
+          index[start] != tab + (start << pagesize_bits) &&
+          tab <= index[start] && index[start] < tab + length) break;
+    }
+
+    // Invariant: we have found a good candidate
+    // page and have lock on mutexes[start].
+
+    // First, we create temporary space for the
+    // content of page at index[start] and move
+    // the content at index[start] to that temp space.
+    T *temp = new T[pagesize];
+    std::copy(index[start], index[start] + pagesize, temp);
+    std::swap(index[start], temp);
+    mutexes[start].unlock();
+
+    // We now have free space at temp. Keep placing there
+    // elements from the cycle and moving temp pointer.
+    do {
+      // Invariant: temp points to a page inside tab.
+      long next = (temp - tab) >> pagesize_bits;
+      std::unique_lock<std::mutex> lk(mutexes[next]);
+      std::copy(index[next], index[next] + pagesize, temp);
+      std::swap(index[next], temp);
+      lk.unlock();
+    } while (tab <= temp && temp < tab + length);
+    delete[] temp;
+  }
+}
+
+template<typename T>
 void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max_threads) {
   unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
@@ -175,13 +236,21 @@ void merge(T *tab, long n1, long n2, long *gap, unsigned pagesize_bits, long max
   }
   delete[] usedpage;
 
-  // Permute the pages, for now sequentially.
-  T *output = new T[length];
-  T *dest = output;
-  for (long i = 0; i < n_pages; ++i, dest += pagesize)
-    std::copy(pageindex[i], pageindex[i] + pagesize, dest);
-  std::copy(output, output + length, tab);
-  delete[] output;
+  // Permute the pages in parallel.
+  long selector = 0;
+  std::mutex selector_mutex;
+  std::mutex *mutexes = new std::mutex[n_pages];
+  threads = new std::thread*[max_threads];
+  
+  for (long i = 0; i < max_threads; ++i)
+    threads[i] = new std::thread(parallel_permute<T>,
+        tab, pageindex, mutexes, length, n_pages, pagesize_bits,
+        std::ref(selector), std::ref(selector_mutex));
+
+  for (long i = 0; i < max_threads; ++i) threads[i]->join();
+  for (long i = 0; i < max_threads; ++i) delete threads[i];
+  delete[] threads;
+  delete[] mutexes;
   delete[] pageindex;
 }
 
