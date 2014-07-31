@@ -8,27 +8,6 @@
 #include "utils.h"
 #include "parallel_merge.h"
 
-// Unused, times were the same as using 1 thread
-// Means that sequential inplace merging works ok.
-template<typename T>
-void sequential(T *tab, long n1, long n2, int *gap) {
-  long length = n1 + n2;
-
-  long double start = utils::wclock();
-  T *correct = new T[length];
-  fprintf(stderr, "Merging sequentially: ");
-  long right_ptr = n1, out_ptr = 0;
-  for (long j = 0; j < gap[0]; ++j) correct[out_ptr++] = tab[right_ptr++];
-  for (long j = 0; j < n1; ++j) {
-    correct[out_ptr++] = tab[j];
-    for (long k = 0; k < gap[j + 1]; ++k)
-      correct[out_ptr++] = tab[right_ptr++];
-  }
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-  delete[] correct;
-}
-
-
 void test(long n1, long n2) {
   fprintf(stderr, "n1 = %ld\n", n1);
   fprintf(stderr, "n2 = %ld\n", n2);
@@ -67,14 +46,11 @@ void test(long n1, long n2) {
     long thr = std::min(24L, t);
     fprintf(stderr, "======= threads = %ld =======\n", thr);
 
-    /*merge<int, 8 >(tab, n1, n2, gap, thr);
     merge<int, 9 >(tab, n1, n2, gap, thr);
-    merge<int, 10>(tab, n1, n2, gap, thr);*/
+    merge<int, 10>(tab, n1, n2, gap, thr);
     merge<int, 11>(tab, n1, n2, gap, thr);
-    /*merge<int, 12>(tab, n1, n2, gap, thr);
+    merge<int, 12>(tab, n1, n2, gap, thr);
     merge<int, 13>(tab, n1, n2, gap, thr);
-    merge<int, 14>(tab, n1, n2, gap, thr);
-    merge<int, 15>(tab, n1, n2, gap, thr);*/
   }
 
   delete[] tab;
