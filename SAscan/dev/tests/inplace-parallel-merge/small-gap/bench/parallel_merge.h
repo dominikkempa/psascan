@@ -9,7 +9,7 @@
                   long        n2,
                   gap_array*  gap,
                   long        max_threads
-    );
+      );
 
   The function takes the input array tab[0..n1+n2) and treats it as
   two subarrays: tab[0..n1) and tab[n1..n1+n2) that we want to merge.
@@ -17,7 +17,9 @@
   merging) is defined by the gap array. For i = 0, .., n1 we have
 
       gap[i] = number of elements placed between tab[i] and tab[i - 1]
-               in the output (if i > 0) or at the beginning (if i = 0).
+               in the output (if 0 < i < n1). gap[0] is the number of
+               elements placed before tab[0]. gap[n1] is the number
+               of elements placed after tab[n1 - 1].
 
   The function works with the small gap array representation, that is:
 
@@ -32,6 +34,12 @@
   The parameter pagesize_bits is the log_2 of used pagesize. In
   practice a good value is 12. A bigger value does not significantly
   affect speed but increases the space usage.
+
+  The parameter max_threads is the number of threads used during
+  computation. For optimal performance a number of physical cores
+  should be used here. If the CPU supports hyper threading then the
+  number of 2 * #cores should be used.
+
   Some comments about the extra space usage are in order here.
 *********************************************************************/
 
