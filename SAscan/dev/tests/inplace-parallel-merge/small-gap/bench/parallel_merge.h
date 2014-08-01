@@ -1,3 +1,40 @@
+/*********************************************************************
+  This file implements a single method. The function is fully
+  parallelized and works almost inplace.
+
+      template<typename T, unsigned pagesize_bits>
+      void merge(
+                  T*          tab,
+                  long        n1,
+                  long        n2,
+                  gap_array*  gap,
+                  long        max_threads
+    );
+
+  The function takes the input array tab[0..n1+n2) and treats it as
+  two subarrays: tab[0..n1) and tab[n1..n1+n2) that we want to merge.
+  The ordering of the elements in the output sequence (after the
+  merging) is defined by the gap array. For i = 0, .., n1 we have
+
+      gap[i] = number of elements placed between tab[i] and tab[i - 1]
+               in the output (if i > 0) or at the beginning (if i = 0).
+
+  The function works with the small gap array representation, that is:
+
+      gap[i] = gap->m_count[i] +
+               256 * number of occurrences of i in gap->m_excess
+
+  We assume that m_excess is sorted. We only access gap array
+  sequentially, so it suffices to binary search in m_excess to find
+  the starting point and then scan m_count together with m_excess to
+  obtain actual gap values.
+
+  The parameter pagesize_bits is the log_2 of used pagesize. In
+  practice a good value is 12. A bigger value does not significantly
+  affect speed but increases the space usage.
+  Some comments about the extra space usage are in order here.
+*********************************************************************/
+
 #ifndef __PARALLEL_MERGE_H_INCLUDED
 #define __PARALLEL_MERGE_H_INCLUDED
 
