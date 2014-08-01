@@ -73,34 +73,43 @@ void answer_gap_queries(int *gap, long length, long n_queries,
   // and in parallel compute sum of values inside each block.
   //----------------------------------------------------------------------------
   long double start = utils::wclock();
-  fprintf(stderr, "Precompute1: ");
-  long block_size = std::min(4L << 20, (length + max_threads - 1) / max_threads); // XXX: too many threads
+  fprintf(stderr, "Precomp1: ");
+  long block_size = std::min(4L << 20, (length + max_threads - 1) / max_threads);
   long n_blocks = (length + block_size - 1) / block_size;
   long *gapsum = new long[n_blocks];
-  std::thread **threads = new std::thread*[n_blocks];
-  for (long i = 0; i < n_blocks; ++i) {
-    long beg = i * block_size;
-    long end = std::min(beg + block_size, length);
-    threads[i] = new std::thread(compute_sum, gap, beg,
-        end, std::ref(gapsum[i]));
+  std::thread **threads = new std::thread*[max_threads];
+  for (long range_beg = 0; range_beg < n_blocks; range_beg += max_threads) {
+    long range_end = std::min(range_beg + max_threads, n_blocks);
+    long range_size = range_end - range_beg;
+
+    // Compute sum inside blocks range_beg, .., range_end - 1.
+    for (long i = range_beg; i < range_end; ++i) {
+      long block_beg = i * block_size;
+      long block_end = std::min(block_beg + block_size, length);
+      threads[i - range_beg] = new std::thread(compute_sum, gap,
+          block_beg, block_end, std::ref(gapsum[i]));
+    }
+    for (long i = 0; i < range_size; ++i) threads[i]->join();
+    for (long i = 0; i < range_size; ++i) delete threads[i];
   }
-  for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
-  for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
+  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 2: compute partial sum from block counts.
   //----------------------------------------------------------------------------
   // Change gapsum so that gapsum[i] is the sum of blocks 0, 1, .., i - 1.
+  fprintf(stderr, "Precomp2: ");
+  start = utils::wclock();
   for (long i = 0, s = 0, t; i < n_blocks; ++i)
     { t = gapsum[i]; gapsum[i] = s; s += t; }
+  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 3: Answer the queries in parallel.
   //----------------------------------------------------------------------------
   start = utils::wclock();
-  fprintf(stderr, "Precompute2: ");
+  fprintf(stderr, "Precomp3: ");
   threads = new std::thread*[n_queries];
   for (long i = 0; i < n_queries; ++i)
     threads[i] = new std::thread(answer_single_gap_query, gap, length,
@@ -115,7 +124,7 @@ void answer_gap_queries(int *gap, long length, long n_queries,
 
 //==============================================================================
 // Compute the range [res_beg..res_beg+res_size) of the output (i.e., the
-// sequence after merging). The rane is guaranteed to be aligned with page
+// sequence after merging). The range is guaranteed to be aligned with page
 // boundaries.
 //==============================================================================
 template<typename T, unsigned pagesize_bits>

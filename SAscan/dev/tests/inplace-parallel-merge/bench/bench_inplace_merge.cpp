@@ -59,5 +59,5 @@ void test(long n1, long n2) {
 
 int main() {
   std::srand(std::time(0) + getpid());
-  test(1L << 33, 1L << 33);
+  test(1L << 31, 1L << 31);
 }

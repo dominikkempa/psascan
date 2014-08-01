@@ -72,18 +72,24 @@ void answer_gap_queries(int *gap, long length, long n_queries,
   // STEP 1: split gap array into at most max_threads blocks
   // and in parallel compute sum of values inside each block.
   //----------------------------------------------------------------------------
-  long block_size = (length + max_threads - 1) / max_threads;
+  long block_size = std::min(4L << 20, (length + max_threads - 1) / max_threads);
   long n_blocks = (length + block_size - 1) / block_size;
   long *gapsum = new long[n_blocks];
-  std::thread **threads = new std::thread*[n_blocks];
-  for (long i = 0; i < n_blocks; ++i) {
-    long beg = i * block_size;
-    long end = std::min(beg + block_size, length);
-    threads[i] = new std::thread(compute_sum, gap, beg,
-        end, std::ref(gapsum[i]));
+  std::thread **threads = new std::thread*[max_threads];
+  for (long range_beg = 0; range_beg < n_blocks; range_beg += max_threads) {
+    long range_end = std::min(range_beg + max_threads, n_blocks);
+    long range_size = range_end - range_beg;
+
+    // Compute sum inside blocks range_beg, .., range_end - 1.
+    for (long i = range_beg; i < range_end; ++i) {
+      long block_beg = i * block_size;
+      long block_end = std::min(block_beg + block_size, length);
+      threads[i - range_beg] = new std::thread(compute_sum, gap,
+          block_beg, block_end, std::ref(gapsum[i]));
+    }
+    for (long i = 0; i < range_size; ++i) threads[i]->join();
+    for (long i = 0; i < range_size; ++i) delete threads[i];
   }
-  for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-  for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
 
   //----------------------------------------------------------------------------
@@ -109,65 +115,9 @@ void answer_gap_queries(int *gap, long length, long n_queries,
 
 //==============================================================================
 // Compute the range [res_beg..res_beg+res_size) of the output (i.e., the
-// sequence after merging). The rane is guaranteed to be aligned with page
+// sequence after merging). The range is guaranteed to be aligned with page
 // boundaries.
 //==============================================================================
-template<typename T, unsigned pagesize_bits>
-void parallel_merge(T *tab, int *gap, long length, T** pageindex, long left_idx,
-    long right_idx, int remaining_gap, long res_beg, long res_size) {
-  static const unsigned pagesize = (1U << pagesize_bits);
-  static const unsigned pagesize_mask = pagesize - 1;
-
-  std::stack<T*> freepages;
-  T *dest = NULL;
-
-  long lpage_read = 0L, rpage_read = 0L, filled = 0L;
-  for (long i = res_beg; i < res_beg + res_size; ++i) {
-    if (!(i & pagesize_mask)) {
-      if (freepages.empty()) dest = new T[pagesize];
-      else { dest = freepages.top(); freepages.pop(); }
-      pageindex[i >> pagesize_bits] = dest;
-      filled = 0L;
-    }
-    if (remaining_gap > 0) {
-      --remaining_gap;
-      // The next element comes from the right subarray.
-      dest[filled++] = tab[right_idx++];
-      ++rpage_read;
-      if (!(right_idx & pagesize_mask)) {
-        // We reached the end of page in the right subarray.
-        // We put it into free pages if we read exactly
-        // pagesize elements from it. This means the no other
-        // thread will attemp to read from it in the future.
-        if (rpage_read == pagesize)
-          freepages.push(tab + right_idx - pagesize);
-        rpage_read = 0;
-      }
-    } else {
-      // Next elem comes from the left subarray.
-      dest[filled++] = tab[left_idx++];
-      remaining_gap = gap[left_idx];
-      ++lpage_read;
-      if (!(left_idx & pagesize_mask)) {
-        // We reached the end of page in the left
-        // subarray, proceed analogously.
-        if (lpage_read == pagesize)
-          freepages.push(tab + left_idx - pagesize);
-        lpage_read = 0;
-      }
-    }
-  }
-
-  // Release the unused auxiliary pages.
-  while (!freepages.empty()) {
-    T* p = freepages.top();
-    freepages.pop();
-    if (p < tab || tab + length <= p)
-      delete[] p;
-  }
-}
-
-
 template<typename T>
 void parallel_merge(T *tab, int *gap, long length, T** pageindex, long left_idx,
     long right_idx, int remaining_gap, long res_beg, long res_size, long pagesize_bits) {
