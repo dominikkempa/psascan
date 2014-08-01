@@ -14,7 +14,7 @@
 
 
 //==============================================================================
-// Find and smallest j such that j + gap[0] + .. + gap[j] >= a. Store
+// Find the smallest j such that j + gap[0] + .. + gap[j] >= a. Store
 // the value of j into b and gap[0] + .. + gap[j] into c. To speed up the
 // algorithm, we have array gapsum defined as
 //
@@ -74,14 +74,14 @@ void compute_sum(gap_array *gap, long beg, long end, long &result) {
 
 
 //==============================================================================
-// Parallel computaton of answers to n_queries queries of the form:
+// Parallel computation of answers to n_queries queries of the form:
 // What is the smallest j such that j + gap[0] + .. + gap[j] >= a[i]"
 //   - the answer to i-th query is stored in b[i]
 //   - in addition we also return gap[0] + .. + gap[j] in c[i]
 //
-// To do that we first split the gap array into blocks of size of about
-// length / max_threads and (in parallel) compute sums of gap values inside
-// these blocks. We the accumulate these sums into array of prefix sums.
+// To do that we first split the gap array into blocks and in parallel compute
+// sums of gap values inside these blocks. We the accumulate these sums into
+// array of prefix sums.
 //
 // To answer each of the queries we start a separate thread. Each thread uses
 // the partial sums of gap array at block boundaries to find a good starting
@@ -90,8 +90,13 @@ void compute_sum(gap_array *gap, long beg, long end, long &result) {
 void answer_gap_queries(gap_array *gap, long length, long n_queries,
     long *a, long *b, long *c, long max_threads) {
   //----------------------------------------------------------------------------
-  // STEP 1: split gap array into at most max_threads blocks
-  // and in parallel compute sum of values inside each block.
+  // STEP 1: split gap array into at most blocks and in parallel compute sum
+  // of values inside each block.
+  //
+  // To speed up STEP 3 of this algorithm we split the sequence into blocks
+  // of at most 4 * 2^20 elements. This slightly increases the memory usage,
+  // does not slow down the parallel sum computation and greatly speed up
+  // STEP 3, since each thread has to scan only at most 4 * 2^20 elements.
   //----------------------------------------------------------------------------
   long double start = utils::wclock();
   fprintf(stderr, "Precomp1: ");
@@ -215,6 +220,16 @@ void parallel_merge(T *tab, gap_array *gap, long length, T** pageindex, long lef
 }
 
 
+//==============================================================================
+// A function that permutes the pages according to permutation stored in the
+// given page index. The function does not deal with particular range of parts
+// of cycles in the permutation, but simply chooses and element on any cycle
+// and keeps following the cycle until it arrives at a page that was a starting
+// point for some other threads.
+//
+// The function achieves correctness through non-trivial mutual exclusion
+// mechanism and a series of invariants.
+//==============================================================================
 template<typename T, unsigned pagesize_bits>
 void parallel_permute(T *tab, T** index, std::mutex *mutexes,
     long length, long n_pages, long &selector, std::mutex &selector_mutex) {
@@ -276,7 +291,16 @@ void parallel_permute(T *tab, T** index, std::mutex *mutexes,
 }
 
 
-
+//==============================================================================
+// Merge subarray tab[0..n1) and tab[n1..n1+n2). The ordering of the output
+// sequence is defined by the gap array. For i = 0, .., n1 we have
+//
+//       gap[i] = number of elements placed between tab[i] and tab[i - 1]
+//                in the output (if i > 0) or at the beginning (if i = 0).
+//
+// The function is almost in-place and fully parallelized.
+// Add here the exact extra space usage.
+//==============================================================================
 template<typename T, unsigned pagesize_bits>
 void merge(T *tab, long n1, long n2, gap_array *gap, long max_threads) {
   static const unsigned pagesize = (1U << pagesize_bits);
@@ -286,21 +310,22 @@ void merge(T *tab, long n1, long n2, gap_array *gap, long max_threads) {
   T **pageindex = new T*[n_pages];
 
   //----------------------------------------------------------------------------
-  // STEP 1: compute the initial parameters for each thread. For now, we do it
-  //         seqentially. Each thread gets:
-  //
-  //  - long left_idx, right_idx -- indices to first elems from aubarrays
-  //  - initial_bckt_size -- how many element from right seq goes first
-  //  - res_size --  number of elements to process
-  //  - res_beg -- index to the first elements of the output
-  //
-  // In short, if we did it sequentially, the thread would just produce the
-  // elements of the output in the range [res_beg .. rea_beg + res_size).
+  // STEP 1: compute the initial parameters for each thread. Each thread is
+  //         assigned a range of elements in the output. This range is
+  //         guaranteed to be aligned with page boundaries. To start merging
+  //         each thread needs to know where to start the merging in each
+  //         of the two input subarrays.
   //----------------------------------------------------------------------------
   long pages_per_thread = (n_pages + max_threads - 1) / max_threads;
   long n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
 
-  // Compute initial parameters for each thread.
+  // Allocate the arrays for initial parameters. Each thread gets:
+  //   * long left_idx, right_idx -- indices to first elems from aubarrays
+  //   * initial_bckt_size -- how many element from right seq goes first
+  //   * res_size --  number of elements to process
+  //   * res_beg --  index to the first elements of the output
+  // In other words, the thread is responsible for computing the output
+  // in the range [res_beg .. res_beg + res_size).
   long *left_idx = new long[n_threads];
   long *right_idx = new long[n_threads];
   int *remaining_gap = new int[n_threads];
@@ -312,8 +337,8 @@ void merge(T *tab, long n1, long n2, gap_array *gap, long max_threads) {
   for (long i = 0; i < n_threads; ++i)
     gap_query[i] = i * pages_per_thread * pagesize;
 
-  // Answer these queries in parallel and convert the answers
-  // to left_idx, right_idx and remaining_gap values.
+  // Answer these queries in parallel and convert the
+  // answers to left_idx, right_idx and remaining_gap values.
   answer_gap_queries(gap, n1 + 1, n_threads, gap_query,
       gap_answer_a, gap_answer_b, max_threads);
   for (long i = 0; i < n_threads; ++i) {
@@ -327,7 +352,9 @@ void merge(T *tab, long n1, long n2, gap_array *gap, long max_threads) {
   delete[] gap_answer_a;
   delete[] gap_answer_b;
 
-  // Okay, we can start the threads.
+  //----------------------------------------------------------------------------
+  // STEP 2: perform the actual merging.
+  //----------------------------------------------------------------------------
   long double start = utils::wclock();
   fprintf(stderr, "Merging: ");
   std::thread **threads = new std::thread*[n_threads];
@@ -392,7 +419,9 @@ void merge(T *tab, long n1, long n2, gap_array *gap, long max_threads) {
   delete[] usedpage;
   fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
-  // Parallel permutation of pages.
+  //----------------------------------------------------------------------------
+  // STEP 3: parallel permutation of pages.
+  //----------------------------------------------------------------------------
   start = utils::wclock();
   fprintf(stderr, "Permuting: ");
   long selector = 0;
