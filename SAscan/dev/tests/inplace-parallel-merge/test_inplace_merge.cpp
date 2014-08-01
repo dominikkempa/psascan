@@ -64,7 +64,7 @@ void test_random(int testcases, long max_length, long maxval) {
 
   for (int tc = 0; tc < testcases; ++tc) {
     // Print progress information.
-    if (tc % 10 == 0)
+    if (tc % 100 == 0)
     fprintf(stderr,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
 
     // Generate input.
