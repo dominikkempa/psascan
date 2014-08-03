@@ -15,6 +15,7 @@ void test_random(int length, int sigma) {
   long double start = utils::wclock();
   int freq_sigma = utils::random_int(1, sigma);
   int rare_sigma = sigma - freq_sigma;
+  fprintf(stderr, "rare_sigma = %ld\n", (long)rare_sigma);
   for (int j = 0; j < length; ++j) {
     if (j % 10000 == 0) fprintf(stderr, "\rprogress: %.2Lf%%", (100.L * j) / length);
     text[j] = utils::random_int(0, freq_sigma - 1);
@@ -32,9 +33,9 @@ void test_random(int length, int sigma) {
       long th = std::min(threads, 24L);
       fprintf(stderr, "\n===== threads = %ld =====\n", th);
 
-      fprintf(stderr, "Building rank:\n");
+      fprintf(stderr, "Building rank<24, 18>:\n");
       start = utils::wclock();
-      rank4n *rank = new rank4n(text, length, threads);
+      rank4n<24, 18> *rank = new rank4n<24, 18>(text, length, threads);
       fprintf(stderr, "Built rank in %.2Lf\n", utils::wclock() - start);
       delete rank;
   }

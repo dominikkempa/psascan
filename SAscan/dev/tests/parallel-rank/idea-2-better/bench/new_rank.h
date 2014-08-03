@@ -40,246 +40,236 @@ long double selecting_time;
 long double sorting_time;
 long double mapping_time;
 
+template<long k_sb_size_bits = 24, long k_block_size_bits = 18>
 struct rank4n {
-  static const long k_sb_size_bits = 24;
-  static const long k_block_size_bits = 18;
+  static void construction_step_1(rank4n &r, unsigned char *text, long range_beg,
+      long range_end, long *range_count, long &rare_trunk_size) {
+    // Initialize output values.
+    std::fill(range_count, range_count + 256, 0L);
+    rare_trunk_size = 0L;
 
-static void construction_step_1(rank4n &r, unsigned char *text, long range_beg,
-    long range_end, long *range_count, long &rare_trunk_size) {
-  // Initialize output values.
-  std::fill(range_count, range_count + 256, 0L);
-  rare_trunk_size = 0L;
+    std::vector<std::pair<unsigned, unsigned> > sorted_chars;
+    for (long block_id = range_beg; block_id < range_end; ++block_id) {
+      long block_beg = block_id << k_block_size_bits;
+      long block_end = block_beg + k_block_size;
 
-  long k_block_size = (1L << k_block_size_bits);
+      //--------------------------------------------------------------------------
+      // Process block i.
+      //--------------------------------------------------------------------------
 
-  std::vector<std::pair<unsigned, unsigned> > sorted_chars;
-  for (long block_id = range_beg; block_id < range_end; ++block_id) {
-    long block_beg = block_id * k_block_size;
-    long block_end = block_beg + k_block_size;
+      long double start = utils::wclock();
+      // Compute symbols counts inside a block and update
+      // symbols counts inside the range of blocks.
+      unsigned block_count[256] = {0U};
+      for (long j = block_beg; j < block_end; ++j) {
+        unsigned char c = (j < r.m_length ? text[j] : 0);
+        ++block_count[c];
+        ++range_count[c];
+      }
+      counting_time += utils::wclock() - start;
 
-    //--------------------------------------------------------------------------
-    // Process block i.
-    //--------------------------------------------------------------------------
+      // Sort symbol counts by frequencies.
+      start = utils::wclock();
+      sorted_chars.clear();
+      for (long j = 0; j < 256; ++j) if (block_count[j])
+        sorted_chars.push_back(std::make_pair(block_count[j], j));
+      std::sort(sorted_chars.begin(), sorted_chars.end());
+      sorting_time += utils::wclock() - start;
 
-    long double start = utils::wclock();
-    // Compute symbols counts inside a block and update
-    // symbols counts inside the range of blocks.
-    unsigned block_count[256] = {0U};
-    for (long j = block_beg; j < block_end; ++j) {
-      unsigned char c = (j < r.m_length ? text[j] : 0);
-      ++block_count[c];
-      ++range_count[c];
+      start = utils::wclock();
+      // Separate (at most, due to rounding of freq_cnt)
+      // about 3% of rarest symbols.
+      long rare_cnt = 0L, rare_sum = 0L;
+      while (rare_cnt < (long)sorted_chars.size() &&
+          16L * (rare_sum + sorted_chars[rare_cnt].first) <= k_block_size)
+        rare_sum += sorted_chars[rare_cnt++].first;
+
+      // Compute freq_cnt. Then round up freq_cnt + 1 (+1 is
+      // for rare char marker) to the smallest power of two.
+      // Note: this does not work when freq_cnt == 256.
+      long freq_cnt = (long)sorted_chars.size() - rare_cnt;
+      long freq_cnt_bits = utils::log2ceil(freq_cnt + 1);
+      freq_cnt = (1L << freq_cnt_bits);
+
+      // Recomputed rare_cnt (note the +1).
+      rare_cnt = std::max(0L, (long)sorted_chars.size() - freq_cnt + 1);
+
+      // Compute freq and rare chars.
+      std::vector<unsigned char> freq_chars, rare_chars;
+      for (long i = 0; i < rare_cnt; ++i)
+        rare_chars.push_back(sorted_chars[i].second);
+      for (long i = rare_cnt; i < (long)sorted_chars.size(); ++i)
+        freq_chars.push_back(sorted_chars[i].second);
+
+      // If there are rare symbols, round up rare_cnt
+      // to the smallest power of two.
+      long rare_cnt_bits = 0L;
+      if (rare_cnt) {
+        rare_cnt_bits = utils::log2ceil(rare_cnt);
+        rare_cnt = (1L << rare_cnt_bits);
+      }
+
+      // Store log2 of rare_cnt and freq_cnt into block header.
+      r.block_header[block_id] = (rare_cnt_bits << 8) +  // one byte
+                                 freq_cnt_bits;          // one byte
+      selecting_time += utils::wclock() - start;
+
+      start = utils::wclock();
+      std::sort(freq_chars.begin(), freq_chars.end());
+      std::sort(rare_chars.begin(), rare_chars.end());
+
+      // Compute and store symbols mapping.
+      long n_blocks = (r.m_length + k_block_size - 1) / k_block_size;
+      bool is_freq[256] = {false};
+      for (unsigned c = 0; c < 256; ++c) {
+        r.m_mapping[2 * (c * n_blocks + block_id)] = NOT_OCCURRING;
+        r.m_mapping[2 * (c * n_blocks + block_id) + 1] = 0; // anything.
+      }
+      for (unsigned i = 0; i < freq_chars.size(); ++i) {
+        unsigned char c = freq_chars[i];
+        is_freq[c] = true;
+        r.m_mapping[2 * (c * n_blocks + block_id) + 1] = i;
+        r.m_mapping[2 * (c * n_blocks + block_id)] = FREQUENT_CHAR;
+      }
+      for (unsigned i = 0; i < rare_chars.size(); ++i) {
+        unsigned char c = rare_chars[i];
+        r.m_mapping[2 * (c * n_blocks + block_id) + 1] = i;
+        r.m_mapping[2 * (c * n_blocks + block_id)] = RARE_CHAR;
+      }
+      mapping_time += utils::wclock() - start;
+
+      // Update rare_trunk_size.
+      if (rare_cnt) {
+        long nofreq_cnt = 0L;
+        for (long i = block_beg; i < block_end; ++i) {
+          unsigned char c = (i < r.m_length ? text[i] : 0);
+          if (!is_freq[c]) ++nofreq_cnt;
+        }
+        long rare_micro_blocks = 1 + (nofreq_cnt + rare_cnt - 1) / rare_cnt;
+        rare_trunk_size += rare_micro_blocks * rare_cnt;
+      }
     }
-    counting_time += utils::wclock() - start;
+  }
 
-    // Sort symbol counts by frequencies.
-    start = utils::wclock();
-    sorted_chars.clear();
-    for (long j = 0; j < 256; ++j) if (block_count[j])
-      sorted_chars.push_back(std::make_pair(block_count[j], j));
-    std::sort(sorted_chars.begin(), sorted_chars.end());
-    sorting_time += utils::wclock() - start;
 
-    start = utils::wclock();
-    // Separate (at most, due to rounding of freq_cnt)
-    // about 3% of rarest symbols.
-    long rare_cnt = 0L, rare_sum = 0L;
-    while (rare_cnt < (long)sorted_chars.size() &&
-        16L * (rare_sum + sorted_chars[rare_cnt].first) <= k_block_size)
-      rare_sum += sorted_chars[rare_cnt++].first;
+  static void construction_step_3(rank4n &r, unsigned char *text, long range_beg,
+      long range_end, long *count) {
+    long *cur_count = new long[256];
+    std::copy(count, count + 256, cur_count);
+    for (long block_id = range_beg; block_id < range_end; ++block_id) {
+      long block_beg = block_id << k_block_size_bits;
+      long block_end = block_beg + k_block_size;
 
-    // Compute freq_cnt. Then round up freq_cnt + 1 (+1 is
-    // for rare char marker) to the smallest power of two.
-    // Note: this does not work when freq_cnt == 256.
-    long freq_cnt = (long)sorted_chars.size() - rare_cnt;
-    long freq_cnt_bits = utils::log2ceil(freq_cnt + 1);
-    freq_cnt = (1L << freq_cnt_bits);
+      if (!(block_beg & k_sb_size_mask)) {
+        // Current block starts at the superblock boundary --
+        // copy current symbols counts as rank values at
+        // superblock boundary.
+        long sb_id = (block_beg >> k_sb_size_bits);
+        std::copy(cur_count, cur_count + 256, r.sb_rank + (sb_id << 8));
+      }
 
-    // Recomputed rare_cnt (note the +1).
-    rare_cnt = std::max(0L, (long)sorted_chars.size() - freq_cnt + 1);
+      // Update symbol counts.
+      for (long j = block_beg; j < block_end; ++j) {
+        unsigned char c = (j < r.m_length ? text[j] : 0);
+        ++cur_count[c];
+      }
+    }
 
-    // Compute freq and rare chars.
+    delete[] cur_count;
+  }
+
+
+  static void construction_step_4(rank4n &r, unsigned char *text, long range_beg,
+      long range_end, long *count, long rare_trunk_ptr) {
+    bool isfreq[256];
+    unsigned char freq_map[256], rare_map[256];
     std::vector<unsigned char> freq_chars, rare_chars;
-    for (long i = 0; i < rare_cnt; ++i)
-      rare_chars.push_back(sorted_chars[i].second);
-    for (long i = rare_cnt; i < (long)sorted_chars.size(); ++i)
-      freq_chars.push_back(sorted_chars[i].second);
 
-    // If there are rare symbols, round up rare_cnt
-    // to the smallest power of two.
-    long rare_cnt_bits = 0L;
-    if (rare_cnt) {
-      rare_cnt_bits = utils::log2ceil(rare_cnt);
-      rare_cnt = (1L << rare_cnt_bits);
-    }
+    for (long block_id = range_beg; block_id < range_end; ++block_id) {
+      long rare_trunk_writing_ptr = rare_trunk_ptr;
+      r.block_header[block_id] |= (rare_trunk_ptr << 16);
 
-    // Store log2 of rare_cnt and freq_cnt into block header.
-    r.block_header[block_id] = (rare_cnt_bits << 8) +  // one byte
-                               freq_cnt_bits;          // one byte
-    selecting_time += utils::wclock() - start;
+      long block_beg = block_id << k_block_size_bits;
+      long block_end = block_beg + k_block_size;
 
-    start = utils::wclock();
-    std::sort(freq_chars.begin(), freq_chars.end());
-    std::sort(rare_chars.begin(), rare_chars.end());
+      //------------------------------------------------------------------------
+      // Process block i.
+      //------------------------------------------------------------------------
 
-    // Compute and store symbols mapping.
-    long n_blocks = (r.m_length + k_block_size - 1) / k_block_size;
-    bool is_freq[256] = {false};
-    for (unsigned c = 0; c < 256; ++c) {
-      r.m_mapping[2 * (c * n_blocks + block_id)] = NOT_OCCURRING;
-      r.m_mapping[2 * (c * n_blocks + block_id) + 1] = 0; // anything.
-    }
-    for (unsigned i = 0; i < freq_chars.size(); ++i) {
-      unsigned char c = freq_chars[i];
-      is_freq[c] = true;
-      r.m_mapping[2 * (c * n_blocks + block_id) + 1] = i;
-      r.m_mapping[2 * (c * n_blocks + block_id)] = FREQUENT_CHAR;
-    }
-    for (unsigned i = 0; i < rare_chars.size(); ++i) {
-      unsigned char c = rare_chars[i];
-      r.m_mapping[2 * (c * n_blocks + block_id) + 1] = i;
-      r.m_mapping[2 * (c * n_blocks + block_id)] = RARE_CHAR;
-    }
-    mapping_time += utils::wclock() - start;
+      long freq_cnt_bits = (r.block_header[block_id] & 255L);
+      long rare_cnt_bits = ((r.block_header[block_id] >> 8) & 255L);
+      long freq_cnt = (1L << freq_cnt_bits);
+      long freq_cnt_mask = freq_cnt - 1;
+      long rare_cnt = (1L << rare_cnt_bits);
+      long rare_cnt_mask = rare_cnt - 1;
 
-    // Update rare_trunk_size.
-    if (rare_cnt) {
+      freq_chars.clear();
+      rare_chars.clear();
+      std::fill(isfreq, isfreq + 256, false);
+      for (long j = 0; j < 256; ++j) {
+        unsigned char type = r.m_mapping[2 * (j * r.n_blocks + block_id)];
+        if (type == FREQUENT_CHAR) {
+          isfreq[j] = true;
+          freq_chars.push_back(j);
+          freq_map[j] = r.m_mapping[2 * (j * r.n_blocks + block_id) + 1];
+        } else if (type == RARE_CHAR) {
+          rare_chars.push_back(j);
+          rare_map[j] = r.m_mapping[2 * (j * r.n_blocks + block_id) + 1];
+          freq_map[j] = freq_cnt - 1;
+        }
+      }
+
+      if (rare_chars.empty()) {
+        rare_cnt_bits = 0;
+        rare_cnt = 0;
+      }
+
+      // Compute the freq and rare trunk of block i.
       long nofreq_cnt = 0L;
+      long sb_id = block_beg >> k_sb_size_bits;
       for (long i = block_beg; i < block_end; ++i) {
         unsigned char c = (i < r.m_length ? text[i] : 0);
-        if (!is_freq[c]) ++nofreq_cnt;
-      }
-      long rare_micro_blocks = 1 + (nofreq_cnt + rare_cnt - 1) / rare_cnt;
-      rare_trunk_size += rare_micro_blocks * rare_cnt;
-    }
-  }
-}
 
+        //----------------------------------------------------------------------
+        // Invariant: for any symbol a, count[a] = number of occurrence of
+        // symbols a in prefix text[0..i).
+        //----------------------------------------------------------------------
+        // Invariant: for any symbol a, r.sb_rank[(sb_id << 8) + a] = the
+        // number of occurrence of a in a prefix of text up to the closest
+        // superblock boundary. All ranks we store in the trunk are relative
+        // to this boundary thus we compute them as
+        // count[a] - r.sb_rank[(sb_id << 8) + a].
+        //----------------------------------------------------------------------
 
-static void construction_step_3(rank4n &r, unsigned char *text, long range_beg,
-    long range_end, long *count) {
-  long k_block_size = (1L << k_block_size_bits);
-  long k_sb_size = (1L << k_sb_size_bits);
-
-  long *cur_count = new long[256];
-  std::copy(count, count + 256, cur_count);
-  for (long block_id = range_beg; block_id < range_end; ++block_id) {
-    long block_beg = block_id * k_block_size;
-    long block_end = block_beg + k_block_size;
-
-    if (block_beg % k_sb_size == 0) {  // XXX optimize
-      // Current block starts at the superblock boundary --
-      // copy current symbols counts as rank values at
-      // superblock boundary.
-      long sb_id = (block_beg >> k_sb_size_bits);
-      std::copy(cur_count, cur_count + 256, r.sb_rank + (sb_id << 8));
-    }
-
-    // Update symbol counts.
-    for (long j = block_beg; j < block_end; ++j) {
-      unsigned char c = (j < r.m_length ? text[j] : 0);
-      ++cur_count[c];
-    }
-  }
-
-  delete[] cur_count;
-}
-
-
-static void construction_step_4(rank4n &r, unsigned char *text, long range_beg,
-    long range_end, long *count, long rare_trunk_ptr) {
-  long k_block_size = (1L << k_block_size_bits);
-  long n_blocks = (r.m_length + k_block_size - 1) / k_block_size;
-
-  bool isfreq[256];
-  unsigned char freq_map[256];
-  unsigned char rare_map[256];
-  std::vector<unsigned char> freq_chars;
-  std::vector<unsigned char> rare_chars;
-  for (long block_id = range_beg; block_id < range_end; ++block_id) {
-    long rare_trunk_writing_ptr = rare_trunk_ptr;
-    r.block_header[block_id] |= (rare_trunk_ptr << 16);
-
-    long block_beg = block_id * k_block_size;
-    long block_end = block_beg + k_block_size;
-
-    //--------------------------------------------------------------------------
-    // Process block i.
-    //--------------------------------------------------------------------------
-
-    long freq_cnt_bits = (r.block_header[block_id] & 255L);
-    long rare_cnt_bits = ((r.block_header[block_id] >> 8) & 255L);
-    long freq_cnt = (1L << freq_cnt_bits);
-    long freq_cnt_mask = freq_cnt - 1;
-    long rare_cnt = (1L << rare_cnt_bits);
-    long rare_cnt_mask = rare_cnt - 1;
-
-    freq_chars.clear();
-    rare_chars.clear();
-    std::fill(isfreq, isfreq + 256, false);
-    for (long j = 0; j < 256; ++j) {
-      unsigned char type = r.m_mapping[2 * (j * n_blocks + block_id)];
-      if (type == FREQUENT_CHAR) {
-        isfreq[j] = true;
-        freq_chars.push_back(j);
-        freq_map[j] = r.m_mapping[2 * (j * n_blocks + block_id) + 1];
-      } else if (type == RARE_CHAR) {
-        rare_chars.push_back(j);
-        rare_map[j] = r.m_mapping[2 * (j * n_blocks + block_id) + 1];
-        freq_map[j] = freq_cnt - 1;
-      }
-    }
-
-    if (rare_chars.empty()) {
-      rare_cnt_bits = 0;
-      rare_cnt = 0;
-    }
-
-    // Compute the freq and rare trunk of block i.
-    long nofreq_cnt = 0L;
-    long sb_id = block_beg >> k_sb_size_bits;
-    for (long i = block_beg; i < block_end; ++i) {
-      unsigned char c = (i < r.m_length ? text[i] : 0);
-
-      //------------------------------------------------------------------------
-      // Invariant: for any symbol a, count[a] = number of occurrence of
-      // symbols a in prefix text[0..i).
-      //------------------------------------------------------------------------
-      // Invariant: for any symbol a, r.sb_rank[(sb_id << 8) + a] = the number
-      // of occurrence of a in a prefix of text up to the closest superblock
-      // boundary. All ranks we store in the trunk are relative to this boundary
-      // thus we compute them as count[a] - r.sb_rank[(sb_id << 8) + a].
-      //------------------------------------------------------------------------
-
-      if (!(i & freq_cnt_mask)) {
-        for (long j = 0; j + 1 < freq_cnt; ++j) {
-          unsigned char freq_ch = (j < (long)freq_chars.size() ? freq_chars[j] : 0);
-          r.freq_trunk[i + j] = (count[freq_ch] - r.sb_rank[(sb_id << 8) + freq_ch]) << 8;
-        }
-        r.freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
-      }
-      r.freq_trunk[i] |= freq_map[c]; // mapping of frequent c
-      if (!isfreq[c]) {
-        if (!(nofreq_cnt & rare_cnt_mask)) {
-          for (long j = 0; j < rare_cnt; ++j) {
-            unsigned char rare_ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
-            r.rare_trunk[rare_trunk_ptr++] = (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 8;
+        if (!(i & freq_cnt_mask)) {
+          for (long j = 0; j + 1 < freq_cnt; ++j) {
+            unsigned char freq_ch = (j < (long)freq_chars.size() ? freq_chars[j] : 0);
+            r.freq_trunk[i + j] = (count[freq_ch] - r.sb_rank[(sb_id << 8) + freq_ch]) << 8;
           }
+          r.freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
         }
-        r.rare_trunk[rare_trunk_writing_ptr++] |= rare_map[c]; // mapping of rare c
-        ++nofreq_cnt;
+        r.freq_trunk[i] |= freq_map[c]; // mapping of frequent c
+        if (!isfreq[c]) {
+          if (!(nofreq_cnt & rare_cnt_mask)) {
+            for (long j = 0; j < rare_cnt; ++j) {
+              unsigned char rare_ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
+              r.rare_trunk[rare_trunk_ptr++] = (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 8;
+            }
+          }
+          r.rare_trunk[rare_trunk_writing_ptr++] |= rare_map[c]; // mapping of rare c
+          ++nofreq_cnt;
+        }
+
+        ++count[c];
       }
 
-      ++count[c];
-    }
-
-    for (long j = 0; j < rare_cnt; ++j) {
-      unsigned char rare_ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
-      r.rare_trunk[rare_trunk_ptr++] =
-        (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 8;
+      for (long j = 0; j < rare_cnt; ++j) {
+        unsigned char rare_ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
+        r.rare_trunk[rare_trunk_ptr++] =
+          (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 8;
+      }
     }
   }
-}
 
   rank4n(unsigned char *text, long length, long max_threads)
     : m_length(length),
@@ -305,7 +295,8 @@ static void construction_step_4(rank4n &r, unsigned char *text, long range_beg,
     long n_ranges = (n_blocks + range_size - 1) / range_size;
 
     long **count = new long*[n_ranges];
-    for (long i = 0; i < n_ranges; ++i) count[i] = new long[256];
+    for (long i = 0; i < n_ranges; ++i)
+      count[i] = new long[256];
     long *rare_trunk_size = new long[n_ranges];
     std::thread **threads = new std::thread*[n_ranges];
 
@@ -399,7 +390,9 @@ static void construction_step_4(rank4n &r, unsigned char *text, long range_beg,
     // These will be filled by threads created below.
     start = utils::wclock();
     fprintf(stderr, "    reserving trunks: ");
-    freq_trunk = new unsigned[n_blocks * k_block_size];
+    // Note: g++ automatically zero-initializes arrays allocated with 'new'
+    // in template-parametrized classes. To avoid this, we use malloc.
+    freq_trunk = (unsigned *)malloc(n_blocks * k_block_size * sizeof(unsigned));
     rare_trunk.resize(total_rare_trunk_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
@@ -420,8 +413,7 @@ static void construction_step_4(rank4n &r, unsigned char *text, long range_beg,
     delete[] threads;
 
     // Clean up.
-    for (long i = 0; i < n_ranges; ++i)
-      delete count[i];
+    for (long i = 0; i < n_ranges; ++i) delete count[i];
     delete[] count;
     delete[] rare_trunk_size;
   }
@@ -481,8 +473,8 @@ static void construction_step_4(rank4n &r, unsigned char *text, long range_beg,
     delete[] c_rank;
   }
 
-//private:
   static const int k_sb_size = (1 << k_sb_size_bits);
+  static const int k_sb_size_mask = k_sb_size - 1;
   static const int k_block_size = (1 << k_block_size_bits);
   static const int k_blocks_in_sb_bits = k_sb_size_bits - k_block_size_bits;
   static const int k_blocks_in_sb = (1 << k_blocks_in_sb_bits);
