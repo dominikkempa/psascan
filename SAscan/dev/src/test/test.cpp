@@ -17,9 +17,7 @@
 #include "../utils.h"
 #include "../sascan.h"
 
-extern long n_streamers;
 extern long stream_buffer_size;
-extern long n_stream_buffers;
 
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
@@ -43,8 +41,8 @@ void test_random(long testcases, long max_length, long max_sigma) {
     long length = utils::random_long(1, max_length);
     long sigma = utils::random_long(1, max_sigma);
 
-    n_streamers = utils::random_long(1, 10);
-    n_stream_buffers = utils::random_long(1, 10);
+    long max_threads = utils::random_long(1, 10);
+    long n_stream_buffers = 2 * max_threads;
     stream_buffer_size = utils::random_long(8, 20);
 
     long ram_use = n_stream_buffers * stream_buffer_size;
@@ -71,7 +69,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     ///////////
 
     // Run the test on generated string.
-    SAscan(filename, filename + ".sa5", ram_use);
+    SAscan(filename, filename + ".sa5", ram_use, max_threads);
     
     // Compare the result to correct SA.
     divsufsort64(text, SA, length);

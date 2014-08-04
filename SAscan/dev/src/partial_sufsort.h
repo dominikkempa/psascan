@@ -32,6 +32,7 @@
 #include "buffer.h"
 #include "update.h"
 #include "stream_info.h"
+#include "aux_parallel.h"
 
 // Stores information about a contigous subsequence of bits
 // of gt bitvector produced by a single thread. The bits are
@@ -48,18 +49,17 @@ struct gt_substring_info {
   std::string m_fname;
 };
 
-long n_streamers;
 long stream_buffer_size;
-long n_stream_buffers;
 
 //-----------------------------------------------------------------------------
 // On Platform-L 6 is a good value (better than 4 and 8).
 // Bigger values make the program run slower.
 //-----------------------------------------------------------------------------
 
-template<typename output_type> void SAscan(std::string input_filename, long ram_use);
+template<typename output_type> void SAscan(std::string input_filename, long ram_use, long max_threads);
 template<typename output_type> distributed_file<output_type> *partial_SAscan(std::string input_filename,
-    bool compute_bwt, long ram_use, unsigned char **BWT, std::string text_filename, long text_offset);
+    bool compute_bwt, long ram_use, unsigned char **BWT, std::string text_filename, long text_offset,
+    long max_threads);
 
 //=============================================================================
 // Compute partial SA of B[0..block_size) and store on disk.
@@ -78,7 +78,8 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     bool compute_bwt,
     bitvector *gt_eof_bv,
     unsigned char **BWT,
-    long block_offset) {
+    long block_offset,
+    long max_threads) {
 
   distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(sa_fname.c_str(),
       std::max((long)sizeof(block_offset_type), ram_use / 10L));
@@ -110,10 +111,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
       // Compute BWT
       fprintf(stderr, "  Compute BWT: ");
       long double bwt_start = utils::wclock();
-      unsigned char *tmp = (unsigned char *)SA;
-      for (long j = 0, jj = 0; j < block_size; ++j)
-        if (SA[j]) tmp[jj++] = B[SA[j] - 1];
-      std::copy(tmp, tmp + block_size - 1, B);
+      bwt_from_sa_replace_text(SA, B, block_size, max_threads);
       *BWT = B;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
     } else delete[] B;
@@ -146,10 +144,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
       // Compute BWT
       fprintf(stderr, "  Compute BWT: ");
       long double bwt_start = utils::wclock();
-      unsigned char *tmp = (unsigned char *)SA;
-      for (long j = 0, jj = 0; j < block_size; ++j)
-        if (SA[j]) tmp[jj++] = B[SA[j] - 1];
-      std::copy(tmp, tmp + block_size - 1, B);
+      bwt_from_sa_replace_text(SA, B, block_size, max_threads);
       *BWT = B;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
     } else  delete[] B;
@@ -173,7 +168,8 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     delete gt_eof_bv;
     delete[] B;
 
-    result = partial_SAscan<block_offset_type>(B_fname, compute_bwt, ram_use, BWT, text_fname, block_offset);
+    result = partial_SAscan<block_offset_type>(B_fname, compute_bwt, ram_use,
+        BWT, text_fname, block_offset, max_threads);
 
     utils::file_delete(B_fname);
     fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
@@ -188,7 +184,9 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
 // Return the array of handlers to distributed files as a result.
 //=============================================================================
 template<typename block_offset_type>
-distributed_file<block_offset_type> **partial_sufsort(std::string filename, long length, long max_block_size, long ram_use) {
+distributed_file<block_offset_type> **partial_sufsort(std::string filename,
+    long length, long max_block_size, long ram_use, long max_threads) {
+  long n_stream_buffers = 2 * max_threads;
   long n_block = (length + max_block_size - 1) / max_block_size;
   long block_id = n_block - 1, prev_end = length;
 
@@ -241,7 +239,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     unsigned char last = B[block_size - 1];
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
-    int starting_positions = std::min(n_streamers, length - end);
+    long starting_positions = std::min(max_threads, length - end);
     std::vector<gt_substring_info> gt_info(starting_positions);
     std::vector<long> initial_rank(starting_positions);
 
@@ -335,9 +333,9 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
     unsigned char *BWT = NULL;
     std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
 
-    distrib_files[block_id] =
-      compute_partial_sa_and_bwt<block_offset_type>(B, block_size, block_id,
-          ram_use, filename, sa_fname, need_streaming, gt_eof_bv, &BWT, beg);
+    distrib_files[block_id] = compute_partial_sa_and_bwt<block_offset_type>(
+        B, block_size, block_id, ram_use, filename, sa_fname, need_streaming,
+        gt_eof_bv, &BWT, beg, max_threads);
 
     if (need_streaming) {
       // 5a. Build the rank support for BWT.

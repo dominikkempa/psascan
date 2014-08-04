@@ -12,19 +12,22 @@
 #include "uint40.h"
 #include "settings.h"
 
-extern long n_streamers;
 extern long stream_buffer_size;
-extern long n_stream_buffers;
 
 const long kMiB = (1L << 20);
 
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string filename,
-    long length, long max_block_size, long ram_use);
+    long length, long max_block_size, long ram_use, long max_threads);
 
+//==============================================================================
 // Compute SA of input_filename and write to output_filename (as normal file).
+//==============================================================================
 template<typename output_type>
-void SAscan(std::string input_filename, std::string output_filename, long ram_use) {
+void SAscan(std::string input_filename, std::string output_filename,
+    long ram_use, long max_threads) {
+
+  long n_stream_buffers = 2 * max_threads;
   if (ram_use < 6L) {
     fprintf(stderr, "Error: not enough memory to run SAscan.\n");
     std::exit(EXIT_FAILURE);
@@ -81,7 +84,7 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
   } else { // We need to use SAscan.
 
     fprintf(stderr, "Parallel settings:\n");
-    fprintf(stderr, "  Streaming threads = %ld\n", n_streamers);
+    fprintf(stderr, "  Streaming threads = %ld\n", max_threads);
     fprintf(stderr, "  Stream-buffer size = %ld (%.1LfMiB)\n",
         stream_buffer_size, 1.L * stream_buffer_size / kMiB);
     fprintf(stderr, "  Number of stream-buffers = %ld\n", n_stream_buffers);
@@ -113,13 +116,13 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
 
     if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
       fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(int));
-      distributed_file<int> **sparseSA =
-        partial_sufsort<int>(input_filename, length, max_block_size, ram_use);
+      distributed_file<int> **sparseSA = partial_sufsort<int>(input_filename,
+          length, max_block_size, ram_use, max_threads);
       merge<int>(input_filename, output_filename, length, max_block_size,
           ram_use, sparseSA);
     } else {
-      distributed_file<uint40> **sparseSA =
-        partial_sufsort<uint40>(input_filename, length, max_block_size, ram_use);
+      distributed_file<uint40> **sparseSA = partial_sufsort<uint40>(
+          input_filename, length, max_block_size, ram_use, max_threads);
       fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(uint40));
       merge<uint40>(input_filename, output_filename, length, max_block_size,
           ram_use, sparseSA
@@ -134,17 +137,16 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
       alg_time_abs, alg_time_rel);
 }
 
+//==============================================================================
 // Compute SA of input_filename and write to input_filename.sa5 (as
 // distributed file) (returned as a result). If compute_bwt == true
 // also compute the BWT associated with the SA.
+//==============================================================================
 template<typename output_type>
-distributed_file<output_type> *partial_SAscan(
-    std::string      input_filename,
-    bool             compute_bwt,
-    long             ram_use,
-    unsigned char**  BWT,
-    std::string      text_filename,
-    long             text_offset) {
+distributed_file<output_type> *partial_SAscan(std::string input_filename,
+    bool compute_bwt, long ram_use, unsigned char** BWT,
+    std::string text_filename, long text_offset, long max_threads) {
+  long n_stream_buffers = 2 * max_threads;
   if (ram_use < 6L) {
     fprintf(stderr, "Error: not enough memory to run SAscan.\n");
     std::exit(EXIT_FAILURE);
@@ -186,15 +188,15 @@ distributed_file<output_type> *partial_SAscan(
 
   if (max_block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
     fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(int));
-    distributed_file<int> **partialSA =
-      partial_sufsort<int>(input_filename, length, max_block_size, ram_use);
-    result = partial_merge<int, output_type>(input_filename,
-        output_filename, length, compute_bwt, max_block_size,
-        ram_use, BWT, text_filename, text_offset, partialSA);
+    distributed_file<int> **partialSA = partial_sufsort<int>(input_filename,
+        length, max_block_size, ram_use, max_threads);
+    result = partial_merge<int, output_type>(input_filename, output_filename,
+        length, compute_bwt, max_block_size, ram_use, BWT, text_filename,
+        text_offset, partialSA);
   } else {
     fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(uint40));
-    distributed_file<uint40> **partialSA =
-      partial_sufsort<uint40>(input_filename, length, max_block_size, ram_use);
+    distributed_file<uint40> **partialSA = partial_sufsort<uint40>(
+        input_filename, length, max_block_size, ram_use, max_threads);
     result = partial_merge<uint40, output_type>(input_filename,
         output_filename, length, compute_bwt, max_block_size,
         ram_use, BWT, text_filename, text_offset, partialSA);
@@ -209,8 +211,9 @@ distributed_file<output_type> *partial_SAscan(
   return result;
 }
 
-void SAscan(std::string input_filename, std::string output_filename, long ram_use) {
-  SAscan<uint40>(input_filename, output_filename, ram_use);
+void SAscan(std::string input_filename, std::string output_filename,
+    long ram_use, long max_threads) {
+  SAscan<uint40>(input_filename, output_filename, ram_use, max_threads);
 }
 
 #endif // __SASCAN_H_INCLUDED

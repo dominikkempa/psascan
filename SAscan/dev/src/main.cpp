@@ -21,9 +21,7 @@ void usage(int status) {
   std::exit(status);
 }
 
-extern long n_streamers;
 extern long stream_buffer_size;
-extern long n_stream_buffers;
 
 int main(int argc, char **argv) {
   program_name = argv[0];
@@ -107,9 +105,6 @@ int main(int argc, char **argv) {
   // NOTE: the number of threads can (?) be obtained using STL method:
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
   //----------------------------------------------------------------------------
-  n_streamers = 24;
   stream_buffer_size = (1 << 20);
-  n_stream_buffers = 48;
-
-  SAscan(text_fname, out_fname, ram_use);
+  SAscan(text_fname, out_fname, ram_use, 24);
 }
