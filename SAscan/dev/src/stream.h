@@ -33,7 +33,7 @@ void parallel_stream(
     block_offset_type i,
     long *count,
     block_offset_type whole_suffix_rank,
-    context_rank_4n *rank,
+    rank4n<> *rank,
     unsigned char last,
     std::string text_filename,
     long length,

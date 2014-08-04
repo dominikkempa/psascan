@@ -43,11 +43,14 @@ struct context_rank_4n {
         n_sblock((n_block + k_blocks_in_sb - 1) / k_blocks_in_sb) {
 
     c_rank       = new long[256];
+    std::fill(c_rank, c_rank + 256, 0L);
     block_header = new long[n_block];
     sb_rank      = new long[256 * n_sblock];
 
     m_mapping    = new unsigned char[2 * 256 * n_block];
     freq_trunk   = new unsigned[n_block * k_block_size];
+
+    if (!length) return;
 
     // debug ///////
     // fprintf(stderr, "  m_mapping takes %.2Lf MiB\n", (long double)(512 * n_block) / (1 << 20));
@@ -283,7 +286,6 @@ struct context_rank_4n {
     delete[] c_rank;
   }
 
-//private:
   static const int k_sb_size = (1 << k_sb_size_bits);
   static const int k_block_size = (1 << k_block_size_bits);
   static const int k_blocks_in_sb_bits = k_sb_size_bits - k_block_size_bits;

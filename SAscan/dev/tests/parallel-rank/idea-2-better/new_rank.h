@@ -263,6 +263,11 @@ struct rank4n {
       n_blocks((length + k_block_size - 1) / k_block_size),
       n_sblock((n_blocks + k_blocks_in_sb - 1) / k_blocks_in_sb) {
 
+    // Makes the structure work if length == 0.
+    c_rank = new long[256];
+    std::fill(c_rank, c_rank + 256, 0L);
+    if (!length) return;
+
     //--------------------------------------------------------------------------
     // STEP 1: split all blocks into (rougly equal size) ranges of blocks.
     //
@@ -314,8 +319,6 @@ struct rank4n {
     //   * the total rare trunk size (necessary to allocate enough memory).
     //--------------------------------------------------------------------------
     long temp_count[256];
-    c_rank = new long[256];
-    std::fill(c_rank, c_rank + 256, 0L);
     for (long i = 0; i < n_ranges; ++i) {
       std::copy(count[i], count[i] + 256, temp_count);
       std::copy(c_rank, c_rank + 256, count[i]);
@@ -377,7 +380,7 @@ struct rank4n {
     delete[] threads;
 
     // Clean up.
-    for (long i = 0; i < n_ranges; ++i) delete count[i];
+    for (long i = 0; i < n_ranges; ++i) delete[] count[i];
     delete[] count;
     delete[] rare_trunk_size;
   }
@@ -430,10 +433,12 @@ struct rank4n {
   }
 
   ~rank4n() {
-    delete[] sb_rank;
-    delete[] freq_trunk;
-    delete[] block_header;
-    delete[] m_mapping;
+    if (m_length) {
+      delete[] sb_rank;
+      delete[] block_header;
+      delete[] m_mapping;
+      free(freq_trunk);
+    }
     delete[] c_rank;
   }
 

@@ -17,7 +17,6 @@ void test(unsigned char *text, long length, long queries) {
   context_rank_4n *correct_rank = new context_rank_4n(text, length);
   rank4n<13, 9> *rank = new rank4n<13, 9>(text, length, max_threads);
 
-
   if (correct_rank->n_block != rank->n_blocks) {
     fprintf(stderr, "\nError: different number of blocks\n");
     std::exit(EXIT_FAILURE);
@@ -118,16 +117,18 @@ void test_random(long testcases, long max_length, long max_sigma, long queries) 
           queries, tc, (tc * 100.L) / testcases);
 
     // Generate string.
-    long length = utils::random_long(1, max_length);
+    long length = utils::random_long(0, max_length);
     long sigma = utils::random_long(1, max_sigma);
     long freq_sigma = utils::random_long(1, sigma);
     long rare_sigma = sigma - freq_sigma;
-    for (long j = 0; j < length; ++j)
-      text[j] = utils::random_long(0, freq_sigma - 1);
-    for (long j = 0; j < rare_sigma; ++j) {
-      long tries = utils::random_long(1, (length + 9) / 10);
-      for (long k = 0; k < tries; ++k)
-        text[utils::random_long(0, length - 1)] = freq_sigma - 1 + j;
+    if (length > 0) {
+      for (long j = 0; j < length; ++j)
+        text[j] = utils::random_long(0, freq_sigma - 1);
+      for (long j = 0; j < rare_sigma; ++j) {
+        long tries = utils::random_long(1, (length + 9) / 10);
+        for (long k = 0; k < tries; ++k)
+          text[utils::random_long(0, length - 1)] = freq_sigma - 1 + j;
+      }
     }
 
     // Run the test on generated string.
