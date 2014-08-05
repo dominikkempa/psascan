@@ -227,7 +227,6 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename,
     std::vector<std::string> gt_filenames(n_threads);
     std::vector<long> initial_rank(n_threads);
 
-    long count[256] = {0};
     bitvector *gt_eof_bv = NULL;
     if (need_streaming) {
       //------------------------------------------------------------------------
@@ -247,13 +246,6 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename,
       delete[] threads;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_start);
  
-      // 2a. Compute symbols counts of B.
-      fprintf(stderr, "  Compute counts: ");
-      long double compute_counts_start = utils::wclock();
-      for (long j = 0; j < block_size; ++j) count[(int)B[j] + 1]++;
-      for (int j = 1; j < 256; ++j) count[j] += count[j - 1];
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - compute_counts_start);
-
       // 2b. Read previous block.
       fprintf(stderr, "  Read previous block: ");
       long double prev_block_reading_start = utils::wclock();
@@ -315,6 +307,13 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename,
       delete[] BWT;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
 
+      // Get symbol counts of a block and turn into exclusive partial sum.
+      long *count = new long[256];
+      std::copy(rank->c_rank, rank->c_rank + 256, count);
+      ++count[last];
+      for (long jj = 0, s = 0, t; jj < 256; ++jj)
+      { t = count[jj]; count[jj] = s; s += t; }
+
       // 5b. Allocate the gap array, do the streaming and store gap to disk.
       fprintf(stderr, "  [PARALLEL]Stream:");
       long double stream_start = utils::wclock();
@@ -363,6 +362,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename,
       delete empty_buffers;
       delete full_buffers;
       delete rank;
+      delete[] count;
       utils::file_delete(filename + ".gt");
 
       long double stream_time = utils::wclock() - stream_start;
