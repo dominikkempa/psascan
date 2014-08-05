@@ -128,7 +128,7 @@ int main(int, char **) {
   test_random(50, 1000,     20);
   test_random(50, 1000,    128);
   test_random(50, 1000,    254);
-  test_random(50, 1000,      5);
+  test_random(50, 10000,     5);
   test_random(50, 10000,    20);
   test_random(50, 10000,   128);
   test_random(50, 10000,   254);

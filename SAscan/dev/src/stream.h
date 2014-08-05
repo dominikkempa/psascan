@@ -28,8 +28,8 @@ template<typename block_offset_type>
 void parallel_stream(
     buffer_poll<block_offset_type> *full_buffers,
     buffer_poll<block_offset_type> *empty_buffers,
-    long j_start,
-    long j_end,
+    long stream_block_beg,
+    long stream_block_end,
     block_offset_type i,
     long *count,
     block_offset_type whole_suffix_rank,
@@ -63,18 +63,18 @@ void parallel_stream(
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
   gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
-  bool next_gt = (j_start + 1 == length) ? 0 : (*gt_in)[length - j_start - 2];
+  bool next_gt = (stream_block_end == length) ? 0 : (*gt_in)[length - stream_block_end - 1];
   backward_skip_stream_reader<unsigned char> *text_streamer
-    = new backward_skip_stream_reader<unsigned char>(text_filename, length - 1 - j_start, 1 << 20); // 1MiB buffer
+    = new backward_skip_stream_reader<unsigned char>(text_filename, length - stream_block_end, 1 << 20); // 1MiB buffer
 
   tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
   bit_stream_writer *gt_out = new bit_stream_writer(tail_gt_filename); // 1MiB buffer
 
-  long j = j_start, dbg = 0L;
-  while (j > j_end) {
+  long j = stream_block_end, dbg = 0L;
+  while (j > stream_block_beg) {
     if (dbg > (1 << 26)) {
       info->m_mutex.lock();
-      info->m_streamed[thread_id] = j_start - j;
+      info->m_streamed[thread_id] = stream_block_end - j;
       info->m_update_count += 1;
       if (info->m_update_count == info->m_thread_count) {
         info->m_update_count = 0L;
@@ -106,16 +106,17 @@ void parallel_stream(
     empty_buffers->m_cv.notify_one(); // let others know they should re-check
 
     // Process buffer -- fill with gap values.
-    long left = j - j_end;
+    long left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
     dbg += b->m_filled;
     std::fill(block_count, block_count + n_buckets, 0);
+
     for (long t = 0L; t < b->m_filled; ++t, --j) {
       unsigned char c = text_streamer->read();
       i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
       if (c == last && next_gt) ++i;
       gt_out->write(i > whole_suffix_rank);
-      next_gt = (*gt_in)[length - j - 1];
+      next_gt = (*gt_in)[length - j];
       temp[t] = i;
       block_count[i >> bucket_size_bits]++;
     }
