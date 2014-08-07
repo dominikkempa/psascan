@@ -29,7 +29,7 @@ void inmem_smaller_suffixes(unsigned char *text, long text_length,
   long llcp = 0L, rlcp = 0L;
   while (left + 1 != right) {
     // Invariant: llcp = lcp(left, suf_start), rlcp = lcp(right, suf_start).
-    long mid = (left + right);
+    long mid = (left + right) / 2;
     long lcp = std::min(llcp, rlcp);
 
     if (lcp_compare(text, text_length, suf_start, block_beg + partial_sa[mid], lcp)) {
