@@ -7,7 +7,7 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -pthread -std=c++0x -DN
 all: test
 
 test:
-	$(CC) $(CFLAGS) -o test test.cpp utils.cpp -fopenmp
+	$(CC) $(CFLAGS) -o test test.cpp utils.cpp -ldivsufsort -fopenmp
 
 clean:
 	/bin/rm -f *.o

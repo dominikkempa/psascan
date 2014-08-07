@@ -3,9 +3,6 @@
 
 #include <algorithm>
 
-#include "sais.hxx"
-
-
 void naive_compute_gap(unsigned char *text, long text_length,
     long left_block_beg, long left_block_size, long right_block_size,
     long* &gap) {
@@ -13,7 +10,7 @@ void naive_compute_gap(unsigned char *text, long text_length,
   std::fill(gap, gap + left_block_size + 1, 0);
 
   int *sa = new int[text_length];
-  saisxx(text, sa, (int)text_length);
+  divsufsort(text, sa, (int)text_length);
 
   long gap_ptr = 0;
   long gap_val = 0;

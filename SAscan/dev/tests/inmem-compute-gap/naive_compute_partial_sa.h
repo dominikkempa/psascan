@@ -1,7 +1,7 @@
 #ifndef __NAIVE_COMPUTE_PARTIAL_SA_H
 #define __NAIVE_COMPUTE_PARTIAL_SA_H
 
-#include "sais.hxx"
+#include "divsufsort.h"
 
 void naive_compute_partial_sa(unsigned char *text, long length,
     long block_beg, long block_end, int* &partial_sa) {
@@ -10,7 +10,7 @@ void naive_compute_partial_sa(unsigned char *text, long length,
   partial_sa = new int[block_size];
 
   int *sa = new int[length];
-  saisxx(text, sa, (int)length);
+  divsufsort(text, sa, (int)length);
 
   for (long i = 0, ptr = 0; i < length; ++i)
     if (block_beg <= sa[i] && sa[i] < block_end)
