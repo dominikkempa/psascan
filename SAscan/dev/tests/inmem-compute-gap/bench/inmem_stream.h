@@ -20,7 +20,7 @@
 #include "rank.h"
 #include "buffer.h"
 #include "inmem_update.h"
-
+#include "stream_info.h"
 
 template<typename block_offset_type>
 void inmem_parallel_stream(
@@ -38,7 +38,9 @@ void inmem_parallel_stream(
     long stream_buf_size,
     long n_increasers,
     bitvector *gt,
-    long gt_origin) {
+    long gt_origin,
+    stream_info *info,
+    int thread_id) {
 
   //----------------------------------------------------------------------------
   // STEP 1: initialize structures necessary to do the buffer partitions.
@@ -65,8 +67,31 @@ void inmem_parallel_stream(
   //----------------------------------------------------------------------------
   // STEP 2: perform the actual streaming.
   //----------------------------------------------------------------------------
-  long j = stream_block_end;
+  long j = stream_block_end, dbg = 0L;
   while (j > stream_block_beg) {
+    if (dbg > (1 << 26)) {
+      info->m_mutex.lock();
+      info->m_streamed[thread_id] = stream_block_end - j;
+      info->m_update_count += 1;
+      if (info->m_update_count == info->m_thread_count) {
+        info->m_update_count = 0L;
+        long double elapsed = utils::wclock() - info->m_timestamp;
+        long total_streamed = 0L;
+
+        for (long t = 0; t < info->m_thread_count; ++t)
+          total_streamed += info->m_streamed[t];
+        long double speed = (total_streamed / (1024.L * 1024)) / elapsed;
+
+        fprintf(stderr, "\r  [PARALLEL]Stream: %.2Lf%%. Time: %.2Lf. Threads: %ld. "
+            "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)",
+            (total_streamed * 100.L) / info->m_tostream, elapsed,
+            info->m_thread_count, speed / info->m_thread_count, speed);
+      }
+      info->m_mutex.unlock();
+      dbg = 0L;
+    }
+
+
     //--------------------------------------------------------------------------
     // Get a buffer from the poll of empty buffers.
     //--------------------------------------------------------------------------
@@ -81,6 +106,7 @@ void inmem_parallel_stream(
     //--------------------------------------------------------------------------
     long left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
+    dbg += b->m_filled;
     std::fill(block_count, block_count + n_buckets, 0);
     for (long t = 0; t < b->m_filled; ++t, --j) {
       bool gt_bit = gt->get(j - gt_origin);

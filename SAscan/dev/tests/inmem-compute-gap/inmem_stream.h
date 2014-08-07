@@ -82,9 +82,9 @@ void inmem_parallel_stream(
     long left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
     std::fill(block_count, block_count + n_buckets, 0);
-    for (long t = 0; t < b->m_filled; ++t) {
+    for (long t = 0; t < b->m_filled; ++t, --j) {
       bool gt_bit = gt->get(j - gt_origin);
-      unsigned char c = text[--j];
+      unsigned char c = text[j - 1];
       i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > i0)), c));
       if (c == last && gt_bit) ++i;
       temp[t] = i;

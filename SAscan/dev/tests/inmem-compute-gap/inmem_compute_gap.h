@@ -81,14 +81,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   long i0 = bwt_from_sa_into_dest(partial_sa, left_block,
       left_block_size, bwt, max_threads);
 
-  //
-  /*fprintf(stderr, "bwt: ");
-  for (long i = 0; i < left_block_size - 1; ++i)
-    fprintf(stderr, "%c", bwt[i]);
-  fprintf(stderr, "\n");
-  fprintf(stderr, "i0 = %ld\n", i0);*/
-  //
-
 
   //----------------------------------------------------------------------------
   // STEP 2: build rank data structure over BWT and delete BWT.
@@ -123,10 +115,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long beg = left_block_end + i * stream_block_size;
     long end = std::min(beg + stream_block_size, right_block_end);
 
-    //
-    // fprintf(stderr, "thread %ld will handle block [%ld..%ld)\n", i, beg, end);
-    //   
-
     // The i-th thread streams symbols text[beg..end), right-to-left.
     threads[i] = new std::thread(inmem_smaller_suffixes<int>, text,
         text_length, left_block_beg, left_block_end, end, partial_sa,
@@ -136,13 +124,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   for (long i = 0; i < n_threads; ++i) delete threads[i];
   delete[] threads;
 
-
-  //
-  /*fprintf(stderr, "starting positions: ");
-  for (long i = 0; i < n_threads; ++i)
-    fprintf(stderr, "%ld ", initial_ranks[i]);
-  fprintf(stderr, "\n");*/
-  //
 
 
   //----------------------------------------------------------------------------

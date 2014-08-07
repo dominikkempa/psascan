@@ -144,6 +144,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   start = utils::wclock();
   gap = new inmem_gap_array(left_block_size + 1);
 
+
   //----------------------------------------------------------------------------
   // STEP 6: allocate buffers and buffer polls.
   //----------------------------------------------------------------------------
@@ -168,9 +169,10 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 6: stream.
   //----------------------------------------------------------------------------
 
-  fprintf(stderr, "    Streaming: ");
+  fprintf(stderr, "\r    [PARALLEL]Stream: ");
   start = utils::wclock();
   // Start streaming threads.
+  stream_info info(n_threads, right_block_size);
   threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
     long beg = left_block_end + t * stream_block_size;
@@ -179,7 +181,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     threads[t] = new std::thread(inmem_parallel_stream<int>,
       text, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, stream_buffer_size,
-      max_threads, gt_in, left_block_end);
+      max_threads, gt_in, left_block_end, &info, t);
   }
 
   // Start updating thread.
@@ -189,8 +191,13 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Wait to all threads to finish.
   for (long t = 0; t < n_threads; ++t) threads[t]->join();
   updater->join();
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-  
+
+  long double stream_time = utils::wclock() - start;
+  long double speed = (right_block_size / (1024.L * 1024)) / stream_time;
+      fprintf(stderr,"\r    [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
+          "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
+          stream_time, info.m_thread_count, speed / n_threads, speed);
+
   // Clean up.
   fprintf(stderr, "    Cleaning up: ");
   start = utils::wclock();
