@@ -60,7 +60,7 @@ void compute_partial_gt(unsigned char *text, long ref_pos, long max_lcp,
     }
 
     if (p > 0 && 3 * p <= el && !memcmp(pat, pat + p, s)) {
-      for (long k = 1; k < p; ++k) {
+      for (long k = 1; k < std::min(p, ref_pos - i); ++k) {
         if (decided->get(j + k)) decided->set(i + k);
         if (gt->get(j + k)) gt->set(i + k);
       }
@@ -69,7 +69,7 @@ void compute_partial_gt(unsigned char *text, long ref_pos, long max_lcp,
       el -= p;
     } else {
       long h = (el / 3) + 1;
-      for (long k = 1; k < h; ++k) {
+      for (long k = 1; k < std::min(h, ref_pos - i); ++k) {
         if (decided->get(j + k)) decided->set(i + k);
         if (gt->get(j + k)) gt->set(i + k);
       }
