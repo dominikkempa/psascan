@@ -19,9 +19,9 @@ void test(unsigned char *text, long text_length, long left_block_beg,
   // Prerequisite: gt bitvector.
   fprintf(stderr, "  Computing gt: ");
   long double start = utils::wclock();
-  bitvector *gt = NULL;
+  bitvector *gt_in = NULL;
   long left_block_end = left_block_beg + left_block_size;
-  naive_compute_gt(text, text_length, left_block_end, right_block_size + 1, gt);
+  naive_compute_gt(text, text_length, left_block_end, right_block_size + 1, gt_in);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   fprintf(stderr, "  Computing partial suffix array:\n");
@@ -35,13 +35,16 @@ void test(unsigned char *text, long text_length, long left_block_beg,
   // Compute the gap array, this is the method we are testing.
   fprintf(stderr, "  Computing gap array:\n");
   start = utils::wclock();
+  bitvector *gt_out = NULL;
   inmem_gap_array *computed_gap = NULL;
   inmem_compute_gap(text, text_length, left_block_beg, left_block_size,
-      right_block_size, partial_sa, gt, computed_gap, max_threads, stream_buffer_size);
+      right_block_size, partial_sa, gt_in, gt_out, true, computed_gap,
+      max_threads, stream_buffer_size);
   fprintf(stderr, "  Total: %.2Lf\n", utils::wclock() - start);
 
   // Clean up.
-  delete gt;
+  delete gt_in;
+  delete gt_out;
   delete[] partial_sa;
   delete computed_gap;
 }

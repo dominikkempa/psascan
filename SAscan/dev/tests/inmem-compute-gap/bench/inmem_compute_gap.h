@@ -66,11 +66,13 @@
 #include "inmem_update.h"
 #include "inmem_gap_array.h"
 #include "inmem_bwt_from_sa.h"
+#include "inmem_finalize_gt.h"
 
 
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
     long left_block_size, long right_block_size, int *partial_sa, bitvector *gt_in,
-    inmem_gap_array* &gap, long max_threads, long stream_buffer_size = (1L << 20)) {
+    bitvector* &gt_out, bool compute_gt_out, inmem_gap_array* &gap, long max_threads,
+    long stream_buffer_size = (1L << 20)) {
 
   //----------------------------------------------------------------------------
   // STEP 1: compute BWT from partial_sa. Together with BWT we get the index
@@ -114,19 +116,61 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   start = utils::wclock();
   long left_block_end = left_block_beg + left_block_size;
   long right_block_end = left_block_end + right_block_size;
-  long stream_block_size = (right_block_size + max_threads - 1) / max_threads;
-  long n_threads = (right_block_size + stream_block_size - 1) / stream_block_size;
+
+  //----------------------------------------------------------------------------
+  // We need to guarantee that no two threads will attempt to write to the same
+  // byte. To do this we separare min(right_block_size, 8 - left_block_size % 8)
+  // bits from the right block and designate them to be handled by the first
+  // thread.
+  //
+  // In addition, we make sure that the stream_block_size is a multiple of 8
+  // this way, we know all other thread (second, third, etc.) will always start
+  // filling bits at position that is a multiple of 8.
+  //
+  // Making sure that left_block_size is a multiple of 8 and making stream block
+  // size to be multiple of 8 would also work, but I feel this is better,
+  // as we don't have to make anything else elswhere, in particular making
+  // sure that left block size is a multiple of 8 would be a huge pain.
+  //----------------------------------------------------------------------------
+
+  // This many bits of the right block will in
+  // addition be handled by the first thread.
+  long initial_chunk = std::min(right_block_size, 8 - (left_block_size & 7));
+  long n_threads = 0L;
+  long *stream_block_beg, *stream_block_end;
+  if (initial_chunk == right_block_size) {
+    // Just one block containing initial chunk.
+    n_threads = 1;
+    stream_block_beg = new long[n_threads];
+    stream_block_end = new long[n_threads];
+    stream_block_beg[0] = left_block_end;
+    stream_block_end[0] = left_block_end + initial_chunk;
+  } else {
+    // At least one symbol in addition to initial chunk.
+    long reduced_right_block_size = right_block_size - initial_chunk;
+    long stream_block_size = (reduced_right_block_size + max_threads - 1) / max_threads;
+    while (stream_block_size & 7) ++stream_block_size;
+    n_threads = (reduced_right_block_size + stream_block_size - 1) / stream_block_size;
+    stream_block_beg = new long[n_threads];
+    stream_block_end = new long[n_threads];
+    stream_block_beg[0] = left_block_end;
+    stream_block_end[0] = std::min(right_block_end,
+        left_block_end + initial_chunk + stream_block_size);
+    for (long j = 1; j < n_threads; ++j) {
+      stream_block_beg[j] = stream_block_end[j - 1];
+      stream_block_end[j] = std::min(right_block_end,
+          stream_block_beg[j] + stream_block_size);
+    }
+  }
 
   std::vector<long> initial_ranks(n_threads);
   std::thread **threads = new std::thread*[n_threads];
   for (long i = 0; i < n_threads; ++i) {
-    long beg = left_block_end + i * stream_block_size;
-    long end = std::min(beg + stream_block_size, right_block_end);
-
     // The i-th thread streams symbols text[beg..end), right-to-left.
+    // where beg = stream_block_beg[i], end = stream_block_end[i];
     threads[i] = new std::thread(inmem_smaller_suffixes<int>, text,
-        text_length, left_block_beg, left_block_end, end, partial_sa,
-        std::ref(initial_ranks[i]));
+        text_length, left_block_beg, left_block_end, stream_block_end[i],
+        partial_sa, std::ref(initial_ranks[i]));
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
@@ -166,7 +210,24 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 6: stream.
+  // STEP 6: allocate gt_out bitvector.
+  //----------------------------------------------------------------------------
+  if (!compute_gt_out) gt_out = NULL;
+  else {
+    gt_out = new bitvector(left_block_size + right_block_size + 1);
+
+    // We manually set the last bit.
+    if (initial_ranks[n_threads - 1] > i0)
+      gt_out->set(left_block_size + right_block_size);
+
+    // We compute the left half of gt_out.
+    finalize_gt(text, text_length, left_block_beg, left_block_size,
+        gt_in, gt_out, max_threads);
+  }
+
+
+  //----------------------------------------------------------------------------
+  // STEP 7: stream.
   //----------------------------------------------------------------------------
 
   fprintf(stderr, "\r    [PARALLEL]Stream: ");
@@ -175,13 +236,14 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   stream_info info(n_threads, right_block_size);
   threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
-    long beg = left_block_end + t * stream_block_size;
-    long end = std::min(beg + stream_block_size, right_block_end);
+    long beg = stream_block_beg[t];
+    long end = stream_block_end[t];
 
     threads[t] = new std::thread(inmem_parallel_stream<int>,
       text, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, stream_buffer_size,
-      max_threads, gt_in, left_block_end, &info, t);
+      max_threads, gt_in, gt_out, compute_gt_out, left_block_beg,
+      left_block_end, &info, t);
   }
 
   // Start updating thread.
@@ -210,9 +272,13 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   delete full_buffers;
   delete rank;
   delete[] count;
+  delete[] stream_block_beg;
+  delete[] stream_block_end;
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
-  // Finally, sort excess values.
+  //----------------------------------------------------------------------------
+  // STEP 8: sort excess values. Consider using gnu parallel sort here.
+  //-------------------------------------------------------------------
   fprintf(stderr, "    Sorting excess: ");
   start = utils::wclock();
   std::sort(gap->m_excess.begin(), gap->m_excess.end());

@@ -38,6 +38,9 @@ void inmem_parallel_stream(
     long stream_buf_size,
     long n_increasers,
     bitvector *gt,
+    bitvector *gt_out,
+    bool compute_gt_out,
+    long gt_out_origin,
     long gt_origin) {
 
   //----------------------------------------------------------------------------
@@ -82,13 +85,26 @@ void inmem_parallel_stream(
     long left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
     std::fill(block_count, block_count + n_buckets, 0);
-    for (long t = 0; t < b->m_filled; ++t, --j) {
-      bool gt_bit = gt->get(j - gt_origin);
-      unsigned char c = text[j - 1];
-      i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > i0)), c));
-      if (c == last && gt_bit) ++i;
-      temp[t] = i;
-      block_count[i >> bucket_size_bits]++;
+
+    if (!compute_gt_out) {  // Version that does not compute gt_out.
+      for (long t = 0; t < b->m_filled; ++t, --j) {
+        bool gt_bit = gt->get(j - gt_origin);
+        unsigned char c = text[j - 1];
+        i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > i0)), c));
+        if (c == last && gt_bit) ++i;
+        temp[t] = i;
+        block_count[i >> bucket_size_bits]++;
+      }
+    } else {  // Compute gt_out.
+      for (long t = 0; t < b->m_filled; ++t, --j) {
+        bool gt_bit = gt->get(j - gt_origin);
+        unsigned char c = text[j - 1];
+        i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > i0)), c));
+        if (c == last && gt_bit) ++i;
+        if (i > i0) gt_out->set(j - 1 - gt_out_origin);  // write bit of gt_out
+        temp[t] = i;
+        block_count[i >> bucket_size_bits]++;
+      }    
     }
 
     //--------------------------------------------------------------------------
