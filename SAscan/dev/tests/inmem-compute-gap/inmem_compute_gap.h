@@ -186,7 +186,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //         on the top of the page, the gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
-  gap = new inmem_gap_array(left_block_size + 1);
+  gap = new inmem_gap_array(left_block_size + 1, max_threads);
 
 
   //----------------------------------------------------------------------------
