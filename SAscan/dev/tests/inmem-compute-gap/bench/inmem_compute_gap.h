@@ -210,19 +210,25 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 6: allocate gt_out bitvector.
+  // STEP 6: allocate and partially compute gt_out bitvector.
   //----------------------------------------------------------------------------
   if (!compute_gt_out) gt_out = NULL;
   else {
-    gt_out = new bitvector(left_block_size + right_block_size + 1);
+    fprintf(stderr, "    Allocating gt_out: ");
+    start = utils::wclock();
+    gt_out = new bitvector(left_block_size + right_block_size + 1, max_threads);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
     // We manually set the last bit.
     if (initial_ranks[n_threads - 1] > i0)
       gt_out->set(left_block_size + right_block_size);
 
     // We compute the left half of gt_out.
+    fprintf(stderr, "    Computing first half of gt_out: ");
+    start = utils::wclock();
     finalize_gt(text, text_length, left_block_beg, left_block_size,
         gt_in, gt_out, max_threads);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
 
@@ -276,9 +282,10 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   delete[] stream_block_end;
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
+
   //----------------------------------------------------------------------------
   // STEP 8: sort excess values. Consider using gnu parallel sort here.
-  //-------------------------------------------------------------------
+  //----------------------------------------------------------------------------
   fprintf(stderr, "    Sorting excess: ");
   start = utils::wclock();
   std::sort(gap->m_excess.begin(), gap->m_excess.end());

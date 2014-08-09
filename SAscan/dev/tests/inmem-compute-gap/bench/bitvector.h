@@ -3,12 +3,14 @@
 #define __BITVECTOR_H_INCLUDED
 
 #include <algorithm>
+#include "parallel_utils.h"
 
 struct bitvector {
-  bitvector(long length)
-      : m_alloc_bytes((length + 7L) / 8L) {
+  bitvector(long length, long max_threads = 1) {
+    m_alloc_bytes = (length + 7) / 8;
     m_data = new unsigned char[m_alloc_bytes];
-    std::fill(m_data, m_data + m_alloc_bytes, 0);
+    parallel_utils::fill(m_data, m_alloc_bytes,
+        (unsigned char)0, max_threads);
   }
 
   inline bool get(long i) const {
