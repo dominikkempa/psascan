@@ -213,7 +213,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   if (!compute_gt_out) gt_out = NULL;
   else {
-    gt_out = new bitvector(left_block_size + right_block_size + 1);
+    gt_out = new bitvector(left_block_size + right_block_size + 1, max_threads);
 
     // We manually set the last bit.
     if (initial_ranks[n_threads - 1] > i0)

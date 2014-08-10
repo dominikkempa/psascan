@@ -71,11 +71,10 @@
 #include "bitvector.h"
 #include "rank.h"
 #include "buffer.h"
-
+#include "inmem_gap_array.h"
 #include "inmem_smaller_suffixes.h"
 #include "inmem_stream.h"
 #include "inmem_update.h"
-#include "inmem_gap_array.h"
 #include "inmem_bwt_from_sa.h"
 #include "inmem_finalize_gt.h"
 
@@ -89,23 +88,17 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 1: compute BWT from partial_sa. Together with BWT we get the index
   //         i0, such that partial_sa[i0] = 0.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Compute bwt: ");
-  long double start = utils::wclock();
   unsigned char *left_block = text + left_block_beg;
   unsigned char *bwt = new unsigned char[left_block_size - 1];
   long i0 = bwt_from_sa_into_dest(partial_sa, left_block,
       left_block_size, bwt, max_threads);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
   // STEP 2: build rank data structure over BWT and delete BWT.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Building rank: ");
-  start = utils::wclock();
   rank4n<> *rank = new rank4n<>(bwt, left_block_size - 1, max_threads);
   delete[] bwt;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
@@ -123,8 +116,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   // STEP 4: compute starting positions for all streaming threads.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Computing initial ranks: ");
-  start = utils::wclock();
   long left_block_end = left_block_beg + left_block_size;
   long right_block_end = left_block_end + right_block_size;
 
@@ -186,7 +177,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
   delete[] threads;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
 
@@ -195,8 +185,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //         on the top of the page, the gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Preparing for streaming: ");
-  start = utils::wclock();
   gap = new inmem_gap_array(left_block_size + 1, max_threads);
 
 
@@ -217,29 +205,22 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Add empty buffers to empty poll.
   for (long i = 0; i < n_stream_buffers; ++i)
     empty_buffers->add(buffers[i]);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
-  // STEP 7: allocate and partially compute gt_out bitvector.
+  // STEP 7: allocate gt_out bitvector.
   //----------------------------------------------------------------------------
   if (!compute_gt_out) gt_out = NULL;
   else {
-    fprintf(stderr, "    Allocating gt_out: ");
-    start = utils::wclock();
     gt_out = new bitvector(left_block_size + right_block_size + 1, max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
     // We manually set the last bit.
     if (initial_ranks[n_threads - 1] > i0)
       gt_out->set(left_block_size + right_block_size);
 
     // We compute the left half of gt_out.
-    fprintf(stderr, "    Computing first half of gt_out: ");
-    start = utils::wclock();
     finalize_gt(text, text_length, left_block_beg, left_block_size,
         gt_in, gt_out, max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
 
@@ -247,10 +228,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 8: stream.
   //----------------------------------------------------------------------------
 
-  fprintf(stderr, "\r    [PARALLEL]Stream: ");
-  start = utils::wclock();
   // Start streaming threads.
-  stream_info info(n_threads, right_block_size);
   threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
     long beg = stream_block_beg[t];
@@ -260,7 +238,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
       text, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, stream_buffer_size,
       max_threads, gt_in, gt_out, compute_gt_out, left_block_beg,
-      left_block_end, &info, t);
+      left_block_end);
   }
 
   // Start updating thread.
@@ -270,16 +248,8 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Wait to all threads to finish.
   for (long t = 0; t < n_threads; ++t) threads[t]->join();
   updater->join();
-
-  long double stream_time = utils::wclock() - start;
-  long double speed = (right_block_size / (1024.L * 1024)) / stream_time;
-      fprintf(stderr,"\r    [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
-          "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
-          stream_time, info.m_thread_count, speed / n_threads, speed);
-
+  
   // Clean up.
-  fprintf(stderr, "    Cleaning up: ");
-  start = utils::wclock();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
   for (long i = 0; i < n_stream_buffers; ++i) delete buffers[i];
   delete updater;
@@ -291,16 +261,12 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   delete[] count;
   delete[] stream_block_beg;
   delete[] stream_block_end;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
   // STEP 9: sort excess values. Consider using gnu parallel sort here.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Sorting excess: ");
-  start = utils::wclock();
   std::sort(gap->m_excess.begin(), gap->m_excess.end());
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 }
                  
 #endif  // __INMEM_COMPUTE_GAP_H_INCLUDED
