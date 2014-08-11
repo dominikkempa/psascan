@@ -46,9 +46,6 @@
 #ifndef __PARALLEL_MERGE_H_INCLUDED
 #define __PARALLEL_MERGE_H_INCLUDED
 
-#include <cstdio>
-#include <cstdlib>
-
 #include <vector>
 #include <stack>
 #include <algorithm>
@@ -143,8 +140,6 @@ void answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
   // does not slow down the parallel sum computation and greatly speed up
   // STEP 3, since each thread has to scan only at most 4 * 2^20 elements.
   //----------------------------------------------------------------------------
-//  long double start = utils::wclock();
-//  fprintf(stderr, "Precomp1: ");
   long block_size = std::min(4L << 20, (length + max_threads - 1) / max_threads);
   long n_blocks = (length + block_size - 1) / block_size;
   long *gapsum = new long[n_blocks];
@@ -164,29 +159,24 @@ void answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
     for (long i = 0; i < range_size; ++i) delete threads[i];
   }
   delete[] threads;
-//  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
+
 
   //----------------------------------------------------------------------------
   // STEP 2: compute partial sum from block counts.
   //----------------------------------------------------------------------------
   // Change gapsum so that gapsum[i] is the sum of blocks 0, 1, .., i - 1.
-//  fprintf(stderr, "Precomp2: ");
-//  start = utils::wclock();
   for (long i = 0, s = 0, t; i < n_blocks; ++i)
     { t = gapsum[i]; gapsum[i] = s; s += t; }
-//  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
+
 
   //----------------------------------------------------------------------------
   // STEP 3: Answer the queries in parallel.
   //----------------------------------------------------------------------------
-//  start = utils::wclock();
-//  fprintf(stderr, "Precomp3: ");
   threads = new std::thread*[n_queries];
   for (long i = 0; i < n_queries; ++i)
     threads[i] = new std::thread(answer_single_gap_query, gap, length,
       block_size, gapsum, a[i], std::ref(b[i]), std::ref(c[i]));
   for (long i = 0; i < n_queries; ++i) threads[i]->join();
-//  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
   for (long i = 0; i < n_queries; ++i) delete threads[i];
   delete[] threads;
   delete[] gapsum;
@@ -200,7 +190,7 @@ void answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
 //==============================================================================
 template<typename T, unsigned pagesize_bits>
 void parallel_merge(T *tab, inmem_gap_array *gap, long length, T** pageindex, long left_idx,
-    long right_idx, int remaining_gap, long res_beg, long res_size, long add_how_much) {
+    long right_idx, long remaining_gap, long res_beg, long res_size, long add_how_much) {
   static const unsigned pagesize = (1U << pagesize_bits);
   static const unsigned pagesize_mask = pagesize - 1;
 
@@ -354,6 +344,7 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
   long n_pages = (length + pagesize - 1) / pagesize;
   T **pageindex = new T*[n_pages];
 
+
   //----------------------------------------------------------------------------
   // STEP 1: compute the initial parameters for each thread. Each thread is
   //         assigned a range of elements in the output. This range is
@@ -373,7 +364,7 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
   // in the range [res_beg .. res_beg + res_size).
   long *left_idx = new long[n_threads];
   long *right_idx = new long[n_threads];
-  int *remaining_gap = new int[n_threads];
+  long *remaining_gap = new long[n_threads];
 
   // Prepare gap queries.
   long *gap_query = new long[n_threads];
@@ -391,17 +382,16 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
     long j = gap_answer_a[i], s = gap_answer_b[i];
     left_idx[i] = j;
     right_idx[i] = n1 + (res_beg - j);
-    remaining_gap[i] = (int)(j + s - res_beg);
+    remaining_gap[i] = j + s - res_beg;
   }
   delete[] gap_query;
   delete[] gap_answer_a;
   delete[] gap_answer_b;
 
+
   //----------------------------------------------------------------------------
   // STEP 2: perform the actual merging.
   //----------------------------------------------------------------------------
-//  long double start = utils::wclock();
-//  fprintf(stderr, "Merging: ");
   std::thread **threads = new std::thread*[n_threads];
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
@@ -418,10 +408,7 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
   delete[] left_idx;
   delete[] right_idx;
   delete[] remaining_gap;
-//  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
-//  start = utils::wclock();
-//  fprintf(stderr, "Erase aux pages: ");
   // If the last input page was incomplete, handle
   // it separatelly and exclude from the computation.
   if (length % pagesize) {
@@ -462,13 +449,11 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
     }
   }
   delete[] usedpage;
-//  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
+
 
   //----------------------------------------------------------------------------
   // STEP 3: parallel permutation of pages.
   //----------------------------------------------------------------------------
-//  start = utils::wclock();
-//  fprintf(stderr, "Permuting: ");
   long selector = 0;
   std::mutex selector_mutex;
   std::mutex *mutexes = new std::mutex[n_pages];
@@ -480,7 +465,6 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
         std::ref(selector), std::ref(selector_mutex));
 
   for (long i = 0; i < max_threads; ++i) threads[i]->join();
-//  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
   for (long i = 0; i < max_threads; ++i) delete threads[i];
   delete[] threads;
   delete[] mutexes;

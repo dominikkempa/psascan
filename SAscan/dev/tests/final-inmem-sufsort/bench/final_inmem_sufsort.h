@@ -61,27 +61,6 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
   long max_block_size = (text_length + max_blocks - 1) / max_blocks;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-
-  //
-  /*fprintf(stderr, "max_block_size = %ld\n", max_block_size);
-  fprintf(stderr, "n_blocks = %ld\n", n_blocks);
-  fprintf(stderr, "partial SAs:\n");
-  for (long i = 0; i < n_blocks; ++i) {
-    long block_beg = i * max_block_size;
-    long block_end = std::min(block_beg + max_block_size, text_length);
-    long block_size = block_end - block_beg;
-
-    fprintf(stderr, "SA[%ld]: ", i);
-    for (long j = 0; j < block_size; ++j)
-      fprintf(stderr, "%ld ", (long)sa[block_beg + j]);
-    fprintf(stderr, "\n");
-  }
-  fprintf(stderr, "text after rerenaming: ");
-  for (long i = 0; i < text_length; ++i)
-    fprintf(stderr, "%c", text[i]);
-  fprintf(stderr, "\n");*/
-  //
-
   std::vector<block_description> block_desc;
   fprintf(stderr, "  Changing reference points:\n");
   long double start1 = utils::wclock();
@@ -104,20 +83,6 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
   delete[] initial_gt;
   fprintf(stderr, "  %.2Lf\n", utils::wclock() - start1);
 
-  //
-  /*fprintf(stderr, "block_size.size() = %ld\n", (long)block_desc.size());
-  fprintf(stderr, "block_desc:\n");
-  for (long i = 0; i < (long)block_desc.size(); ++i) {
-    fprintf(stderr, "[%ld]: ", i);
-    fprintf(stderr, "beg = %ld, end = %ld, gt: ", block_desc[i].m_beg, block_desc[i].m_end);
-    if (block_desc[i].m_gt) {
-      for (long j = 0; j <= block_desc[i].m_end - block_desc[i].m_beg; ++j)
-        if (block_desc[i].m_gt->get(j)) fprintf(stderr, "1 ");
-        else fprintf(stderr, "0 ");
-    }
-    fprintf(stderr, "\n");
-  }*/
-  //
 
   //----------------------------------------------------------------------------
   // STEP 3: keep merging blocks until we have only one left.
@@ -138,6 +103,11 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
       // Merge blocks with description in block_desc[i] and block_desc[i + 1].
       //------------------------------------------------------------------------
 
+      fprintf(stderr, "  Merging blocks [%ld..%ld) and [%ld..%ld):\n",
+          block_desc[i].m_beg, block_desc[i].m_end,
+          block_desc[i + 1].m_beg, block_desc[i + 1].m_end);
+      start = utils::wclock();
+
       // 1
       //
       // Compute some initial parameters.
@@ -146,27 +116,6 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
       long lsize = block_desc[i].m_end - lbeg;
       long rsize = rend - block_desc[i + 1].m_beg;
       bool compute_gt_out = (((i >> 1) & 1) || (i > 0 && i + 2 == n_blocks));
-
-      /*fprintf(stderr, "lbeg = %ld, rend = %ld, lsize = %ld, rsize = %ld, compute_gt_out = %ld\n", lbeg,
-          rend, lsize, rsize, (long)compute_gt_out);
-      fprintf(stderr, "partial sa (left): ");
-      for (long j = 0; j < lsize; ++j)
-        fprintf(stderr, "%ld ", (long)sa[lbeg + j]);
-      fprintf(stderr, "\n");
-      fprintf(stderr, "partial sa (right): ");
-      for (long j = 0; j < rsize; ++j)
-        fprintf(stderr, "%ld ", (long)sa[lbeg + lsize + j]);
-      fprintf(stderr, "\n");
-
-      fprintf(stderr, "right gt: ");
-      for (long j = 0; j <= rsize; ++j)
-        if (block_desc[i + 1].m_gt->get(j)) fprintf(stderr, "1 ");
-        else fprintf(stderr, "0 ");
-      fprintf(stderr, "\n");*/
-
-      fprintf(stderr, "  Merging blocks [%ld..%ld) and [%ld..%ld):\n",
-          lbeg, block_desc[i].m_end, block_desc[i + 1].m_beg, rend);
-      start = utils::wclock();
 
       // 2
       //
@@ -177,8 +126,8 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
       fprintf(stderr, "    Computing gap:\n");
       start1 = utils::wclock();
       inmem_compute_gap(text, text_length, lbeg, lsize, rsize, sa + lbeg,
-          block_desc[i + 1].m_gt, gt_out, compute_gt_out, gap, max_threads);
-      // fprintf(stderr, "done\n");
+          block_desc[i + 1].m_gt, gt_out, compute_gt_out, gap, max_threads,
+          (1L << 20));
       fprintf(stderr, "    Time: %.2Lf\n", utils::wclock() - start1);
 
       fprintf(stderr, "    Deleting old gt: ");

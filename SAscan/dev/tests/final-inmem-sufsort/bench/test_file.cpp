@@ -8,9 +8,8 @@
 #include "divsufsort.h"
 
 
-void test(unsigned char *text, long text_length, long max_blocks,
-    long max_threads) {
-
+void test(unsigned char *text, long text_length,
+    long max_blocks, long max_threads) {
   long double start;
 
   fprintf(stderr, "Running inmem sascan\n");
@@ -19,7 +18,7 @@ void test(unsigned char *text, long text_length, long max_blocks,
   inmem_sascan(text, text_length, computed_sa, max_blocks, max_threads);
   fprintf(stderr, "Total time: %.2Lf\n", utils::wclock() - start);
 
-  fprintf(stderr, "\nRunning divsufsort\n");
+  /*fprintf(stderr, "\nRunning divsufsort\n");
   int *correct_sa = new int[text_length];
   start = utils::wclock();
   divsufsort(text, correct_sa, (int)text_length);
@@ -29,8 +28,8 @@ void test(unsigned char *text, long text_length, long max_blocks,
     fprintf(stderr, "FAIL\n");
   else fprintf(stderr, "OK\n");
 
+  delete[] correct_sa;*/
   delete[] computed_sa;
-  delete[] correct_sa;
 }
 
 

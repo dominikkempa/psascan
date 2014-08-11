@@ -280,7 +280,11 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Wait to all threads to finish.
   for (long t = 0; t < n_threads; ++t) threads[t]->join();
   updater->join();
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  long double streaming_time = utils::wclock() - start;
+  long double streaming_speed =
+    (right_block_size / (1024.L * 1024)) / streaming_time;
+  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", streaming_time,
+      streaming_speed);
   
   // Clean up.
   fprintf(stderr, "      Cleaning up: ");
