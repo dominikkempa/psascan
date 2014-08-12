@@ -1,13 +1,14 @@
 //==============================================================================
 // This file implements a method:
 //
+// template<typename T>
 // void compute_gap(
 //                   unsigned char*    text,
 //                   long              text_length,
 //                   long              left_block_beg,
 //                   long              left_block_size,
 //                   long              right_block_size,
-//                   int*              partial_sa,
+//                   T*              partial_sa,
 //                   bitvector*        gt_in,
 //                   bitvector*&       gt_out,
 //                   bool              compute_gt_out,
@@ -78,9 +79,9 @@
 #include "inmem_bwt_from_sa.h"
 #include "inmem_finalize_gt.h"
 
-
+template<typename T>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
-    long left_block_size, long right_block_size, int *partial_sa, bitvector *gt_in,
+    long left_block_size, long right_block_size, T *partial_sa, bitvector *gt_in,
     bitvector* &gt_out, bool compute_gt_out, inmem_gap_array* &gap, long max_threads,
     long stream_buffer_size = (1L << 20)) {
   long double start;
@@ -97,7 +98,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
   fprintf(stderr, "      Computing bwt: ");
   start = utils::wclock();
-  long i0 = bwt_from_sa_into_dest(partial_sa, left_block,
+  long i0 = bwt_from_sa_into_dest<T>(partial_sa, left_block,
       left_block_size, bwt, max_threads);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
@@ -187,7 +188,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   for (long i = 0; i < n_threads; ++i) {
     // The i-th thread streams symbols text[beg..end), right-to-left.
     // where beg = stream_block_beg[i], end = stream_block_end[i];
-    threads[i] = new std::thread(inmem_smaller_suffixes<int>, text,
+    threads[i] = new std::thread(inmem_smaller_suffixes<T>, text,
         text_length, left_block_beg, left_block_end, stream_block_end[i],
         partial_sa, std::ref(initial_ranks[i]));
   }
@@ -217,13 +218,13 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   fprintf(stderr, "      Allocating buffers: ");
   start = utils::wclock();
   long n_stream_buffers = 2 * n_threads;
-  buffer<int> **buffers = new buffer<int>*[n_stream_buffers];
+  buffer<T> **buffers = new buffer<T>*[n_stream_buffers];
   for (long i = 0; i < n_stream_buffers; ++i)
-    buffers[i] = new buffer<int>(stream_buffer_size, max_threads);
+    buffers[i] = new buffer<T>(stream_buffer_size, max_threads);
 
   // Create poll of empty and full buffers.
-  buffer_poll<int> *empty_buffers = new buffer_poll<int>();
-  buffer_poll<int> *full_buffers = new buffer_poll<int>(n_threads);
+  buffer_poll<T> *empty_buffers = new buffer_poll<T>();
+  buffer_poll<T> *full_buffers = new buffer_poll<T>(n_threads);
 
   // Add empty buffers to empty poll.
   for (long i = 0; i < n_stream_buffers; ++i)
@@ -266,7 +267,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long beg = stream_block_beg[t];
     long end = stream_block_end[t];
 
-    threads[t] = new std::thread(inmem_parallel_stream<int>,
+    threads[t] = new std::thread(inmem_parallel_stream<T>,
       text, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, stream_buffer_size,
       max_threads, gt_in, gt_out, compute_gt_out, left_block_beg,
@@ -274,7 +275,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   }
 
   // Start updating thread.
-  std::thread *updater = new std::thread(inmem_gap_updater<int>,
+  std::thread *updater = new std::thread(inmem_gap_updater<T>,
       full_buffers, empty_buffers, gap, max_threads);
 
   // Wait to all threads to finish.

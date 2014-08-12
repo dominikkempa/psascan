@@ -34,7 +34,8 @@ struct block_description {
 // be, that when used with one thread, the procedure simply runs divsufsort
 // and there is no overhead of running this function over running divsufsort.
 //==============================================================================
-void inmem_sascan(unsigned char *text, long text_length, int* sa,
+template<typename T>
+void inmem_sascan(unsigned char *text, long text_length, T* sa,
     long max_blocks, long max_threads = 1) {
   long double start;
 
@@ -127,7 +128,7 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
       start1 = utils::wclock();
       inmem_compute_gap(text, text_length, lbeg, lsize, rsize, sa + lbeg,
           block_desc[i + 1].m_gt, gt_out, compute_gt_out, gap, max_threads,
-          (1L << 20));
+          (1L << 21));
       fprintf(stderr, "    Time: %.2Lf\n", utils::wclock() - start1);
 
       fprintf(stderr, "    Deleting old gt: ");
@@ -140,7 +141,7 @@ void inmem_sascan(unsigned char *text, long text_length, int* sa,
       // Merge (in place) partial suffix arrays.
       fprintf(stderr, "    Merging: ");
       start1 = utils::wclock();
-      merge<int, 12>(sa + lbeg, lsize, rsize, gap, max_threads);
+      merge<T, 12>(sa + lbeg, lsize, rsize, gap, max_threads);
       fprintf(stderr, "%.2Lf\n", utils::wclock() - start1);
 
       fprintf(stderr, "    Deleting gap: ");

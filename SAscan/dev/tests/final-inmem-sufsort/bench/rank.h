@@ -35,7 +35,7 @@
 #define RARE_CHAR 1
 #define NOT_OCCURRING 2
 
-template<long k_sb_size_bits = 24, long k_block_size_bits = 18>
+template<long k_sb_size_bits = 23, long k_block_size_bits = 18>
 struct rank4n {
   static void construction_step_1(rank4n &r, unsigned char *text, long range_beg,
       long range_end, long *range_count, long &rare_trunk_size) {
@@ -214,6 +214,8 @@ struct rank4n {
       // Compute the freq and rare trunk of block i.
       long nofreq_cnt = 0L;
       long sb_id = block_beg >> k_sb_size_bits;
+      long last_block_boundary = -1;
+      long last_rare_block_boundary = -1;
       for (long i = block_beg; i < block_end; ++i) {
         unsigned char c = (i < r.m_length ? text[i] : 0);
 
@@ -229,21 +231,30 @@ struct rank4n {
         //----------------------------------------------------------------------
 
         if (!(i & freq_cnt_mask)) {
+          last_block_boundary = i;
           for (long j = 0; j + 1 < freq_cnt; ++j) {
             unsigned char freq_ch = (j < (long)freq_chars.size() ? freq_chars[j] : 0);
-            r.freq_trunk[i + j] = (count[freq_ch] - r.sb_rank[(sb_id << 8) + freq_ch]) << 8;
+            r.freq_trunk[i + j] = (count[freq_ch] - r.sb_rank[(sb_id << 8) + freq_ch]) << 9;
           }
-          r.freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
+          r.freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 9);
         }
         r.freq_trunk[i] |= freq_map[c]; // mapping of frequent c
+
+        // Mark that symbol c occurs in this freq block.
+        if (isfreq[c]) r.freq_trunk[last_block_boundary + freq_map[c]] |= 0x100U;
+
         if (!isfreq[c]) {
           if (!(nofreq_cnt & rare_cnt_mask)) {
+            last_rare_block_boundary = rare_trunk_ptr;
             for (long j = 0; j < rare_cnt; ++j) {
               unsigned char rare_ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
-              r.rare_trunk[rare_trunk_ptr++] = (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 8;
+              r.rare_trunk[rare_trunk_ptr++] = (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 9;
             }
           }
           r.rare_trunk[rare_trunk_writing_ptr++] |= rare_map[c]; // mapping of rare c
+
+          // Mark that symbol c occurs in this rare block.
+          r.rare_trunk[last_rare_block_boundary + rare_map[c]] |= 0x100U;
           ++nofreq_cnt;
         }
 
@@ -253,7 +264,7 @@ struct rank4n {
       for (long j = 0; j < rare_cnt; ++j) {
         unsigned char rare_ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
         r.rare_trunk[rare_trunk_ptr++] =
-          (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 8;
+          (count[rare_ch] - r.sb_rank[(sb_id << 8) + rare_ch]) << 9;
       }
     }
   }
@@ -400,27 +411,35 @@ struct rank4n {
     long micro_block_id = (i >> freq_cnt_bits);
 
     if (type == FREQUENT_CHAR) {
-      long b_count = freq_trunk[(micro_block_id << freq_cnt_bits) + c_map] >> 8;
+      long b_count = (freq_trunk[(micro_block_id << freq_cnt_bits) + c_map] >> 8);
+      bool occurrs = (b_count & 1);
+      b_count >>= 1;
       long extra = 0;
-      for (long j = (micro_block_id << freq_cnt_bits); j < i; ++j)
-        if ((freq_trunk[j] & 255) == c_map) ++extra;
+      if (occurrs) {
+        for (long j = (micro_block_id << freq_cnt_bits); j < i; ++j)
+          if ((freq_trunk[j] & 255) == c_map) ++extra;
+      }
 
       return sb_count + b_count + extra;
     } else if (type == RARE_CHAR) {
       // Compute new_i.
       long rare_trunk_ptr = (block_header[block_id] >> 16);
-      long new_i = freq_trunk[((micro_block_id + 1) << freq_cnt_bits) - 1] >> 8;
+      long new_i = freq_trunk[((micro_block_id + 1) << freq_cnt_bits) - 1] >> 9;
 
       for (long j = (micro_block_id << freq_cnt_bits); j < i; ++j)
         if ((freq_trunk[j] & 255) + 1 == (1U << freq_cnt_bits)) ++new_i;
-      
+
       // Answer a query on rare trunk.
       long rare_micro_block_id = (new_i >> rare_cnt_bits);
       long b_count = rare_trunk[rare_trunk_ptr + (rare_micro_block_id << rare_cnt_bits) + c_map] >> 8;
+      bool occurrs = (b_count & 1);
+      b_count >>= 1;
       long extra = 0;
 
-      for (long j = (rare_micro_block_id << rare_cnt_bits); j < new_i; ++j)
-        if ((rare_trunk[rare_trunk_ptr + j] & 255) == c_map) ++extra;
+      if (occurrs) {
+        for (long j = (rare_micro_block_id << rare_cnt_bits); j < new_i; ++j)
+          if ((rare_trunk[rare_trunk_ptr + j] & 255) == c_map) ++extra;
+      }
         
       return sb_count + b_count + extra;
     } else {

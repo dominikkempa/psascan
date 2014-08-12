@@ -4,8 +4,7 @@
 #include <algorithm>
 #include <thread>
 
-#include "divsufsort.h"
-#include "divsufsort64.h"
+#include "divsufsort_template.h"
 #include "bitvector.h"
 
 
@@ -36,8 +35,9 @@ void rerename_block(unsigned char *block, long block_length) {
 //   1) rename the blocks
 //   2) run divsufsort on each block
 //==============================================================================
+template<typename T>
 void initial_partial_sufsort(unsigned char *text, long text_length,
-    bitvector** &gt, int* &partial_sa, long max_threads) {
+    bitvector** &gt, T* &partial_sa, long max_threads) {
   long double start = utils::wclock();
   long max_block_size = (text_length + max_threads - 1) / max_threads;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -64,8 +64,8 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     long block_beg = i * max_block_size;
     long block_end = std::min(block_beg + max_block_size, text_length);
     long block_size = block_end - block_beg;
-    threads[i] = new std::thread(divsufsort, text + block_beg,
-        partial_sa + block_beg, (int)block_size);
+    threads[i] = new std::thread(run_divsufsort<T>, text + block_beg,
+        partial_sa + block_beg, (T)block_size);
   }
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();
   for (long i = 0; i < n_blocks; ++i) delete threads[i];

@@ -7,7 +7,7 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -
 all: test_file
 
 test_file:
-	$(CC) $(CFLAGS) -o test_file test_file.cpp utils.cpp -fopenmp -ldivsufsort
+	$(CC) $(CFLAGS) -o test_file test_file.cpp utils.cpp -fopenmp -ldivsufsort -ldivsufsort64
 
 clean:
 	/bin/rm -f *.o

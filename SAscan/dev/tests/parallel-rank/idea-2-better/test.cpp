@@ -6,7 +6,7 @@
 
 #include "utils.h"
 #include "rank.h"
-#include "new_rank.h"
+#include "oldrank.h"
 
 // Test rank queries on a given strings.
 void test(unsigned char *text, long length, long queries) {
@@ -17,7 +17,7 @@ void test(unsigned char *text, long length, long queries) {
   context_rank_4n *correct_rank = new context_rank_4n(text, length);
   rank4n<13, 9> *rank = new rank4n<13, 9>(text, length, max_threads);
 
-  if (correct_rank->n_block != rank->n_blocks) {
+/*  if (correct_rank->n_block != rank->n_blocks) {
     fprintf(stderr, "\nError: different number of blocks\n");
     std::exit(EXIT_FAILURE);
   }
@@ -66,7 +66,7 @@ void test(unsigned char *text, long length, long queries) {
     fprintf(stderr, "\nError: freq trunks are different, was comparing %ld symbols\n",
         correct_rank->n_block * correct_rank->k_block_size);
     std::exit(EXIT_FAILURE);
-  }
+  }*/
 
 
   for (long q = 0; q < queries; ++q) {
