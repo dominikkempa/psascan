@@ -259,6 +259,14 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 8: stream.
   //----------------------------------------------------------------------------
 
+  // Allocate temp arrays and oracles.
+  start = utils::wclock();
+  fprintf(stderr, "      Allocating temp/oracle: ");
+  long max_buffer_elems = stream_buffer_size / sizeof(T);
+  T *temp = new T[max_buffer_elems * n_threads];
+  int *oracle = new int[max_buffer_elems * n_threads];
+  fprintf(stderr, "%.4Lf\n", utils::wclock() - start);
+
   // Start streaming threads.
   fprintf(stderr, "      Streaming: ");
   start = utils::wclock();
@@ -269,9 +277,9 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
     threads[t] = new std::thread(inmem_parallel_stream<T>,
       text, beg, end, last, count, full_buffers, empty_buffers,
-      initial_ranks[t], i0, rank, gap->m_length, stream_buffer_size,
+      initial_ranks[t], i0, rank, gap->m_length,
       max_threads, gt_in, gt_out, compute_gt_out, left_block_beg,
-      left_block_end);
+      left_block_end, temp + t * max_buffer_elems, oracle + t * max_buffer_elems);
   }
 
   // Start updating thread.
@@ -290,6 +298,8 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Clean up.
   fprintf(stderr, "      Cleaning up: ");
   start = utils::wclock();
+  delete[] oracle;
+  delete[] temp;
   for (long i = 0; i < n_threads; ++i) delete threads[i];
   for (long i = 0; i < n_stream_buffers; ++i) delete buffers[i];
   delete updater;

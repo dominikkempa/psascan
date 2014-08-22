@@ -7,7 +7,6 @@
 #include "utils.h"
 
 
-// XXX consider reversing the order in the trunk.
 template<long k_cblock_size_bits = 18, long k_sigma_bits = 8>
 struct rank4n {
   rank4n(unsigned char *text, long length, long) {
@@ -64,9 +63,12 @@ struct rank4n {
 
         // Update lookup tables.
         long cblock_local_i = (i & k_cblock_size_mask);
-        if (!(i & k_sigma_mask))
-          for (long j = 0; j < k_sigma; ++j)
-            cblock_trunk[(j << k_lookup_table_size_bits) + (cblock_local_i >> k_sigma_bits)] |= cblock_count[j];
+        if (!(i & k_sigma_mask)) {
+          for (long j = 0; j < k_sigma; ++j) {
+            long idx = (j << k_lookup_table_size_bits) + (cblock_local_i >> k_sigma_bits);
+            cblock_trunk[idx] |= cblock_count[j];
+          }
+        }
 
         // Add c to its list of occurrences.
         long block_local_i = (cblock_local_i & k_sigma_mask);

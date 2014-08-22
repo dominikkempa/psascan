@@ -35,13 +35,14 @@ void inmem_parallel_stream(
     block_offset_type i0,
     rank4n<> *rank,
     long gap_range_size,
-    long stream_buf_size,
     long n_increasers,
     bitvector *gt,
     bitvector *gt_out,
     bool compute_gt_out,
     long gt_out_origin,
-    long gt_origin) {
+    long gt_origin,
+    block_offset_type *temp,
+    int *oracle) {
 
   //----------------------------------------------------------------------------
   // STEP 1: initialize structures necessary to do the buffer partitions.
@@ -55,10 +56,6 @@ void inmem_parallel_stream(
     bucket_size <<= 1, ++bucket_size_bits;
   long n_buckets = (gap_range_size + bucket_size - 1) / bucket_size;
   int *block_count = new int[n_buckets];
-
-  long max_buffer_elems = stream_buf_size / sizeof(block_offset_type);
-  block_offset_type *temp = new block_offset_type[max_buffer_elems];
-  int *oracle = new int[max_buffer_elems];
 
   static const long buffer_sample_size = 512;
   std::vector<block_offset_type> samples(buffer_sample_size);
@@ -205,8 +202,6 @@ void inmem_parallel_stream(
 
   delete[] block_count;
   delete[] block_id_to_sblock_id;
-  delete[] temp;
-  delete[] oracle;
   delete[] ptr;
   delete[] bucket_lbound;
 }

@@ -43,8 +43,8 @@ void test_file(const char *filename) {
   fprintf(stderr, "DONE\n");
 
   test<long>(text, length, 16, 24);
-  test<long>(text, length, 24, 24);
-  test<long>(text, length, 32, 24);
+//  test<long>(text, length, 24, 24);
+//  test<long>(text, length, 32, 24);
 
   delete[] text;
 }
