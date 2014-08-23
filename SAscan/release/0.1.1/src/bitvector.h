@@ -1,4 +1,3 @@
-// Simple bitvector class.
 #ifndef __BITVECTOR_H_INCLUDED
 #define __BITVECTOR_H_INCLUDED
 
@@ -6,6 +5,7 @@
 #include <cstdlib>
 
 #include "utils.h"
+
 
 struct bitvector {
   bitvector(std::string filename) {
@@ -46,5 +46,5 @@ struct bitvector {
   unsigned char *m_data;
 };
 
-#endif // __BITVECTOR_H
+#endif // __BITVECTOR_H_INCLUDED
 

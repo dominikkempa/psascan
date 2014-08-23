@@ -14,10 +14,39 @@
 #include "divsufsort64.h"
 
 #include "../uint40.h"
-#include "../utils.h"
+//#include "utils.h"
 #include "../sascan.h"
 
 extern long stream_buffer_size;
+
+int random_int(int p, int r) {
+  return p + rand() % (r - p + 1);
+}
+
+long random_long(long p, long r) {
+  long x = random_int(0, 1000000000);
+  long y = random_int(0, 1000000000);
+  long z = x * 1000000000L + y;
+  return p + z % (r - p + 1);
+}
+
+void fill_random_string(unsigned char* &s, long length, int sigma) {
+  for (long i = 0; i < length; ++i)
+    s[i] = random_int(0, sigma - 1);
+}
+
+void fill_random_letters(unsigned char* &s, long n, int sigma) {
+  fill_random_string(s, n, sigma);
+  for (long i = 0; i < n; ++i)
+    s[i] += 'a';
+}
+
+std::string random_string_hash() {
+  uint64_t hash = (uint64_t)rand() * RAND_MAX + rand();
+  std::stringstream ss;
+  ss << hash;
+  return ss.str();
+}
 
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
@@ -38,15 +67,15 @@ void test_random(long testcases, long max_length, long max_sigma) {
     }
 
     // Generate string.
-    long length = utils::random_long(1, max_length);
-    long sigma = utils::random_long(1, max_sigma);
+    long length = random_long(1, max_length);
+    long sigma = random_long(1, max_sigma);
 
-    long n_blocks = utils::random_int(1, 50);
+    long n_blocks =random_int(1, 50);
     long max_block_size = (length + n_blocks - 1) / n_blocks;
     long ram_use = std::max(6L, (long)(max_block_size * 5.L));
 
-    if (max_sigma <= 26) utils::fill_random_letters(text, length, sigma);
-    else utils::fill_random_string(text, length, sigma);
+    if (max_sigma <= 26) fill_random_letters(text, length, sigma);
+    else fill_random_string(text, length, sigma);
 
     // debug //
     // long length = strlen("aaaaaaaaa");
@@ -55,7 +84,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     ///////////
 
     text[length] = 0;
-    std::string filename = "/tmp/in" + utils::random_string_hash();
+    std::string filename = "/tmp/in" + random_string_hash();
     utils::write_objects_to_file<unsigned char>(text, length, filename);
 
     // debug //
@@ -68,7 +97,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     
     // Compare the result to correct SA.
     divsufsort64(text, SA, length);
-    uint40 *computed_SA = new uint40[length];
+    uint40 *computed_SA;
     utils::read_n_objects_from_file(computed_SA, length, filename + ".sa5");
     utils::file_delete(filename + ".sa5");
     bool eq = true;
@@ -111,26 +140,26 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(500, 10,       5);
-  test_random(500, 10,      20);
-  test_random(500, 10,     128);
-  test_random(500, 10,     254);
+  test_random(5000, 10,       5);
+  test_random(5000, 10,      20);
+  test_random(5000, 10,     128);
+  test_random(5000, 10,     254);
   test_random(500, 100,      5);
   test_random(500, 100,     20);
   test_random(500, 100,    128);
   test_random(500, 100,    254);
-  test_random(50, 1000,      5);
-  test_random(50, 1000,     20);
-  test_random(50, 1000,    128);
-  test_random(50, 1000,    254);
+  test_random(500, 1000,      5);
+  test_random(500, 1000,     20);
+  test_random(500, 1000,    128);
+  test_random(500, 1000,    254);
   test_random(50, 10000,     5);
   test_random(50, 10000,    20);
   test_random(50, 10000,   128);
   test_random(50, 10000,   254);
-  test_random(5, 100000,     5);
-  test_random(5, 100000,    20);
-  test_random(5, 100000,   128);
-  test_random(5, 100000,   254);
+  test_random(50, 100000,     5);
+  test_random(50, 100000,    20);
+  test_random(50, 100000,   128);
+  test_random(50, 100000,   254);
   std::fflush(stdout);
 }
 

@@ -15,8 +15,10 @@
 
 void partial_sufsort(std::string filename, long length, long max_block_size, long ram_use);
 
-// Compute SA of <filename> and write to <filename>.sa5 using given
-// block size. Optionally also compute the BWT during merging.
+//==============================================================================
+// Compute the suffix array of file input_filename and store into
+// input_filename.sa5. Optionally also compute the BWT.
+//==============================================================================
 template<typename block_offset_type, typename output_type>
 void SAscan_block_size(std::string input_filename, long max_block_size,
     long ram_use, unsigned char **BWT, bool compute_bwt,
@@ -27,13 +29,14 @@ void SAscan_block_size(std::string input_filename, long max_block_size,
     std::exit(EXIT_FAILURE);
   }
 
-  fprintf(stderr, "Input length = %ld\n", length);
-  fprintf(stderr, "Using block size = %ld\n", max_block_size);
+  fprintf(stderr, "Input length = %ld (%.2LfMiB)\n", length, length / (1024.L * 1024));
+  fprintf(stderr, "Using block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(output_type));
   fprintf(stderr, "sizeof(block_offset_type) = %ld\n", sizeof(block_offset_type));
+  fprintf(stderr, "\n");
 
   // Run the algorithm.
-  long double start = utils::wclock();
+  long double start = utils::wallclock();
   {
     // Compute partial SA and gap arrays.
     partial_sufsort(input_filename, length, max_block_size, ram_use);
@@ -50,7 +53,7 @@ void SAscan_block_size(std::string input_filename, long max_block_size,
       utils::execute("mv " + input_filename + ".partial_sa.0 " + input_filename + ".sa5");
     }
   }
-  long double total_time = utils::wclock() - start;
+  long double total_time = utils::wallclock() - start;
   long double speed = total_time / ((1.L * length) / (1 << 20));
 
   fprintf(stderr, "Total time: %.2Lfs. Speed: %.2Lfs/MiB\n",
@@ -77,7 +80,7 @@ void SAscan(std::string      input_filename,
     fprintf(stderr, "Text file = %s\n", text_filename.c_str());
     fprintf(stderr, "Text offset = %ld\n", text_offset);
   }
-  fprintf(stderr, "RAM use = %ld\n", ram_use);
+  fprintf(stderr, "RAM use = %ld (%.2LfMiB)\n", ram_use, ram_use / (1024.L * 1024));
   fprintf(stderr, "in-recursion = %s\n", in_recursion ? "TRUE" : "FALSE");
 
   long max_block_size;

@@ -33,8 +33,8 @@
 #define NOT_OCCURRING 2
 
 struct context_rank_4n {
-  static const int k_sb_size_bits = 13;    // log_2(super block size), 1MiB
-  static const int k_block_size_bits = 9;  // log 2(block size), 64KiB
+  static const int k_sb_size_bits = 24;    // log_2(super block size), 1MiB
+  static const int k_block_size_bits = 18;  // log 2(block size), 64KiB
                                            // anything 16-20 is a pretty good value.
 
   context_rank_4n(unsigned char *text, long length)

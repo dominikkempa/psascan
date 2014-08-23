@@ -8,11 +8,15 @@
 #include "stream.h"
 #include "uint40.h"
 
+
+//==============================================================================
 // Merge partial suffix arrays and (optionally) compute BWT.
+//==============================================================================
 template<typename offset_type, typename output_type>
-void merge(std::string input_filename, long length, long max_block_size, long n_block,
-    long ram_use, std::string out_filename, unsigned char **BWT, bool compute_bwt,
-    std::string text_filename, long text_offset) {
+void merge(std::string input_filename, long length, long max_block_size,
+    long n_block, long ram_use, std::string out_filename, unsigned char **BWT,
+    bool compute_bwt, std::string text_filename, long text_offset) {
+
   // Invariant: 5 * length <= ram_use.
   if (n_block <= 1) {
     fprintf(stderr, "Error: trying to merge %ld blocks.\n", n_block);
@@ -60,20 +64,22 @@ void merge(std::string input_filename, long length, long max_block_size, long n_
   std::fill(suf_ptr, suf_ptr + n_block, 0);
 
   fprintf(stderr, "Merging:\r");
-  long double merge_start = utils::wclock();
+  long double merge_start = utils::wallclock();
   for (long i = 0, bwt_ptr = 0, dbg = 0; i < length; ++i, ++dbg) {
     if (dbg == (1 << 23)) {
-      long double elapsed = utils::wclock() - merge_start;
+      long double elapsed = utils::wallclock() - merge_start;
       fprintf(stderr, "Merging: %.1Lf%%. Time: %.2Lfs\r",
           (100.L * i) / length, elapsed);
       dbg = 0;
     }
+
     // Find the leftmost block j with block_rank[j] == suffix_rank[j].
     long j = 0;
     while (j < n_block && block_rank[j] != suffix_rank[j]) ++j;
 
     // Extract the suffix.
-    unsigned long SAi = (unsigned long)sparseSA[j]->read() + (unsigned long)max_block_size * j; // SA[i]
+    unsigned long SAi = (unsigned long)sparseSA[j]->read() +
+      (unsigned long)max_block_size * j; // SA[i]
     output->write((output_type)SAi);
     
     // Compute the BWT entry, if it was requested.
@@ -86,9 +92,11 @@ void merge(std::string input_filename, long length, long max_block_size, long n_
       suffix_rank[j] += gap[j]->read();
     
     // Update block_rank[0..j].
-    for (long k = 0; k <= j; ++k) ++block_rank[k];
+    for (long k = 0; k <= j; ++k)
+      ++block_rank[k];
   }
-  long double merge_time = utils::wclock() - merge_start;
+
+  long double merge_time = utils::wallclock() - merge_start;
   fprintf(stderr, "Merging: 100.0%%. Time: %.2Lfs\n", merge_time);
 
   // Clean up.

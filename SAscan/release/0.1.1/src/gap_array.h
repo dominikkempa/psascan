@@ -8,6 +8,7 @@
 
 #include "utils.h"
 
+
 struct buffered_gap_array {
   buffered_gap_array(long n) {
     if (n <= 0) {
@@ -51,7 +52,7 @@ struct buffered_gap_array {
     
     fprintf(stderr, "  gap->excess.size() = %lu\n", m_excess.size());
     fprintf(stderr, "  Saving gap to file: ");
-    long double gap_save_start = utils::wclock();
+    long double gap_save_start = utils::wallclock();
     std::sort(m_excess.begin(), m_excess.end());
     std::FILE *f = utils::open_file(fname.c_str(), "w");
     unsigned char *buffer = (unsigned char *)m_buf;
@@ -80,10 +81,10 @@ struct buffered_gap_array {
       utils::add_objects_to_file<unsigned char>(buffer, m_filled, f);
 
     std::fclose(f);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - gap_save_start);
+    fprintf(stderr, "%.2Lf\n", utils::wallclock() - gap_save_start);
   }
 
-  static const int k_bufsize = (1 << 19); // 2MB
+  static const int k_bufsize = (1 << 19);
 
   unsigned char *m_count;
   std::vector<long> m_excess;
