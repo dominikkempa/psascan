@@ -121,7 +121,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 3: compute symbol counts and the last symbol of the left block.
   //----------------------------------------------------------------------------
   long *count = new long[256];
-  std::copy(rank->c_rank, rank->c_rank + 256, count);
+  std::copy(rank->m_count, rank->m_count + 256, count);
   unsigned char last = left_block[left_block_size - 1];
   ++count[last];
   for (long i = 0, s = 0, t; i < 256; ++i)

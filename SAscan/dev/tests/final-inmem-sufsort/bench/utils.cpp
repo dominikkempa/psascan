@@ -129,4 +129,10 @@ long log2ceil(long x) {
   return w;
 }
 
+long log2floor(long x) {
+  long pow2 = 1, w = 0;
+  while ((pow2 << 1) <= x) { pow2 <<= 1; ++w; }
+  return w;
+}
+
 } // namespace utils

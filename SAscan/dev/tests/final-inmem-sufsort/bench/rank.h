@@ -48,9 +48,9 @@ struct rank4n {
       long block_beg = block_id << k_block_size_bits;
       long block_end = block_beg + k_block_size;
 
-      //--------------------------------------------------------------------------
+      //------------------------------------------------------------------------
       // Process block i.
-      //--------------------------------------------------------------------------
+      //------------------------------------------------------------------------
 
       // Compute symbols counts inside a block and update
       // symbols counts inside the range of blocks.
@@ -275,8 +275,8 @@ struct rank4n {
       n_sblock((n_blocks + k_blocks_in_sb - 1) / k_blocks_in_sb) {
 
     // Makes the structure work if length == 0.
-    c_rank = new long[256];
-    std::fill(c_rank, c_rank + 256, 0L);
+    m_count = new long[256];
+    std::fill(m_count, m_count + 256, 0L);
     if (!length) return;
 
     //--------------------------------------------------------------------------
@@ -332,10 +332,10 @@ struct rank4n {
     long temp_count[256];
     for (long i = 0; i < n_ranges; ++i) {
       std::copy(count[i], count[i] + 256, temp_count);
-      std::copy(c_rank, c_rank + 256, count[i]);
-      for (long j = 0; j < 256; ++j) c_rank[j] += temp_count[j];
+      std::copy(m_count, m_count + 256, count[i]);
+      for (long j = 0; j < 256; ++j) m_count[j] += temp_count[j];
     }
-    c_rank[0] -= n_blocks * k_block_size - length;
+    m_count[0] -= n_blocks * k_block_size - length;
     long total_rare_trunk_size = 0L;
     for (long i = 0, t; i < n_ranges; ++i) {
       t = rare_trunk_size[i];
@@ -399,7 +399,7 @@ struct rank4n {
 
   inline long rank(long i, unsigned char c) {
     if (i <= 0) return 0L;
-    else if (i >= m_length) return c_rank[c];
+    else if (i >= m_length) return m_count[c];
 
     long block_id = (i >> k_block_size_bits), sb_id = (i >> k_sb_size_bits);
     long sb_count = sb_rank[(sb_id << 8) + c];
@@ -445,7 +445,7 @@ struct rank4n {
     } else {
       while (block_id < n_blocks && (block_id & k_blocks_in_sb_mask) && m_mapping[2 * (c * n_blocks + block_id)] == NOT_OCCURRING)
         ++block_id;
-      if (block_id == n_blocks) return c_rank[c];
+      if (block_id == n_blocks) return m_count[c];
       else if (!(block_id & k_blocks_in_sb_mask)) return sb_rank[256 * (block_id >> k_blocks_in_sb_bits) + c];
       else return rank(block_id << k_block_size_bits, c);
     }
@@ -458,7 +458,7 @@ struct rank4n {
       delete[] m_mapping;
       free(freq_trunk);
     }
-    delete[] c_rank;
+    delete[] m_count;
   }
 
   static const int k_sb_size = (1 << k_sb_size_bits);
@@ -469,7 +469,7 @@ struct rank4n {
   static const int k_blocks_in_sb_mask = k_blocks_in_sb - 1;
 
   const long m_length, n_blocks, n_sblock;
-  long *sb_rank, *c_rank, *block_header;
+  long *sb_rank, *m_count, *block_header;
   unsigned char *m_mapping;
   
   unsigned *freq_trunk;

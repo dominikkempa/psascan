@@ -94,6 +94,7 @@ std::string random_string_hash();
 
 /********************************* MATH ***************************************/
 long log2ceil(long x);
+long log2floor(long x);
 
 /********************************* MISC ***************************************/
 template<typename int_type>
