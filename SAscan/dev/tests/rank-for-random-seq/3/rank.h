@@ -150,15 +150,15 @@ struct rank4n {
     //--------------------------------------------------------------------------
     // STEP 2: compute the number of occurrences of c inside the cblock.
     //--------------------------------------------------------------------------
-    long header_idx = (cblock_id << k_sigma_log) + c;
-    long list_beg = (m_cblock_header[header_idx] & k_2cblock_size_mask);
-    long list_end = ((c == k_sigma - 1) ? k_cblock_size : (m_cblock_header[header_idx + 1] & k_2cblock_size_mask));
+    long list_beg = (m_cblock_header[(cblock_id << k_sigma_log) + c] & k_2cblock_size_mask);
+    long list_end = ((c == k_sigma - 1) ? k_cblock_size : (m_cblock_header[(cblock_id << k_sigma_log) + c + 1] & k_2cblock_size_mask));
+    if (list_beg == list_end) return rank_up_to_cblock;
     long list_size = list_end - list_beg;
-    if (!list_size) return rank_up_to_cblock;
 
-    long approx = (cblock_i * list_size) >> k_cblock_size_log;
+    long approx = ((cblock_i * list_size) >> k_cblock_size_log);
     long begin = (m_trunk[cblock_beg + list_beg + approx] >> 16);
-    while (begin < list_size && (m_trunk[cblock_beg + list_beg + begin] & 0xffff) < cblock_i) ++begin;
+    while (begin < list_size && (m_trunk[cblock_beg + list_beg + begin] & 0xffff) < cblock_i)
+      ++begin;
 
 #if 0
     // Necessary for the experimental optimization.
