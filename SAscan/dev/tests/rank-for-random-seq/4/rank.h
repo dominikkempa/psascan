@@ -40,7 +40,7 @@ struct rank4n {
       }
 
       //------------------------------------------------------------------------
-      // STEP 3: compute starting positions of symbol occurrence lists.
+      // STEP 2: compute starting positions of symbol occurrences lists.
       //------------------------------------------------------------------------
       for (long j = 0, t, s = 0; j < k_sigma; ++j) {
         t = cblock_count[j];
@@ -49,7 +49,7 @@ struct rank4n {
       }
 
       //------------------------------------------------------------------------
-      // STEP 4: compute the rest of cblock header: ranks up to cblock
+      // STEP 3: compute first part the cblock header: ranks up to cblock
       //         beginning pointers to beginnings of occurrence lists.
       //------------------------------------------------------------------------
       for (long c = 0; c < k_sigma; ++c) {
@@ -58,7 +58,7 @@ struct rank4n {
       }
 
       //------------------------------------------------------------------------
-      // STEP 5: update global symbol counts.
+      // STEP 4: update global symbol counts.
       //------------------------------------------------------------------------
       for (long i = cblock_beg; i < cblock_end; ++i) {
         unsigned char c = (i < m_length ? text[i] : 0);
@@ -69,20 +69,17 @@ struct rank4n {
         occ[c].clear();
 
       //------------------------------------------------------------------------
-      // STEP 6: build lists of occurrences.
+      // STEP 5: compute lists of occurrences.
       //------------------------------------------------------------------------
-      std::fill(cblock_count, cblock_count + k_sigma, 0L);
       unsigned *cblock_trunk = m_trunk + cblock_beg;
       for (long i = cblock_beg; i < cblock_end; ++i) {
         unsigned char c = (i < m_length ? text[i] : 0);
         long cblock_i = i - cblock_beg;
-
-        cblock_count[c]++;
         occ[c].push_back(cblock_i);
       }
 
       //------------------------------------------------------------------------
-      // STEP 7: compute list of occurrences and lookup tables.
+      // STEP 6: store list of occurrences and lookup tables.
       //------------------------------------------------------------------------
       for (long c = 0; c < k_sigma; ++c) {
         long freq = occ[c].size();
@@ -90,11 +87,11 @@ struct rank4n {
         // Compute the number of bits necessary to encode lookup table entries.
         // Lookup table can store values in the range [0..freq], thus we need
         // ceil(log2(freq + 1)) bits. This values is called lookup_bits and we
-        // store it in the block header (using 5 bits).
+        // store it in the block header using 5 bits.
         long lookup_bits = utils::log2ceil(freq + 1);
         m_cblock_header[(cblock_id << k_sigma_log) + c] |= lookup_bits;
 
-        // Compute log2 of the distance between two referece points.
+        // Compute log2 of the distance between two reference points.
         long refpoint_dist_log = 31 - lookup_bits;
         long refpoint_dist = (1L << refpoint_dist_log);
         long refpoint_dist_mask = refpoint_dist - 1;
@@ -103,16 +100,13 @@ struct rank4n {
         long refpoint_dist_mask_neg = (~refpoint_dist_mask);
 
         // For each block compute:
-        //   * its boundaries (beg, end) and then compute
-        //   * the value of lookup table at entry corresponding to
-        //     this block
-        //   * encode the list of occurrences of that symbol inside
-        //     the block with respect to the reference point
-        //     associated with the block. The reference point
-        //     associated with the block is largest reference
-        //     point p satisfying p <= block_beg, i.e., we encode
-        //     occurrences inside a block wrt. to the closest
-        //     reference point on the left.
+        //   * its boundaries (begin and end)
+        //   * lookup table at entry corresponding to the block
+        //   * store lists of occurrences of all symbols. Each
+        //     value in the occurrence list is a distance to the
+        //     reference block associated with the block containing
+        //     the position. Such reference point is defined as the
+        //     closest reference point to the left of the block begin
         long occ_ptr = 0;
         for (long j = 0; j < freq; ++j) {
           // Process j-th block.
@@ -205,14 +199,15 @@ struct rank4n {
     // 3
     //
     // Compute threshold of symbol c inside the current cblock.
-    // The threshold is the small power of two that is >= max block size,
-    // where max block size is the maximal block size for symbol c in the
-    // current cblock.
+    // The threshold is a small power of two that is >= max block size,
+    // where max block size is the maximal block size for symbol c in
+    // the current cblock.
     long threshold = (1 << (k_cblock_size_log - lookup_bits + 1));
 
     // 4
     //
-    // Interpolate i, i.e., compute the index of lookup table entry.
+    // Compute the id if block containing i. Note: we only have id.
+    // Computing boundaries would require division.
     long list_size = list_end - list_beg;
     long approx = ((cblock_i * list_size) >> k_cblock_size_log);
 
@@ -230,11 +225,11 @@ struct rank4n {
     // occurrences of c inside the block. This would be easy to compute
     // if we knew the block beginning (but we don't). However, we can
     // infer the unknown reference point from i and/or the first element
-    // on the occurrence list (or rather whether the first element is big
+    // in the occurrence list (or rather whether the first element is big
     // or small).
     if (i_refpoint_offset >= threshold) {
-      // This is the easy case which will happen most of the time, so
-      // we should get good branch prediction here.
+      // This is the easy case which will happen most of the
+      // time, so we should get good branch prediction here.
       while (begin < next_block_begin && (m_trunk[cblock_beg + list_beg + begin] >> lookup_bits) < i_refpoint_offset)
         ++begin;
 
