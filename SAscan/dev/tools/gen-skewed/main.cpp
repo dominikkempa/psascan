@@ -5,14 +5,14 @@
 
 
 int main() {
-  long length = 500L << 20; // 500MiB
+  long length = 2800L << 20; // 2800MiB
   long sigma = 4;
-  unsigned char range_start = 'a';
+  unsigned char range_start = 0;
   long double *prob = new long double[sigma];
-  prob[0] = 0.99;
-  prob[1] = 0.003;
-  prob[2] = 0.003;
-  prob[3] = 0.004;
+  prob[0] = 0.95;
+  long double other_prob = (long double)(1 - prob[0]) / (long double)(sigma - 1);
+  for (long i = 1; i < sigma; ++i)
+    prob[i] = other_prob;
 
   fprintf(stderr, "length = %ld\n", length);
   fprintf(stderr, "sigma = %ld\n", sigma);
