@@ -153,7 +153,7 @@ class rank4n {
         unsigned freq_cnt_log = utils::log2ceil(freq_cnt + 1);
         freq_cnt = (1 << freq_cnt_log);
 
-        if (freq_cnt >= 128) {
+        if (/*freq_cnt >= 128*/true) {
           // Set that the cblock is encoded using method for random strings.
           m_cblock_type[cblock_id >> 3] |= (1 << (cblock_id & 7));
  
@@ -170,6 +170,9 @@ class rank4n {
 
           for (long c = 0; c < k_sigma; ++c) {
             long freq = occ[c].size();
+
+            long min_block_size = 0;
+            if (freq) min_block_size = k_cblock_size / freq;
 
             // Compute the number of bits necessary to encode lookup table entries.
             // Lookup table can store values in the range [0..freq], thus we need
@@ -195,29 +198,17 @@ class rank4n {
             //     the position. Such reference point is defined as the
             //     closest reference point to the left of the block begin
             long occ_ptr = 0;
+            long prev_block_end = 0;
             for (long j = 0; j < freq; ++j) {
               // Process j-th block.
 
               // 1
               //
               // Compute block boundaries.
-
-              // The beginning of j-th block is the smallest i such that
-              // floor((i * freq) / k_cblock_size) = j. We first overshoot
-              // a little, and then go back; probably there exists exact
-              // formula.
-              long block_beg = ((j << k_cblock_size_log) + freq - 1) / freq;
-              while (block_beg && (((block_beg - 1) * freq) >> k_cblock_size_log) == j)
-                --block_beg;
-
-              // Block end = beginning of the next block, or
-              // k_cblock_size if this is already last block.
-              long block_end = k_cblock_size;
-              if (j + 1 != freq) {
-                block_end = (((j + 1) << k_cblock_size_log) + freq - 1) / freq;
-                while (block_end && (((block_end - 1) * freq) >> k_cblock_size_log) == j + 1)
-                  --block_end;
-              }
+              long block_beg = prev_block_end;
+              long block_end = std::min((long)k_cblock_size, block_beg + min_block_size);
+              if (block_end < k_cblock_size && ((block_end * freq) >> k_cblock_size_log) == j)
+                ++block_end;
 
               // 2
               //
@@ -240,6 +231,8 @@ class rank4n {
               long closest_ref_point = (block_beg & refpoint_dist_mask_neg);
               for (long occ_id = range_beg; occ_id < range_end; ++occ_id)
                 cblock_trunk[list_beg[c] + occ_id] |= ((occ[c][occ_id] - closest_ref_point) << lookup_bits);
+
+              prev_block_end = block_end;
             }
           }
         } else {
