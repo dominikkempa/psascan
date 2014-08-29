@@ -3,11 +3,11 @@ Comparison
 
 All files were of size 2800MiB.
 Testfile abbreviations:
-  rx      : random input over alphabet of size x,
-  r255    : random input, sigma = 255, 95% of symbols are a, other 254 are 5%,
-  r4-skew : random input, sigma = 4, 95% of symbols are a, {b, c, d} are 5%,
-  wiki    : wikipedia xml dump,
-  cntr    : countries.
+  rx        : random input over alphabet of size x,
+  r255-skew : random input, sigma = 255, 95% of symbols are a, other 254 are 5%,
+  r4-skew   : random input, sigma = 4, 95% of symbols are a, {b, c, d} are 5%,
+  wiki      : wikipedia xml dump,
+  cntr      : countries.
 
 The value is the streaming speed (in MiB/s) during merging of the last
 two blocks, each of size 1400MiB (I did the balanced merging).
@@ -15,11 +15,12 @@ two blocks, each of size 1400MiB (I did the balanced merging).
 rank0 is the original rank with alphabet partitioning and fixed block boosting.
 
                         r255    r128    r96    r32     r8      r2      r255-skew   r4-skew  wiki   cntry
-rank0 (cblock = 2^18):  TBA     TBA     TBA    TBA     TBA     TBA     TBA         TBA      67.72  92.31
+rank0 (cblock = 2^18):  28.43   42.96   41.89  57.19   62.58   68.06   63.48       69.12    67.72  92.31
 rank1 (cblock = 2^18):  56.45   54.08   54.22  51.11   45.21   32.48   24.03       23.66    33.14  32.02
 rank2 (cblock = 2^18):  51.07   52.56   53.15  55.22   55.60   54.97   54.67       54.98    56.49  61.97
 rank3 (cblock = 2^16):  52.45   53.12   54.07  53.78   54.17   52.71   53.89       54.48    59.18  67.79
 rank4 (cblock = 2^18):  53.31   53.68   55.80  55.81   56.58   57.79   56.79       57.29    58.24  65.27
+rank5 (cblock = 2^18):  53.02   53.65   54.65  56.48   64.12   67.28   62.05       68.22    68.20  90.12
 
 
 TODO
