@@ -11,13 +11,13 @@
 //
 //   * alphabet partitioning
 //
-//     JÃ©rÃ©my Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
+//     Jeremy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
 //     Alphabet Partitioning for Compressed Rank/Select and Applications.
 //     Proc. ISAAC 2010.
 //
 //   * fixed block boosting
 //
-//     Juha KÃ¤rkkÃ¤inen, Simon J. Puglisi:
+//     Juha Karkkainen, Simon J. Puglisi:
 //     Fixed Block Compression Boosting in FM-Indexes.
 //     Proc. SPIRE 2011.
 //==============================================================================
@@ -27,9 +27,11 @@
 
 #include <algorithm>
 #include <vector>
+#include <thread>
 
 #include "utils.h"
 
+//#define PRINT_TIMES
 
 template<unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 18, unsigned k_sigma_log = 8>
 class rank4n {
@@ -44,20 +46,21 @@ class rank4n {
     static const unsigned k_2cblock_size_mask;
     static const unsigned k_sblock_size;
     static const unsigned k_sblock_size_mask;
-    static const int k_sigma;
-    static const int k_sigma_mask;
+    static const unsigned k_sigma;
+    static const unsigned k_sigma_mask;
 
     static const unsigned k_char_type_freq =    0x01;
     static const unsigned k_char_type_rare =    0x02;
     static const unsigned k_char_type_missing = 0x03;
 
-    long m_length;   // length of original sequence
-    long n_cblocks;  // number of context blocks
-    long n_sblocks;  // number of super block
+    unsigned long m_length;   // length of original sequence
+    unsigned long n_cblocks;  // number of context blocks
+    unsigned long n_sblocks;  // number of super blocks
 
-    long *m_cblock_header;
+    unsigned long *m_sblock_header;
+    unsigned long *m_cblock_header;
     unsigned long *m_cblock_header2;
-    long *m_sblock_header;
+
     unsigned char *m_cblock_type;
     unsigned char *m_cblock_mapping;
 
@@ -65,76 +68,205 @@ class rank4n {
     unsigned *m_rare_trunk;
 
   public:
-    long *m_count; // symbol counts
+    unsigned long *m_count; // symbol counts
 
   public:
-    rank4n(unsigned char *text, long length, long) {
+    rank4n(unsigned char *text, unsigned long length, unsigned max_threads) {
       m_length = length;
-
-      // Compute the number of blocks.
       n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
       n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
 
-      // Allocate and initialize symbol counts.
-      m_count = (long *)malloc(256L * sizeof(long));
-      std::fill(m_count, m_count + 256, 0L);
-
+      m_count = (unsigned long *)malloc(256L * sizeof(unsigned long));
+      std::fill(m_count, m_count + 256, 0UL);
       if (!m_length) return;
 
-      m_sblock_header = (long *)malloc(n_sblocks * 256L * sizeof(long));
 
       //------------------------------------------------------------------------
-      // STEP 1: compute rare trunk size, m_cblock_header and m_cblock_mapping.
+      // STEP 1: split all cblocks into (roughly) equal size ranges. Each
+      //         range is processed by one thread.
+      //
+      // During step 1 we compute:
+      //  * type of each cblock (but don't yet encode it in bitvector)
+      //  * depending on the type we compute:
+      //    - of the cblock is encoded using lookup-table-based encoding, then
+      //      we compute the whole trunk
+      //    - in other case we compute and store: symbol mapping, symbol type
+      //      (frequent / rare / non-occurring) and values of freq_cnt_log
+      //      and rare_cnt_log.
       //------------------------------------------------------------------------
-      m_cblock_header = (long *)malloc(n_cblocks * sizeof(long));
-      m_cblock_header2 = (unsigned long *)malloc(k_sigma * n_cblocks * sizeof(unsigned long));
-      m_cblock_mapping = (unsigned char *)malloc(n_cblocks * 512L);
-      long rare_trunk_size = 0;
+      unsigned long range_size = (n_cblocks + max_threads - 1) / max_threads;
+      unsigned long n_ranges = (n_cblocks + range_size - 1) / range_size;
 
-      long *list_beg = new long[k_sigma];      // beginnings of occurrence lists
-      std::vector<long> *occ = new std::vector<long>[k_sigma];
-
-      long cblock_type_bytes = (n_cblocks + 7) / 8;
-      m_cblock_type = (unsigned char *)malloc(cblock_type_bytes);
-      std::fill(m_cblock_type, m_cblock_type + cblock_type_bytes, 0);
-
-
+#ifdef PRINT_TIMES
+      fprintf(stderr, "        Allocating: ");
+      long double start = utils::wclock();
+#endif
+      m_sblock_header = (unsigned long *)malloc(n_sblocks * sizeof(unsigned long) * k_sigma);
+      m_cblock_header = (unsigned long *)malloc(n_cblocks * sizeof(unsigned long));
+      m_cblock_header2 = (unsigned long *)malloc(n_cblocks * k_sigma * sizeof(unsigned long));
+      m_cblock_mapping = (unsigned char *)malloc(n_cblocks * k_sigma * 2);
+      m_cblock_type = (unsigned char *)malloc((n_cblocks + 7) / 8);
       m_freq_trunk = (unsigned *)malloc(n_cblocks * k_cblock_size * sizeof(unsigned));
+      std::fill(m_cblock_type, m_cblock_type + (n_cblocks + 7) / 8, 0);
+
+      unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
+      bool *cblock_type = new bool[n_cblocks];
+#ifdef PRINT_TIMES
+      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
+
+      fprintf(stderr, "        Step 1: ");
+      start = utils::wclock();
+#endif
+      std::thread **threads = new std::thread*[n_ranges];
+      for (unsigned long i = 0; i < n_ranges; ++i) {
+        unsigned long range_beg = i * range_size;
+        unsigned long range_end = std::min(range_beg + range_size, n_cblocks);
+
+        threads[i] = new std::thread(construction_step_1, std::ref(*this),
+            text, range_beg, range_end, rare_trunk_size, cblock_type);
+      }
+      for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
+      for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
+      delete[] threads;
+#ifdef PRINT_TIMES
+      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
+#endif
 
 
-      bool isfreq[k_sigma];
+      //------------------------------------------------------------------------
+      // STEP 2: compute global information based on local cblock computation:
+      //  * cblock types (we do it now, since two local cblock computations
+      //    might try to update bits in the same byte
+      //  * total size of rare trunk
+      //  * pointers to the beginning of each rare trunk
+      //  * cumulative counts of all symbols (necessary during queries)
+      //  * non-inclusive partial sum over cblock range counts
+      //------------------------------------------------------------------------
+#ifdef PRINT_TIMES
+      fprintf(stderr, "        Step 2: ");
+      start = utils::wclock();
+#endif
+      unsigned long rare_trunk_total_size = 0;
+      for (unsigned long cblock_id = 0; cblock_id < n_cblocks; ++cblock_id) {
+        unsigned long cblock_beg = (cblock_id << k_cblock_size_log);
+
+        // 1
+        // Store cblock type
+        if (cblock_type[cblock_id])
+          m_cblock_type[cblock_id >> 3] |= (1 << (cblock_id & 7));
+
+        // 2
+        // Compute the pointer to rare trunk and update total rare trunk size.
+        unsigned long this_cblock_rare_trunk_size = rare_trunk_size[cblock_id];
+        m_cblock_header[cblock_id] |= (rare_trunk_total_size << 16);
+        rare_trunk_total_size += this_cblock_rare_trunk_size;
+
+        // 3
+        // Update cblock header
+        unsigned long cblock_header_beg = (cblock_id << k_sigma_log);
+        for (unsigned c = 0; c < k_sigma; ++c)
+          m_cblock_header2[cblock_header_beg + c] |= (m_count[c] << (k_cblock_size_log + 6));
+
+        // 4
+        // Update sblock header
+        if (!(cblock_beg & k_sblock_size_mask)) {
+          unsigned long sblock_id = (cblock_beg >> k_sblock_size_log);
+          unsigned long sblock_header_beg = (sblock_id << k_sigma_log);
+          for (unsigned c = 0; c < k_sigma; ++c)
+            m_sblock_header[sblock_header_beg + c] = m_count[c];
+        }
+
+        // 5
+        // Update m_count.
+        unsigned long ptr = (cblock_id << k_sigma_log);
+        for (unsigned c = 0; c + 1 < k_sigma; ++c)
+          m_count[c] += ((m_cblock_header2[ptr + c + 1] >> 5) & k_2cblock_size_mask) - 
+                        ((m_cblock_header2[ptr + c]     >> 5) & k_2cblock_size_mask);
+        m_count[k_sigma - 1] += k_cblock_size - ((m_cblock_header2[ptr + k_sigma - 1] >> 5) & k_2cblock_size_mask);
+      }
+      delete[] cblock_type;
+      delete[] rare_trunk_size;
+#ifdef PRINT_TIMES
+      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
+
+
+      fprintf(stderr, "        Step 3: ");
+      start = utils::wclock();
+#endif
+      //------------------------------------------------------------------------
+      // STEP 3: compute freq and rare trunk for cblocks encoded with
+      //         alphabet partitioning.
+      //------------------------------------------------------------------------
+      m_rare_trunk = (unsigned *)malloc(rare_trunk_total_size * sizeof(unsigned));
+      threads = new std::thread*[n_ranges];
+      for (unsigned long i = 0; i < n_ranges; ++i) {
+        unsigned long range_beg = i * range_size;
+        unsigned long range_end = std::min(range_beg + range_size, n_cblocks);
+
+        threads[i] = new std::thread(construction_step_3, std::ref(*this),
+            text, range_beg, range_end);
+      }
+      for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
+      for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
+      delete[] threads;
+#ifdef PRINT_TIMES
+      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
+#endif
+
+      m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
+
+    }
+
+    static void construction_step_1(rank4n &r, unsigned char *text,
+        unsigned long cblock_range_beg, unsigned long cblock_range_end,
+        unsigned long *rare_trunk_size, bool *cblock_type) {
       std::vector<std::pair<uint32_t, unsigned char> > sorted_chars;
       std::vector<unsigned char> freq_chars;
       std::vector<unsigned char> rare_chars;
-      unsigned cblock_count[k_sigma];
-      for (long cblock_id = 0; cblock_id < n_cblocks; ++cblock_id) {
-        long cblock_beg = cblock_id << k_cblock_size_log;
-        long cblock_end = cblock_beg + k_cblock_size;
+
+      unsigned *cblock_count = new unsigned[k_sigma];
+      unsigned *list_beg = new unsigned[k_sigma];
+      unsigned *list_beg2 = new unsigned[k_sigma];
+      bool *isfreq = new bool[k_sigma];
+      unsigned *block_end_precomputed = new unsigned[k_cblock_size];
+      unsigned *lookup_bits_precomputed = new unsigned[k_sigma];
+      unsigned *min_block_size_precomputed = new unsigned[k_sigma];
+      unsigned *occ = new unsigned[k_cblock_size];
+
+      long double phase_1 = 0.L;
+      long double phase_2 = 0.L;
+      long double phase_3 = 0.L;
+      long double phase_4 = 0.L;
+
+      for (unsigned long cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
+        long double start = utils::wclock();
+        unsigned long cblock_beg = cblock_id << k_cblock_size_log;
+        unsigned long cblock_end = cblock_beg + k_cblock_size;
 
         // Compute symbol counts inside a block.
-        std::fill(cblock_count, cblock_count + k_sigma, 0L);
-        for (long j = cblock_beg; j < cblock_end; ++j) {
-          unsigned char c = (j < m_length ? text[j] : 0);
+        std::fill(cblock_count, cblock_count + k_sigma, 0);
+        for (unsigned long j = cblock_beg; j < cblock_end; ++j) {
+          unsigned char c = (j < r.m_length ? text[j] : 0);
           ++cblock_count[c];
         }
         
         // Compute starting positions of occurrences lists.
-        for (long j = 0, t, s = 0; j < k_sigma; ++j) {
+        for (unsigned j = 0, t, s = 0; j < k_sigma; ++j) {
           t = cblock_count[j];
           list_beg[j] = s;
+          list_beg2[j] = s;
           s += t;
         }
         
         // Compute first part the cblock header: ranks up to cblock
         // beginning pointers to beginnings of occurrence lists.
-        for (long c = 0; c < 256; ++c) {
-          m_cblock_header2[(cblock_id << 8) + c] = (list_beg[c] << 5);
-          m_cblock_header2[(cblock_id << 8) + c] |= (m_count[c] << (k_cblock_size_log + 6));
-        }
+        // Note: this implicitly encodes cblock counts.
+        for (unsigned c = 0; c < k_sigma; ++c)
+          r.m_cblock_header2[(cblock_id << k_sigma_log) + c] = (list_beg[c] << 5);
 
         // Sort symbol counts by frequencies.
         sorted_chars.clear();
-        for (long j = 0; j < 256; ++j)
+        for (unsigned j = 0; j < k_sigma; ++j)
           if (cblock_count[j])
             sorted_chars.push_back(std::make_pair(cblock_count[j], j));
         std::sort(sorted_chars.begin(), sorted_chars.end());
@@ -152,42 +284,46 @@ class rank4n {
         unsigned freq_cnt = sorted_chars.size() - rare_cnt;
         unsigned freq_cnt_log = utils::log2ceil(freq_cnt + 1);
         freq_cnt = (1 << freq_cnt_log);
+        phase_1 += utils::wclock() - start;
 
-        if (/*freq_cnt >= 128*/true) {
+        if (freq_cnt >= 128) {
           // Set that the cblock is encoded using method for random strings.
-          m_cblock_type[cblock_id >> 3] |= (1 << (cblock_id & 7));
+          cblock_type[cblock_id] = true;
  
           // Compute lists of occurrences.
-          for (long c = 0; c < k_sigma; ++c) occ[c].clear();
-          unsigned *cblock_trunk = m_freq_trunk + cblock_beg;
-          std::fill(cblock_trunk, cblock_trunk + k_cblock_size, 0);
-
-          for (long i = cblock_beg; i < cblock_end; ++i) {
-            unsigned char c = (i < m_length ? text[i] : 0);
-            long cblock_i = i - cblock_beg;
-            occ[c].push_back(cblock_i);
+          unsigned *cblock_trunk = r.m_freq_trunk + cblock_beg;
+          start = utils::wclock();
+          for (unsigned long i = cblock_beg; i < cblock_end; ++i) {
+            unsigned char c = (i < r.m_length ? text[i] : 0);
+            occ[list_beg2[c]++] = i - cblock_beg;
           }
+          phase_2 += utils::wclock() - start;
 
-          for (long c = 0; c < k_sigma; ++c) {
-            long freq = occ[c].size();
+          // Precompute some values and store lookup bits into the header.
+          start = utils::wclock();
+          for (unsigned c = 0; c < k_sigma; ++c) {
+            lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 1);
+            r.m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
+            if (cblock_count[c])
+              min_block_size_precomputed[c] = k_cblock_size / cblock_count[c];
+            else min_block_size_precomputed[c] = 0;
+          }
+          phase_3 += utils::wclock() - start;
 
-            long min_block_size = 0;
-            if (freq) min_block_size = k_cblock_size / freq;
+
+          start = utils::wclock();
+          for (unsigned c = 0; c < k_sigma; ++c) {
+            unsigned freq = cblock_count[c];
+            unsigned min_block_size = min_block_size_precomputed[c];
 
             // Compute the number of bits necessary to encode lookup table entries.
-            // Lookup table can store values in the range [0..freq], thus we need
-            // ceil(log2(freq + 1)) bits. This values is called lookup_bits and we
-            // store it in the block header using 5 bits.
-            long lookup_bits = utils::log2ceil(freq + 1);
-            m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits;
+            unsigned lookup_bits = lookup_bits_precomputed[c];
 
             // Compute log2 of the distance between two reference points.
-            long refpoint_dist_log = 31 - lookup_bits;
-            long refpoint_dist = (1L << refpoint_dist_log);
-            long refpoint_dist_mask = refpoint_dist - 1;
-
-            // Used to compute the closest reference point on the left.
-            long refpoint_dist_mask_neg = (~refpoint_dist_mask);
+            unsigned refpoint_dist_log = 31 - lookup_bits;
+            unsigned long refpoint_dist = (1UL << refpoint_dist_log);
+            unsigned long refpoint_dist_mask = refpoint_dist - 1;
+            unsigned long refpoint_dist_mask_neg = (~refpoint_dist_mask);
 
             // For each block compute:
             //   * its boundaries (begin and end)
@@ -197,44 +333,63 @@ class rank4n {
             //     reference block associated with the block containing
             //     the position. Such reference point is defined as the
             //     closest reference point to the left of the block begin
-            long occ_ptr = 0;
-            long prev_block_end = 0;
-            for (long j = 0; j < freq; ++j) {
+            unsigned c_list_beg = list_beg[c];
+            unsigned occ_ptr = 0;
+
+            unsigned prev_block_end = 0;
+            for (unsigned j = 0; j < freq; ++j) {
               // Process j-th block.
 
               // 1
               //
               // Compute block boundaries.
-              long block_beg = prev_block_end;
-              long block_end = std::min((long)k_cblock_size, block_beg + min_block_size);
-              if (block_end < k_cblock_size && ((block_end * freq) >> k_cblock_size_log) == j)
+              unsigned block_beg = prev_block_end;
+              unsigned block_end = std::min(k_cblock_size, block_beg + min_block_size);
+              if (block_end < k_cblock_size && (((unsigned long)block_end * freq) >> k_cblock_size_log) == j)
                 ++block_end;
 
               // 2
               //
               // Find the range of elements from the current block inside occ[c].
-              while (occ_ptr < freq && occ[c][occ_ptr] < block_beg) ++occ_ptr;
-              long range_beg = occ_ptr;
-              while (occ_ptr < freq && occ[c][occ_ptr] < block_end) ++occ_ptr;
-              long range_end = occ_ptr;
+              unsigned range_beg = occ_ptr;
+              while (occ_ptr < freq && occ[c_list_beg + occ_ptr] < block_end) ++occ_ptr;
+              unsigned range_end = occ_ptr;
 
               // 3
               //
               // Store the value in the lookup table.
-              cblock_trunk[list_beg[c] + j] |= range_beg;
+              cblock_trunk[c_list_beg + j] &= (~((1UL << lookup_bits) - 1));
+              cblock_trunk[c_list_beg + j] |= range_beg;
 
               // 4
               //
               // Add the occurrences occ[c][range_beg..range_end) to the
               // list of c's occurrences in the trunk. Encode them with
               // respect to the closes reference point on the left of block_beg.
-              long closest_ref_point = (block_beg & refpoint_dist_mask_neg);
-              for (long occ_id = range_beg; occ_id < range_end; ++occ_id)
-                cblock_trunk[list_beg[c] + occ_id] |= ((occ[c][occ_id] - closest_ref_point) << lookup_bits);
-
+              unsigned closest_ref_point = (block_beg & refpoint_dist_mask_neg);
+              for (unsigned occ_id = range_beg; occ_id < range_end; ++occ_id) {
+                cblock_trunk[c_list_beg + occ_id] &= ((1 << lookup_bits) - 1);
+                cblock_trunk[c_list_beg + occ_id] |= ((occ[c_list_beg + occ_id] - closest_ref_point) << lookup_bits);
+              }
               prev_block_end = block_end;
             }
           }
+          phase_4 += utils::wclock() - start;
+
+          // Compute pointers for the lookup table.
+          /*start = utils::wclock();
+          for (long c = 0; c < k_sigma; ++c) {
+            long occ_ptr = 0;
+            long c_list_beg = list_beg[c];
+            long freq = cblock_count[c];
+            for (long j = 0; j < freq; ++j) {
+              cblock_trunk[c_list_beg + j] |= occ_ptr;
+              while (occ_ptr < freq && fast_occ[c_list_beg + occ_ptr] < block_end_precomputed[c_list_beg + j])
+                ++occ_ptr;                                                                      
+            }                                                                                 
+          }
+          phase_7 += utils::wclock() - start;*/
+
         } else {
           // Recompute rare_cnt (note the +1).
           rare_cnt = 0;
@@ -258,87 +413,85 @@ class rank4n {
           }
 
           // Store log2 of rare_cnt and freq_cnt into block header.
-          m_cblock_header[cblock_id] = freq_cnt_log;
-          m_cblock_header[cblock_id] |= (rare_cnt_log << 8);
+          r.m_cblock_header[cblock_id] = freq_cnt_log;
+          r.m_cblock_header[cblock_id] |= (rare_cnt_log << 8);
 
           // Compute and store symbols mapping.
           std::sort(freq_chars.begin(), freq_chars.end());
           std::sort(rare_chars.begin(), rare_chars.end());
           std::fill(isfreq, isfreq + 256, false);
           for (unsigned c = 0; c < 256; ++c)
-            m_cblock_mapping[2 * (c * n_cblocks + cblock_id)] = k_char_type_missing;
+            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_missing;
           for (unsigned i = 0; i < freq_chars.size(); ++i) {
             unsigned char c = freq_chars[i];
             isfreq[c] = true;
-            m_cblock_mapping[2 * (c * n_cblocks + cblock_id) + 1] = i;
-            m_cblock_mapping[2 * (c * n_cblocks + cblock_id)] = k_char_type_freq;
+            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
+            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_freq;
           }
           for (unsigned i = 0; i < rare_chars.size(); ++i) {
             unsigned char c = rare_chars[i];
-            m_cblock_mapping[2 * (c * n_cblocks + cblock_id) + 1] = i;
-            m_cblock_mapping[2 * (c * n_cblocks + cblock_id)] = k_char_type_rare;
+            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
+            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_rare;
           }
 
           // Update rare_trunk_size.
           if (rare_cnt) {
             unsigned nofreq_cnt = 0L;
-            for (long i = cblock_beg; i < cblock_end; ++i) {
-              unsigned char c = (i < m_length ? text[i] : 0);
+            for (unsigned long i = cblock_beg; i < cblock_end; ++i) {
+              unsigned char c = (i < r.m_length ? text[i] : 0);
               if (!isfreq[c]) ++nofreq_cnt;
             }
-            long rare_micro_blocks = 1 + (nofreq_cnt + rare_cnt - 1) / rare_cnt;
-            rare_trunk_size += rare_micro_blocks * rare_cnt;
+            long rare_blocks = 1 + (nofreq_cnt + rare_cnt - 1) / rare_cnt;
+            rare_trunk_size[cblock_id] = rare_blocks * rare_cnt;
           }
         }
-        
-        // Compute ranks at superblock boundary.
-        long sblock_id = (cblock_beg >> k_sblock_size_log);
-        if (!(cblock_beg & k_sblock_size_mask)) {
-          long sblock_ptr = (sblock_id << 8);
-          for (unsigned i = 0; i < 256; ++i)
-            m_sblock_header[sblock_ptr++] = m_count[i];
-        }
-
-        // Update global counts.        
-        for (long i = cblock_beg; i < cblock_end; ++i) {
-          unsigned char c = (i < m_length ? text[i] : 0);
-          ++m_count[c];
-        }
       }
-      m_count[0] -= n_cblocks * k_cblock_size - m_length;
+      delete[] list_beg;
+      delete[] list_beg2;
+      delete[] occ;
+      delete[] isfreq;
+      delete[] cblock_count;
+      delete[] block_end_precomputed;
+      delete[] lookup_bits_precomputed;
+      delete[] min_block_size_precomputed;
 
-      m_rare_trunk = (unsigned *)malloc(rare_trunk_size * sizeof(unsigned));
+#ifdef PRINT_TIMES
+      fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf\n",
+          phase_1, phase_2, phase_3, phase_4);
+#endif
+    }
 
-      //------------------------------------------------------------------------
-      // STEP 2: compute sb_rank, freq_trunk and rare_trunk.
-      //------------------------------------------------------------------------
-      unsigned char freq_map[256];
-      unsigned char rare_map[256];
-      long r_filled = 0; // for rare trunk
-      unsigned long *cur_count = new unsigned long[256];
-      for (long cblock_id = 0; cblock_id < n_cblocks; ++cblock_id) {
-        // If the cblock was encoded using method for random sequences,
-        // skip this cblock and proceed to next. The trunk of this cblock
-        // was already encoded in the first stage.
-        if (m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7)))
-          continue;
+    static void construction_step_3(rank4n &r, unsigned char *text,
+        unsigned long cblock_range_beg, unsigned long cblock_range_end) {
+      unsigned char *freq_map = new unsigned char[k_sigma];
+      unsigned char *rare_map = new unsigned char[k_sigma];
+      unsigned long *cur_count = new unsigned long[k_sigma];
+      bool *isfreq = new bool[k_sigma];
 
-        // Fill in cur_counts.
-        for (long c = 0; c < 256; ++c)
-          cur_count[c] = (m_cblock_header2[(cblock_id << 8) + c] >> (k_cblock_size_log + 6));
-      
-        long r_ptr = r_filled; // where to write next
-        m_cblock_header[cblock_id] |= (r_filled << 16);
+      std::vector<unsigned char> freq_chars;
+      std::vector<unsigned char> rare_chars;
 
-        long cblock_beg = cblock_id << k_cblock_size_log;
-        long cblock_end = cblock_beg + k_cblock_size;
+      for (unsigned long cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
+        unsigned long cblock_beg = cblock_id << k_cblock_size_log;
+        unsigned long cblock_end = cblock_beg + k_cblock_size;
 
         //----------------------------------------------------------------------
         // Process cblock [cblock_beg..cblock_end).
         //----------------------------------------------------------------------
 
-        long freq_cnt_log = (m_cblock_header[cblock_id] & 255L);
-        long rare_cnt_log = ((m_cblock_header[cblock_id] >> 8) & 255L);
+        // Skip this cblock if its trunk was already encoded.
+        if (r.m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7))) continue;
+
+        // Retreive symbol counts up to this cblock begin and pointer
+        // to rare trunk size from cblock headers.
+        for (unsigned c = 0; c < k_sigma; ++c)
+          cur_count[c] = (r.m_cblock_header2[(cblock_id << 8) + c] >> (k_cblock_size_log + 6));
+
+        long r_filled  = (r.m_cblock_header[cblock_id] >> 16);
+        long r_ptr = r_filled;
+
+        long freq_cnt_log = (r.m_cblock_header[cblock_id] & 255L);
+        long rare_cnt_log = ((r.m_cblock_header[cblock_id] >> 8) & 255L);
         long freq_cnt = (1L << freq_cnt_log);
         long freq_cnt_mask = freq_cnt - 1;
         long rare_cnt = (1L << rare_cnt_log);
@@ -346,17 +499,17 @@ class rank4n {
 
         freq_chars.clear();
         rare_chars.clear();
-        std::fill(isfreq, isfreq + 256, false);
-        for (unsigned j = 0; j < 256; ++j) {
-          unsigned char type = m_cblock_mapping[2 * (j * n_cblocks + cblock_id)];
+        std::fill(isfreq, isfreq + k_sigma, false);
+        for (unsigned c = 0; c < k_sigma; ++c) {
+          unsigned char type = r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)];
           if (type == k_char_type_freq) {
-            isfreq[j] = true;
-            freq_chars.push_back(j);
-            freq_map[j] = m_cblock_mapping[2 * (j * n_cblocks + cblock_id) + 1];
+            isfreq[c] = true;
+            freq_chars.push_back(c);
+            freq_map[c] = r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1];
           } else if (type == k_char_type_rare) {
-            rare_chars.push_back(j);
-            rare_map[j] = m_cblock_mapping[2 * (j * n_cblocks + cblock_id) + 1];
-            freq_map[j] = freq_cnt - 1;
+            rare_chars.push_back(c);
+            rare_map[c] = r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1];
+            freq_map[c] = freq_cnt - 1;
           }
         }
 
@@ -369,8 +522,8 @@ class rank4n {
 
         // Compute freq and rare trunk of current block.
         long nofreq_cnt = 0;
-        for (long i = cblock_beg; i < cblock_end; ++i) {
-          unsigned char c = (i < m_length ? text[i] : 0);
+        for (unsigned long i = cblock_beg; i < cblock_end; ++i) {
+          unsigned char c = (i < r.m_length ? text[i] : 0);
 
           //--------------------------------------------------------------------
           // Invariant: for any symbol a, c_rank[a] = number of occurrence of
@@ -385,16 +538,16 @@ class rank4n {
 
           // Compute ranks at the freq microblock boundary.
           if (!(i & freq_cnt_mask)) {
-            m_freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
+            r.m_freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
             for (long j = 0; j + 1 < freq_cnt; ++j) {
               unsigned char ch = (j < (long)freq_chars.size() ? freq_chars[j] : 0);
-              long local_rank = cur_count[ch] - m_sblock_header[(sblock_id << 8) + ch];
-              m_freq_trunk[i + j] = (local_rank << 8);
+              long local_rank = cur_count[ch] - r.m_sblock_header[(sblock_id << 8) + ch];
+              r.m_freq_trunk[i + j] = (local_rank << 8);
             }
           }
 
           // Store freq symbol mapping.
-          m_freq_trunk[i] |= freq_map[c];
+          r.m_freq_trunk[i] |= freq_map[c];
 
           // Handle rare symbol.
           if (!isfreq[c]) {
@@ -402,13 +555,13 @@ class rank4n {
             if (!(nofreq_cnt & rare_cnt_mask)) {
               for (long j = 0; j < rare_cnt; ++j) {
                 unsigned char ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
-                long local_rank = cur_count[ch] - m_sblock_header[(sblock_id << 8) + ch];
-                m_rare_trunk[r_filled++] = (local_rank << 8);
+                long local_rank = cur_count[ch] - r.m_sblock_header[(sblock_id << 8) + ch];
+                r.m_rare_trunk[r_filled++] = (local_rank << 8);
               }
             }
 
             // Store rare symbol mapping.
-            m_rare_trunk[r_ptr++] |= rare_map[c];
+            r.m_rare_trunk[r_ptr++] |= rare_map[c];
             ++nofreq_cnt;
           }
 
@@ -417,21 +570,22 @@ class rank4n {
 
         for (long j = 0; j < rare_cnt; ++j) {
           unsigned char ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
-          long local_rank = cur_count[ch] - m_sblock_header[(sblock_id << 8) + ch];
-          m_rare_trunk[r_filled++] = (local_rank << 8);
+          long local_rank = cur_count[ch] - r.m_sblock_header[(sblock_id << 8) + ch];
+          r.m_rare_trunk[r_filled++] = (local_rank << 8);
         }
       }
 
       delete[] cur_count;
-      delete[] list_beg;
-      delete[] occ;
+      delete[] freq_map;
+      delete[] rare_map;
+      delete[] isfreq;
     }
 
     inline long rank(long i, unsigned char c) {
       if (i <= 0) return 0L;
-      else if (i >= m_length) return m_count[c];
+      else if ((unsigned long)i >= m_length) return m_count[c];
 
-      long cblock_id = (i >> k_cblock_size_log);    
+      unsigned long cblock_id = (i >> k_cblock_size_log);    
       if (m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7))) {    
         long cblock_beg = (i & k_cblock_size_mask_neg);
         long cblock_i = (i & k_cblock_size_mask);     // offset in cblock
@@ -614,11 +768,11 @@ template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigm
   ::k_2cblock_size_mask = (2 << k_cblock_size_log) - 1;
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const int rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sigma = (1 << k_sigma_log);
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const int rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sigma_mask = (1 << k_sigma_log) - 1;
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
