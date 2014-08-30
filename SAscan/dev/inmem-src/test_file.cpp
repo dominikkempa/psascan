@@ -4,13 +4,13 @@
 #include <unistd.h>
 
 #include "utils.h"
-#include "final_inmem_sufsort.h"
+#include "inmem_sascan.h"
 #include "divsufsort_template.h"
 
 
 
 template<typename T>
-void test(unsigned char *text, long text_length,
+void test(unsigned char *text, T text_length,
     long max_blocks, long max_threads) {
   long double start;
 
@@ -23,7 +23,7 @@ void test(unsigned char *text, long text_length,
   /*fprintf(stderr, "\nRunning divsufsort\n");
   T *correct_sa = new T[text_length];
   start = utils::wclock();
-  run_divsufsort(text, correct_sa, (T)text_length);
+  run_divsufsort(text, correct_sa, text_length);
   fprintf(stderr, "Total time: %.2Lf\n", utils::wclock() - start);
 
   if (!std::equal(correct_sa, correct_sa + text_length, computed_sa))
@@ -42,9 +42,9 @@ void test_file(const char *filename) {
   utils::read_objects_from_file(text, length, filename);
   fprintf(stderr, "DONE\n");
 
-  test<long>(text, length, 16, 24);
+  test<long>(text, length, 24, 16);
 //  test<long>(text, length, 24, 24);
-//  test<long>(text, length, 32, 24);
+//  test<long>(text, length, 24, 32);
 
   delete[] text;
 }

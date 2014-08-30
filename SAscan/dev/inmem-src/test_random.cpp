@@ -2,11 +2,14 @@
 #include <cstdlib>
 #include <ctime>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
 #include "utils.h"
-#include "final_inmem_sufsort.h"
+#include "inmem_sascan.h"
 
 
 void test(unsigned char *text, long text_length, long max_threads) {
@@ -30,23 +33,24 @@ void test(unsigned char *text, long text_length, long max_threads) {
   // STEP 3: compare answers.
   //----------------------------------------------------------------------------
   if (!std::equal(correct_sa, correct_sa + text_length, computed_sa)) {
-    fprintf(stderr, "\nError:\n");
-    fprintf(stderr, "\tlength = %ld\n", text_length);
+    fprintf(stdout, "\nError:\n");
+    fprintf(stdout, "\tlength = %ld\n", text_length);
     if (text_length <= 1000) {
-      fprintf(stderr, "\ttext: ");
+      fprintf(stdout, "\ttext: ");
       for (long j = 0; j < text_length; ++j)
-        fprintf(stderr, "%c", text[j]);
-      fprintf(stderr, "\n");
+        fprintf(stdout, "%c", text[j]);
+      fprintf(stdout, "\n");
     }
-    fprintf(stderr, "\tmax threads = %ld\n", max_threads);
-    fprintf(stderr, "\tcorrect sa: ");
+    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
+    fprintf(stdout, "\tcorrect sa: ");
     for (long i = 0; i < text_length; ++i)
-      fprintf(stderr, "%d ", correct_sa[i]);
-    fprintf(stderr, "\n");
-    fprintf(stderr, "\tcomputed sa: ");
+      fprintf(stdout, "%d ", correct_sa[i]);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\tcomputed sa: ");
     for (long i = 0; i < text_length; ++i)
-      fprintf(stderr, "%d ", computed_sa[i]);
-    fprintf(stderr, "\n");
+      fprintf(stdout, "%d ", computed_sa[i]);
+    fprintf(stdout, "\n");
+    std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   }
 
@@ -59,13 +63,15 @@ void test(unsigned char *text, long text_length, long max_threads) {
 
 
 void test_random(long testcases, long max_length, long max_sigma) {
-  fprintf(stderr, "TEST, testcases = %ld, max_length = %ld, max_sigma = %ld\n",
+  fprintf(stdout, "TEST, testcases = %ld, max_length = %ld, max_sigma = %ld\n",
       testcases, max_length, max_sigma);
+  std::fflush(stdout);
   unsigned char *text = new unsigned char[max_length];
 
   // Run tests.
   for (long tc = 0; tc < testcases; ++tc) {
-    fprintf(stderr, "Progress: %.2Lf%%\r", (100.L * tc) / testcases);
+    fprintf(stdout, "Progress: %.2Lf%%\r", (100.L * tc) / testcases);
+    std::fflush(stdout);
 
     // Generate input.
     long length = utils::random_long(1L, max_length);
@@ -81,12 +87,12 @@ void test_random(long testcases, long max_length, long max_sigma) {
     long length = 6;
     long max_threads = 24;*/
 
-    /*fprintf(stderr, "length = %ld\n", length);
-    fprintf(stderr, "text: ");
+    /*fprintf(stdout, "length = %ld\n", length);
+    fprintf(stdout, "text: ");
     for (long j = 0; j < length; ++j)
-      fprintf(stderr, "%c", text[j]);
-    fprintf(stderr, "\n");
-    fprintf(stderr, "max_threads = %ld\n", max_threads);*/
+      fprintf(stdout, "%c", text[j]);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "max_threads = %ld\n", max_threads);*/
 
     test(text, length, max_threads);
   }
@@ -99,15 +105,20 @@ void test_random(long testcases, long max_length, long max_sigma) {
 int main() {
   std::srand(std::time(0) + getpid());
 
-  test_random(10000, 10, 5);
-  test_random(10000, 10, 20);
-  test_random(10000, 10, 128);
-  test_random(10000, 10, 255);
+  // Redirect stderr to /dev/null
+  int redir = open("/dev/null", O_WRONLY);
+  dup2(redir, 2);
+  close(redir);
 
-  test_random(1000, 1000, 5);
-  test_random(1000, 1000, 20);
-  test_random(1000, 1000, 128);
-  test_random(1000, 1000, 255);
+//  test_random(10000, 10, 5);
+//  test_random(10000, 10, 20);
+//  test_random(10000, 10, 128);
+//  test_random(10000, 10, 255);
+
+  test_random(100, 1000, 5);
+  test_random(100, 1000, 20);
+  test_random(100, 1000, 128);
+  test_random(100, 1000, 255);
 
   test_random(100, 10000, 5);
   test_random(100, 10000, 20);
@@ -119,5 +130,5 @@ int main() {
   test_random(100, 1000000, 128);
   test_random(100, 1000000, 255);
 
-  fprintf(stderr, "All tests passed.\n");
+  fprintf(stdout, "All tests passed.\n");
 }

@@ -100,6 +100,7 @@ void compute_final_gt(long length, long max_block_size,
 //==============================================================================
 void compute_initial_gt_bitvectors(unsigned char *text, long length,
     bitvector** &gt, long max_threads) {
+  long double start;
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 
@@ -109,6 +110,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   //----------------------------------------------------------------------------
 
   // Allocate ane zero-initialize (in parallel) bitvectors.
+  fprintf(stderr, "    Allocating bitvectors: ");
+  start = utils::wclock();
   bitvector **decided = new bitvector*[n_blocks];
   gt = new bitvector*[n_blocks];
   for (long i = 0; i < n_blocks; ++i) {
@@ -119,6 +122,7 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
     decided[i] = new bitvector(this_block_size, max_threads);
     gt[i] = new bitvector(this_block_size, max_threads);
   }
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // all_decided[i] == true, if all bits inside block i were
   // decided in the first state. This can be used by threads in the
@@ -126,6 +130,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   bool *all_decided = new bool[n_blocks];
 
   // Process blocks right-to-left.
+  fprintf(stderr, "    Computing partial gt: ");
+  start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
   for (long i = n_blocks - 1, next_block_size = 0L; i >= 0; --i) {
     long beg = i * max_block_size;
@@ -144,6 +150,7 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();
   for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 2: compute the undecided bits in the gt bitvectors.
@@ -155,6 +162,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   while (max_microblock_size & 7) ++max_microblock_size;
   long n_microblocks = (max_block_size + max_microblock_size - 1) / max_microblock_size;
 
+  fprintf(stderr, "    Finalizing gt: ");
+  start = utils::wclock();
   threads = new std::thread*[n_microblocks];
   for (long i = 0; i < n_microblocks; ++i) {
     long mb_beg = i * max_microblock_size;
@@ -167,10 +176,15 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   // Wait for the threads to finish and clean up.
   for (long i = 0; i < n_microblocks; ++i) threads[i]->join();
   for (long i = 0; i < n_microblocks; ++i) delete threads[i];
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+  fprintf(stderr, "    Deallocating decided bitvectors: ");
+  start = utils::wclock();
   for (long i = 0; i < n_blocks; ++i) delete decided[i];
   delete[] threads;
   delete[] decided;
   delete[] all_decided;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 }
 
 

@@ -36,9 +36,10 @@ struct block_description {
 //==============================================================================
 template<typename T>
 void inmem_sascan(unsigned char *text, long text_length, T* sa,
-    long max_blocks, long max_threads = 1) {
+    long max_threads = 1, long max_blocks = -1) {
   long double start;
-
+  if (max_blocks == -1)
+    max_blocks = max_threads;
 
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
@@ -139,10 +140,10 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
       // 3
       //
       // Merge (in place) partial suffix arrays.
-      fprintf(stderr, "    Merging: ");
+      fprintf(stderr, "    Merging:\n");
       start1 = utils::wclock();
       merge<T, 12>(sa + lbeg, lsize, rsize, gap, max_threads);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - start1);
+      fprintf(stderr, "    Merging: %.2Lf\n", utils::wclock() - start1);
 
       fprintf(stderr, "    Deleting gap: ");
       start1 = utils::wclock();
