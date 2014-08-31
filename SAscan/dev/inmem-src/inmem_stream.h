@@ -87,7 +87,9 @@ void inmem_parallel_stream(
       for (long t = 0; t < b->m_filled; ++t, --j) {
         bool gt_bit = gt->get(j - gt_origin);
         unsigned char c = text[j - 1];
-        i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > i0)), c));
+
+        int delta = (i > i0 && c == 0);
+        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
         if (c == last && gt_bit) ++i;
         temp[t] = i;
         block_count[i >> bucket_size_bits]++;
@@ -96,7 +98,8 @@ void inmem_parallel_stream(
       for (long t = 0; t < b->m_filled; ++t, --j) {
         bool gt_bit = gt->get(j - gt_origin);
         unsigned char c = text[j - 1];
-        i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > i0)), c));
+        int delta = (i > i0 && c == 0);
+        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
         if (c == last && gt_bit) ++i;
         if (i > i0) gt_out->set(j - 1 - gt_out_origin);  // write bit of gt_out
         temp[t] = i;

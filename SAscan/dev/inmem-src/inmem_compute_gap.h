@@ -93,12 +93,12 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   fprintf(stderr, "    Allocating bwt: ");
   start = utils::wclock();
   unsigned char *left_block = text + left_block_beg;
-  unsigned char *bwt = (unsigned char *)malloc(left_block_size - 1);
+  unsigned char *bwt = (unsigned char *)malloc(left_block_size);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   fprintf(stderr, "    Computing bwt: ");
   start = utils::wclock();
-  long i0 = bwt_from_sa_into_dest<T>(partial_sa, left_block,
+  long i0 = new_bwt_from_sa_into_dest<T>(partial_sa, left_block,
       left_block_size, bwt, max_threads);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
 
@@ -108,7 +108,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   fprintf(stderr, "    Building rank: ");
   start = utils::wclock();
-  rank4n<> *rank = new rank4n<>(bwt, left_block_size - 1, max_threads);
+  rank4n<> *rank = new rank4n<>(bwt, left_block_size, max_threads);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
 
   fprintf(stderr, "    Deallocating bwt: ");
@@ -124,6 +124,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   std::copy(rank->m_count, rank->m_count + 256, count);
   unsigned char last = left_block[left_block_size - 1];
   ++count[last];
+  --count[0];
   for (long i = 0, s = 0, t; i < 256; ++i)
     { t = count[i]; count[i] = s; s += t; }
 
