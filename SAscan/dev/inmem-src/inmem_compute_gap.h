@@ -90,30 +90,30 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 1: compute BWT from partial_sa. Together with BWT we get the index
   //         i0, such that partial_sa[i0] = 0.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "      Allocating  bwt: ");
+  fprintf(stderr, "    Allocating bwt: ");
   start = utils::wclock();
   unsigned char *left_block = text + left_block_beg;
-  unsigned char *bwt = new unsigned char[left_block_size - 1];
+  unsigned char *bwt = (unsigned char *)malloc(left_block_size - 1);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
-  fprintf(stderr, "      Computing bwt: ");
+  fprintf(stderr, "    Computing bwt: ");
   start = utils::wclock();
   long i0 = bwt_from_sa_into_dest<T>(partial_sa, left_block,
       left_block_size, bwt, max_threads);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
   // STEP 2: build rank data structure over BWT and delete BWT.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "      Building rank:\n");
+  fprintf(stderr, "    Building rank: ");
   start = utils::wclock();
   rank4n<> *rank = new rank4n<>(bwt, left_block_size - 1, max_threads);
-  fprintf(stderr, "      Building rank: %.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
 
-  fprintf(stderr, "      Deallocating bwt: ");
+  fprintf(stderr, "    Deallocating bwt: ");
   start = utils::wclock();
-  delete[] bwt;
+  free(bwt);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
@@ -181,7 +181,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     }
   }
 
-  fprintf(stderr, "      Computing initial ranks: ");
+  fprintf(stderr, "    Computing initial ranks: ");
   start = utils::wclock();
   std::vector<long> initial_ranks(n_threads);
   std::thread **threads = new std::thread*[n_threads];
@@ -204,7 +204,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //         on the top of the page, the gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "      Allocating gap array: ");
+  fprintf(stderr, "    Allocating gap array: ");
   start = utils::wclock();
   gap = new inmem_gap_array(left_block_size + 1, max_threads);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
@@ -215,7 +215,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
 
   // Allocate buffers.
-  fprintf(stderr, "      Allocating buffers: ");
+  fprintf(stderr, "    Allocating buffers: ");
   start = utils::wclock();
   long n_stream_buffers = 2 * n_threads;
   buffer<T> **buffers = new buffer<T>*[n_stream_buffers];
@@ -237,7 +237,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   if (!compute_gt_out) gt_out = NULL;
   else {
-    fprintf(stderr, "      Allocating gt out bitvector: ");
+    fprintf(stderr, "    Allocating gt out bitvector: ");
     start = utils::wclock();
     gt_out = new bitvector(left_block_size + right_block_size + 1, max_threads);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
@@ -247,7 +247,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
       gt_out->set(left_block_size + right_block_size);
 
     // We compute the left half of gt_out.
-    fprintf(stderr, "      Computing first half of gt_out: ");
+    fprintf(stderr, "    Computing first half of gt_out: ");
     start = utils::wclock();
     finalize_gt(text, text_length, left_block_beg, left_block_size,
         gt_in, gt_out, max_threads);
@@ -261,14 +261,14 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
   // Allocate temp arrays and oracles.
   start = utils::wclock();
-  fprintf(stderr, "      Allocating temp/oracle: ");
+  fprintf(stderr, "    Allocating temp/oracle: ");
   long max_buffer_elems = stream_buffer_size / sizeof(T);
-  T *temp = new T[max_buffer_elems * n_threads];
-  int *oracle = new int[max_buffer_elems * n_threads];
+  T *temp = (T *)malloc(max_buffer_elems * n_threads * sizeof(T));
+  int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
   fprintf(stderr, "%.4Lf\n", utils::wclock() - start);
 
   // Start streaming threads.
-  fprintf(stderr, "      Streaming: ");
+  fprintf(stderr, "    Streaming: ");
   start = utils::wclock();
   threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
@@ -296,10 +296,10 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
       streaming_speed);
   
   // Clean up.
-  fprintf(stderr, "      Cleaning up: ");
+  fprintf(stderr, "    Cleaning up: ");
   start = utils::wclock();
-  delete[] oracle;
-  delete[] temp;
+  free(oracle);
+  free(temp);
   for (long i = 0; i < n_threads; ++i) delete threads[i];
   for (long i = 0; i < n_stream_buffers; ++i) delete buffers[i];
   delete updater;
@@ -317,7 +317,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   // STEP 9: sort excess values. Consider using gnu parallel sort here.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "      Sorting m_excess: ");
+  fprintf(stderr, "    Sorting m_excess: ");
   start = utils::wclock();
   std::sort(gap->m_excess.begin(), gap->m_excess.end());
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);

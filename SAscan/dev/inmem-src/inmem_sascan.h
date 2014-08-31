@@ -45,15 +45,15 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
   //----------------------------------------------------------------------------
   bitvector **initial_gt;
-  fprintf(stderr, "  Compute initial bitvectors:\n");
+  fprintf(stderr, "Compute initial bitvectors:\n");
   start = utils::wclock();
-  compute_initial_gt_bitvectors(text, text_length, initial_gt, max_blocks);
-  fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start);
+  compute_initial_gt_bitvectors(text, text_length, initial_gt, max_blocks, max_threads);
+  fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
 
-  fprintf(stderr, "  Initial sufsort:\n");
+  fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
   initial_partial_sufsort(text, text_length, initial_gt, sa, max_blocks);
-  fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
@@ -64,7 +64,7 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   std::vector<block_description> block_desc;
-  fprintf(stderr, "  Changing reference points:\n");
+  fprintf(stderr, "Overwriting gt_end with gt_begin:\n");
   long double start1 = utils::wclock();
   for (long i = 0; i < n_blocks; ++i) {
     long block_beg = i * max_block_size;
@@ -72,7 +72,7 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
 
     bitvector *gt = NULL;
     if ((i & 1) || (i > 0 && i == n_blocks - 1)) {
-      fprintf(stderr, "    Changing gt reference for block %ld: ", i);
+      fprintf(stderr, "  Processing block %ld: ", i);
       start = utils::wclock();
       change_gt_reference_point(text, text_length, block_beg,
           block_end, initial_gt[i], gt, max_threads);
@@ -105,7 +105,7 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
       // Merge blocks with description in block_desc[i] and block_desc[i + 1].
       //------------------------------------------------------------------------
 
-      fprintf(stderr, "  Merging blocks [%ld..%ld) and [%ld..%ld):\n",
+      fprintf(stderr, "Merging blocks [%ld..%ld) and [%ld..%ld):\n",
           block_desc[i].m_beg, block_desc[i].m_end,
           block_desc[i + 1].m_beg, block_desc[i + 1].m_end);
       start = utils::wclock();
@@ -125,14 +125,14 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
       // fprintf(stderr, "computing gap array: ");
       bitvector *gt_out;
       inmem_gap_array *gap;
-      fprintf(stderr, "    Computing gap:\n");
+      fprintf(stderr, "  Computing gap:\n");
       start1 = utils::wclock();
       inmem_compute_gap(text, text_length, lbeg, lsize, rsize, sa + lbeg,
           block_desc[i + 1].m_gt, gt_out, compute_gt_out, gap, max_threads,
           (1L << 21));
       fprintf(stderr, "    Time: %.2Lf\n", utils::wclock() - start1);
 
-      fprintf(stderr, "    Deleting old gt: ");
+      fprintf(stderr, "  Deleting old gt: ");
       start1 = utils::wclock();
       delete block_desc[i + 1].m_gt;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - start1);
@@ -140,17 +140,17 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
       // 3
       //
       // Merge (in place) partial suffix arrays.
-      fprintf(stderr, "    Merging:\n");
+      fprintf(stderr, "  Merging: ");
       start1 = utils::wclock();
       merge<T, 12>(sa + lbeg, lsize, rsize, gap, max_threads);
-      fprintf(stderr, "    Merging: %.2Lf\n", utils::wclock() - start1);
+      fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
-      fprintf(stderr, "    Deleting gap: ");
+      fprintf(stderr, "  Deleting gap: ");
       start1 = utils::wclock();
       delete gap;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - start1);
 
-      fprintf(stderr, "  Total time: %.2Lf\n", utils::wclock() - start);
+      fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
 
       // 4
       //

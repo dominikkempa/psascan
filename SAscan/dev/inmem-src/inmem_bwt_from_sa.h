@@ -75,6 +75,8 @@ long bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
     unsigned char *dest, long max_threads) {
 
   // First, we find j such that SA[j] = 0 in parallel.
+  fprintf(stderr, "(find-i0: ");
+  long double start = utils::wclock();
   long block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + block_size - 1) / block_size;
   long *index_0 = new long[n_blocks];
@@ -95,10 +97,14 @@ long bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
   for (long i = 0; i < n_blocks; ++i)
     if (index_0[i] != -1) i0 = index_0[i];
   delete[] index_0;
+  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
   // Compute BWT in parallel.
+  fprintf(stderr, "inv: ");
+  start = utils::wclock();
   bwt_of_range(sa, text, i0, dest, max_threads);
   bwt_of_range(sa + i0 + 1, text, length - i0 - 1, dest + i0, max_threads);
+  fprintf(stderr, "%.2Lf) ", utils::wclock() - start);
 
   return i0;
 }

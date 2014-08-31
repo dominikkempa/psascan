@@ -9,14 +9,13 @@
 
 
 struct inmem_gap_array {
-  inmem_gap_array(long length, long max_threads)
+  inmem_gap_array(long length, long)
     : m_length(length) {
-    m_count = new unsigned char[m_length];
-    parallel_utils::fill(m_count, m_length, (unsigned char)0, max_threads);
+    m_count = (unsigned char *)calloc(m_length, sizeof(unsigned char));
   }
 
   ~inmem_gap_array() {
-    delete[] m_count;
+    free(m_count);
   }
   
   unsigned char *m_count;

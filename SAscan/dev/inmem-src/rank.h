@@ -97,10 +97,8 @@ class rank4n {
       unsigned long range_size = (n_cblocks + max_threads - 1) / max_threads;
       unsigned long n_ranges = (n_cblocks + range_size - 1) / range_size;
 
-#ifdef PRINT_TIMES
-      fprintf(stderr, "        Allocating: ");
+      fprintf(stderr, "(alloc: ");
       long double start = utils::wclock();
-#endif
       m_sblock_header = (unsigned long *)malloc(n_sblocks * sizeof(unsigned long) * k_sigma);
       m_cblock_header = (unsigned long *)malloc(n_cblocks * sizeof(unsigned long));
       m_cblock_header2 = (unsigned long *)malloc(n_cblocks * k_sigma * sizeof(unsigned long));
@@ -111,12 +109,10 @@ class rank4n {
 
       unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
       bool *cblock_type = new bool[n_cblocks];
-#ifdef PRINT_TIMES
-      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
+      fprintf(stderr, "%.3Lf ", utils::wclock() - start);
 
-      fprintf(stderr, "        Step 1: ");
+      fprintf(stderr, "s1: ");
       start = utils::wclock();
-#endif
       std::thread **threads = new std::thread*[n_ranges];
       for (unsigned long i = 0; i < n_ranges; ++i) {
         unsigned long range_beg = i * range_size;
@@ -128,9 +124,7 @@ class rank4n {
       for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
-#ifdef PRINT_TIMES
-      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
-#endif
+      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
 
       //------------------------------------------------------------------------
@@ -142,10 +136,8 @@ class rank4n {
       //  * cumulative counts of all symbols (necessary during queries)
       //  * non-inclusive partial sum over cblock range counts
       //------------------------------------------------------------------------
-#ifdef PRINT_TIMES
-      fprintf(stderr, "        Step 2: ");
+      fprintf(stderr, "s2: ");
       start = utils::wclock();
-#endif
       unsigned long rare_trunk_total_size = 0;
       for (unsigned long cblock_id = 0; cblock_id < n_cblocks; ++cblock_id) {
         unsigned long cblock_beg = (cblock_id << k_cblock_size_log);
@@ -186,13 +178,11 @@ class rank4n {
       }
       delete[] cblock_type;
       delete[] rare_trunk_size;
-#ifdef PRINT_TIMES
-      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
+      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
 
-      fprintf(stderr, "        Step 3: ");
+      fprintf(stderr, "s3: ");
       start = utils::wclock();
-#endif
       //------------------------------------------------------------------------
       // STEP 3: compute freq and rare trunk for cblocks encoded with
       //         alphabet partitioning.
@@ -209,9 +199,7 @@ class rank4n {
       for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
-#ifdef PRINT_TIMES
-      fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
-#endif
+      fprintf(stderr, "%.2Lf) ", utils::wclock() - start);
 
       m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
 
@@ -228,10 +216,9 @@ class rank4n {
       unsigned *list_beg = new unsigned[k_sigma];
       unsigned *list_beg2 = new unsigned[k_sigma];
       bool *isfreq = new bool[k_sigma];
-      unsigned *block_end_precomputed = new unsigned[k_cblock_size];
       unsigned *lookup_bits_precomputed = new unsigned[k_sigma];
       unsigned *min_block_size_precomputed = new unsigned[k_sigma];
-      unsigned *occ = new unsigned[k_cblock_size];
+      unsigned *occ = (unsigned *)malloc(k_cblock_size * sizeof(unsigned));
 
       long double phase_1 = 0.L;
       long double phase_2 = 0.L;
@@ -451,14 +438,11 @@ class rank4n {
       delete[] occ;
       delete[] isfreq;
       delete[] cblock_count;
-      delete[] block_end_precomputed;
       delete[] lookup_bits_precomputed;
       delete[] min_block_size_precomputed;
 
-#ifdef PRINT_TIMES
-      fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf\n",
-          phase_1, phase_2, phase_3, phase_4);
-#endif
+      // fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf\n",
+      //    phase_1, phase_2, phase_3, phase_4);
     }
 
     static void construction_step_3(rank4n &r, unsigned char *text,

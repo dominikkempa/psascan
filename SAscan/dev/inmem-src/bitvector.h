@@ -9,7 +9,7 @@
 #include "utils.h"
 
 struct bitvector {
-  bitvector(long length, long max_threads = 1) {
+  bitvector(long length, long) {
     if (length <= 0) {
       fprintf(stderr, "Error: attempint to construct "
           "empty bitvector.\n");
@@ -17,9 +17,7 @@ struct bitvector {
     }
 
     m_alloc_bytes = (length + 7) / 8;
-    m_data = new unsigned char[m_alloc_bytes];
-    parallel_utils::fill(m_data, m_alloc_bytes, (unsigned char)0,
-        max_threads);
+    m_data = (unsigned char *)calloc(m_alloc_bytes, sizeof(unsigned char));
   }
 
   inline bool get(long i) const {

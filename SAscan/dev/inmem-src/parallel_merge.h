@@ -99,22 +99,33 @@ void answer_single_gap_query(inmem_gap_array *gap, long length, long block_size,
 // Compute gap[beg] + .. + gap[end - 1] and store into result.
 //==============================================================================
 void compute_sum(inmem_gap_array *gap, long beg, long end, long &result) {
-  result = 0;
-
-  size_t excess_ptr = std::lower_bound(gap->m_excess.begin(),
-      gap->m_excess.end(), beg) - gap->m_excess.begin();
-  for (long i = beg; i < end; ++i) {
-    // Compute gap[i].
-    long gap_i = gap->m_count[i];
-    while (excess_ptr < gap->m_excess.size() && gap->m_excess[excess_ptr] == i) {
-      gap_i += 256;
-      ++excess_ptr;
-    }
-
-    result += gap_i;
-  }
+  long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), end)
+           - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), beg);
+  result = 256L * occ;
+  for (long i = beg; i < end; ++i)
+    result += gap->m_count[i];
 }
 
+//==============================================================================
+// Compute sum of gap values for blocks in range [range_beg..range_end).
+// The sum for each block is stored in gapsum array.
+//==============================================================================
+void compute_sum2(inmem_gap_array *gap, long range_beg, long range_end,
+    long max_block_size, long length, long *gapsum) {
+  for (long block_id = range_beg; block_id < range_end; ++block_id) {
+    long block_beg = block_id * max_block_size;
+    long block_end = std::min(block_beg + max_block_size, length);
+
+    // Process block.
+    long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), block_end)
+             - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), block_beg);
+    long block_gap_sum = 256 * occ;
+    for (long j = block_beg; j < block_end; ++j)
+      block_gap_sum += gap->m_count[j];
+
+    gapsum[block_id] = block_gap_sum;
+  }
+}
 
 //==============================================================================
 // Parallel computation of answers to n_queries queries of the form:
@@ -141,50 +152,43 @@ void answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
   // does not slow down the parallel sum computation and greatly speed up
   // STEP 3, since each thread has to scan only at most 4 * 2^20 elements.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "      Precomp1: ");
+  fprintf(stderr, "(init: ");
   long double start = utils::wclock();
-  long block_size = std::min(4L << 20, (length + max_threads - 1) / max_threads);
-  long n_blocks = (length + block_size - 1) / block_size;
+  long max_block_size = std::min(4L << 20, (length + max_threads - 1) / max_threads);
+  long n_blocks = (length + max_block_size - 1) / max_block_size;
   long *gapsum = new long[n_blocks];
-  std::thread **threads = new std::thread*[max_threads];
-  for (long range_beg = 0; range_beg < n_blocks; range_beg += max_threads) {
-    long range_end = std::min(range_beg + max_threads, n_blocks);
-    long range_size = range_end - range_beg;
 
-    // Compute sum inside blocks range_beg, .., range_end - 1.
-    for (long i = range_beg; i < range_end; ++i) {
-      long block_beg = i * block_size;
-      long block_end = std::min(block_beg + block_size, length);
-      threads[i - range_beg] = new std::thread(compute_sum, gap,
-          block_beg, block_end, std::ref(gapsum[i]));
-    }
-    for (long i = 0; i < range_size; ++i) threads[i]->join();
-    for (long i = 0; i < range_size; ++i) delete threads[i];
+  // Each thread handles range of blocks.
+  long range_size = (n_blocks + max_threads - 1) / max_threads;
+  long n_ranges = (n_blocks + range_size - 1) / range_size;
+  std::thread **threads = new std::thread*[max_threads];
+  for (long range_id = 0; range_id < n_ranges; ++range_id) {
+    long range_beg = range_id * range_size;
+    long range_end = std::min(range_beg + range_size, n_blocks);
+
+    threads[range_id] = new std::thread(compute_sum2, gap,
+        range_beg, range_end, max_block_size, length, gapsum);
   }
+  for (long i = 0; i < n_ranges; ++i) threads[i]->join();
+  for (long i = 0; i < n_ranges; ++i) delete threads[i];
   delete[] threads;
-  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 2: compute partial sum from block counts.
   //----------------------------------------------------------------------------
   // Change gapsum so that gapsum[i] is the sum of blocks 0, 1, .., i - 1.
-  fprintf(stderr, "      Precomp2: ");
-  start = utils::wclock();
   for (long i = 0, s = 0, t; i < n_blocks; ++i)
     { t = gapsum[i]; gapsum[i] = s; s += t; }
-  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 3: Answer the queries in parallel.
   //----------------------------------------------------------------------------
-  start = utils::wclock();
-  fprintf(stderr, "      Precomp3: ");
   threads = new std::thread*[n_queries];
   for (long i = 0; i < n_queries; ++i)
     threads[i] = new std::thread(answer_single_gap_query, gap, length,
-      block_size, gapsum, a[i], std::ref(b[i]), std::ref(c[i]));
+      max_block_size, gapsum, a[i], std::ref(b[i]), std::ref(c[i]));
   for (long i = 0; i < n_queries; ++i) threads[i]->join();
-  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
   for (long i = 0; i < n_queries; ++i) delete threads[i];
   delete[] threads;
   delete[] gapsum;
@@ -401,7 +405,7 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
   // STEP 2: perform the actual merging.
   //----------------------------------------------------------------------------
   long double start = utils::wclock();
-  fprintf(stderr, "      Merging: ");
+  fprintf(stderr, "merge: ");
   std::thread **threads = new std::thread*[n_threads];
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
@@ -418,10 +422,7 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
   delete[] left_idx;
   delete[] right_idx;
   delete[] remaining_gap;
-  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
 
-  start = utils::wclock();
-  fprintf(stderr, "      Erase aux pages: ");
   // If the last input page was incomplete, handle
   // it separatelly and exclude from the computation.
   if (length % pagesize) {
@@ -462,13 +463,13 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
     }
   }
   delete[] usedpage;
-  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 3: parallel permutation of pages.
   //----------------------------------------------------------------------------
   start = utils::wclock();
-  fprintf(stderr, "      Permuting: ");
+  fprintf(stderr, "permute: ");
   long selector = 0;
   std::mutex selector_mutex;
   std::mutex *mutexes = new std::mutex[n_pages];
@@ -480,7 +481,7 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
         std::ref(selector), std::ref(selector_mutex));
 
   for (long i = 0; i < max_threads; ++i) threads[i]->join();
-  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lf) ", utils::wclock() - start);
   for (long i = 0; i < max_threads; ++i) delete threads[i];
   delete[] threads;
   delete[] mutexes;

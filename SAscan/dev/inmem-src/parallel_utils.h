@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <thread>
 
+#include "utils.h"
+
+
 namespace parallel_utils {
 
 template<typename T>
