@@ -44,7 +44,10 @@ void compute_partial_gt(unsigned char *text, long ref_pos, long max_lcp,
       i_max = i;
     }
 
-    if (p > 0 && (p << 2) <= el && !memcmp(pat, pat + p, s)) {
+    if (el < 100) {
+      ++i;
+      el = 0;
+    } else if (p > 0 && (p << 2) <= el && !memcmp(pat, pat + p, s)) {
       for (long k = 1; k < std::min(p, ref_pos - i); ++k) {
         if (undecided->get(j + k)) undecided->set(i + k);
         if (gt->get(j + k)) gt->set(i + k);

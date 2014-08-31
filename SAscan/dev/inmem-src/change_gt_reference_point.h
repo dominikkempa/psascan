@@ -43,14 +43,17 @@ void change_gt_reference_point_aux(unsigned char *text, long text_length,
       i_max = i;
     }
 
-    if (p > 0L && 3L * p <= el && !memcmp(pat, pat + p, s)) {
+    if (el < 100) {
+      ++i;
+      el = 0;
+    } else if (p > 0L && (p << 2) <= el && !memcmp(pat, pat + p, s)) {
       for (long k = 1L; k < std::min(microblock_end - block_beg - i, p); ++k)
         if (gt_out->get(j + k)) gt_out->set(i + k);
 
       i += p;
       el -= p;
     } else {
-      long h = (el / 3L) + 1L;
+      long h = (el >> 2) + 1L;
       for (long k = 1L; k < std::min(microblock_end - block_beg - i, h); ++k)
         if (gt_out->get(j + k)) gt_out->set(i + k);
 
