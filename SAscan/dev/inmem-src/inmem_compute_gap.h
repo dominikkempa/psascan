@@ -82,7 +82,7 @@
 template<typename T>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
     long left_block_size, long right_block_size, T *partial_sa,
-    bitvector *gt, inmem_gap_array* &gap, long max_threads,
+    bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt,
     long stream_buffer_size = (1L << 20)) {
   long double start;
 
@@ -218,7 +218,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     threads[t] = new std::thread(inmem_parallel_stream<T>,
       text, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, max_threads, gt,
-      temp + t * max_buffer_elems, oracle + t * max_buffer_elems);
+      temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
   }
 
   // Start updating thread.

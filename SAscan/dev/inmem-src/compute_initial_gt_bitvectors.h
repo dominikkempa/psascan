@@ -19,6 +19,8 @@
 //==============================================================================
 void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
     long end, long max_lcp, bitvector *gt, bitvector *undecided, bool &all_decided) {
+  all_decided = true;
+
   long i = 0, el = 0, s = 0, p = 0, r = 0;
   long i_max = 0, el_max = 0, s_max = 0, p_max = 0, r_max = 0;
 
@@ -26,7 +28,6 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
   unsigned char *pat = text + end;
   long range_size = end - begin;
 
-  all_decided = true;
   while (i < range_size) {
     while (el < max_lcp && txt[i + el] == pat[el])
       next(pat, ++el, s, p, r);

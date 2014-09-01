@@ -45,7 +45,8 @@ void inmem_parallel_stream(
     long n_increasers,
     bitvector *gt,
     block_offset_type *temp,
-    int *oracle) {
+    int *oracle,
+    bool need_gt) {
 
   //----------------------------------------------------------------------------
   // STEP 1: initialize structures necessary to do the buffer partitions.
@@ -87,26 +88,44 @@ void inmem_parallel_stream(
     b->m_filled = std::min(left, b->m_size);
     std::fill(block_count, block_count + n_buckets, 0);
 
-    for (long t = 0; t < b->m_filled; ++t) {
+    if (need_gt) {
+      for (long t = 0; t < b->m_filled; ++t) {
+        bool new_gt_bit = (i > i0);
+        if (new_gt_bit) gt->set(j - 1);
+        else gt->reset(j - 1);
 
-      bool new_gt_bit = (i > i0);
+        unsigned char c = text[j - 1];
 
-      if (new_gt_bit) gt->set(j - 1);
-      else gt->reset(j - 1);
+        // Compute new i.
+        int delta = (new_gt_bit && c == 0);
+        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+        if (c == last && gt_bit) ++i;
 
-      unsigned char c = text[j - 1];
+        temp[t] = i;
+        block_count[i >> bucket_size_bits]++;
 
-      // Compute new i.
-      int delta = (new_gt_bit && c == 0);
-      i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
-      if (c == last && gt_bit) ++i;
+        --j;
+        gt_bit = gt->get(j - 1);
+      }
+    } else {
+      for (long t = 0; t < b->m_filled; ++t) {
+        bool new_gt_bit = (i > i0);
 
-      temp[t] = i;
-      block_count[i >> bucket_size_bits]++;
+        unsigned char c = text[j - 1];
 
-      --j;
-      gt_bit = gt->get(j - 1);
-    }    
+        // Compute new i.
+        int delta = (new_gt_bit && c == 0);
+        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+        if (c == last && gt_bit) ++i;
+
+        temp[t] = i;
+        block_count[i >> bucket_size_bits]++;
+
+        --j;
+        gt_bit = gt->get(j - 1);
+      }
+
+    }
 
     //--------------------------------------------------------------------------
     // Partition the buffer into equal n_increasers parts.
