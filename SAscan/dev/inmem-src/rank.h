@@ -271,7 +271,56 @@ class rank4n {
         unsigned freq_cnt = sorted_chars.size() - rare_cnt;
         unsigned freq_cnt_log = utils::log2ceil(freq_cnt + 1);
         freq_cnt = (1 << freq_cnt_log);
+
+
+
+
+        // Recompute rare_cnt (note the +1).
+        rare_cnt = 0;
+        if (sorted_chars.size() + 1 > freq_cnt)
+          rare_cnt = sorted_chars.size() + 1 - freq_cnt;
+
+        // Compute freq and rare chars.
+        rare_chars.clear();
+        freq_chars.clear();
+        for (unsigned i = 0; i < rare_cnt; ++i)
+          rare_chars.push_back(sorted_chars[i].second);
+        for (unsigned i = rare_cnt; i < sorted_chars.size(); ++i)
+          freq_chars.push_back(sorted_chars[i].second);
+
+        // If there are rare symbols, round up
+        // rare_cnt to the smallest power of two.
+        unsigned rare_cnt_log = 0;
+        if (rare_cnt) {
+          rare_cnt_log = utils::log2ceil(rare_cnt);
+          rare_cnt = (1 << rare_cnt_log);
+        }
+
+        // Store log2 of rare_cnt and freq_cnt into block header.
+        r.m_cblock_header[cblock_id] = freq_cnt_log;
+        r.m_cblock_header[cblock_id] |= (rare_cnt_log << 8);
+
+        // Compute and store symbols mapping.
+        std::sort(freq_chars.begin(), freq_chars.end());
+        std::sort(rare_chars.begin(), rare_chars.end());
+        std::fill(isfreq, isfreq + 256, false);
+        for (unsigned c = 0; c < 256; ++c)
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_missing;
+        for (unsigned i = 0; i < freq_chars.size(); ++i) {
+          unsigned char c = freq_chars[i];
+          isfreq[c] = true;
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_freq;
+        }
+        for (unsigned i = 0; i < rare_chars.size(); ++i) {
+          unsigned char c = rare_chars[i];
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_rare;
+        }
+
         phase_1 += utils::wclock() - start;
+
+
 
         if (freq_cnt >= 128) {
           // Set that the cblock is encoded using method for random strings.
@@ -378,49 +427,6 @@ class rank4n {
           phase_7 += utils::wclock() - start;*/
 
         } else {
-          // Recompute rare_cnt (note the +1).
-          rare_cnt = 0;
-          if (sorted_chars.size() + 1 > freq_cnt)
-            rare_cnt = sorted_chars.size() + 1 - freq_cnt;
-
-          // Compute freq and rare chars.
-          rare_chars.clear();
-          freq_chars.clear();
-          for (unsigned i = 0; i < rare_cnt; ++i)
-            rare_chars.push_back(sorted_chars[i].second);
-          for (unsigned i = rare_cnt; i < sorted_chars.size(); ++i)
-            freq_chars.push_back(sorted_chars[i].second);
- 
-          // If there are rare symbols, round up
-          // rare_cnt to the smallest power of two.
-          unsigned rare_cnt_log = 0;
-          if (rare_cnt) {
-            rare_cnt_log = utils::log2ceil(rare_cnt);
-            rare_cnt = (1 << rare_cnt_log);
-          }
-
-          // Store log2 of rare_cnt and freq_cnt into block header.
-          r.m_cblock_header[cblock_id] = freq_cnt_log;
-          r.m_cblock_header[cblock_id] |= (rare_cnt_log << 8);
-
-          // Compute and store symbols mapping.
-          std::sort(freq_chars.begin(), freq_chars.end());
-          std::sort(rare_chars.begin(), rare_chars.end());
-          std::fill(isfreq, isfreq + 256, false);
-          for (unsigned c = 0; c < 256; ++c)
-            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_missing;
-          for (unsigned i = 0; i < freq_chars.size(); ++i) {
-            unsigned char c = freq_chars[i];
-            isfreq[c] = true;
-            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
-            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_freq;
-          }
-          for (unsigned i = 0; i < rare_chars.size(); ++i) {
-            unsigned char c = rare_chars[i];
-            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
-            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_rare;
-          }
-
           // Update rare_trunk_size.
           if (rare_cnt) {
             unsigned nofreq_cnt = 0L;
