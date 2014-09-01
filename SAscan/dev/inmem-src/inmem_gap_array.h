@@ -5,8 +5,6 @@
 #include <algorithm>
 #include <mutex>
 
-#include "parallel_utils.h"
-
 
 struct inmem_gap_array {
   inmem_gap_array(long length, long)

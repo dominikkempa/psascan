@@ -5,7 +5,6 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "parallel_utils.h"
 #include "utils.h"
 
 struct bitvector {
