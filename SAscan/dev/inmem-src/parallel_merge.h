@@ -96,14 +96,21 @@ void answer_single_gap_query(inmem_gap_array *gap, long length, long block_size,
 
 
 //==============================================================================
-// Compute gap[beg] + .. + gap[end - 1] and store into result.
+// Compute gap[0] + gap[1] + .. + gap[j - 1] with the help of gapsum array.
 //==============================================================================
-void compute_sum(inmem_gap_array *gap, long beg, long end, long &result) {
-  long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), end)
-           - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), beg);
-  result = 256L * occ;
-  for (long i = beg; i < end; ++i)
+long compute_sum3(inmem_gap_array *gap, long j, long max_block_size, long *gapsum) {
+  long block_id = j / max_block_size;
+  long result = gapsum[block_id];
+
+  long scan_beg = block_id * max_block_size;
+  long scan_end = j;
+  long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), scan_end - 1)
+           - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), scan_beg);
+  result += 256 * std::max(0L, occ);
+  for (long i = block_id * max_block_size; i < j; ++i)
     result += gap->m_count[i];
+
+  return result;
 }
 
 //==============================================================================
@@ -117,9 +124,9 @@ void compute_sum2(inmem_gap_array *gap, long range_beg, long range_end,
     long block_end = std::min(block_beg + max_block_size, length);
 
     // Process block.
-    long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), block_end)
+    long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), block_end - 1)
              - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), block_beg);
-    long block_gap_sum = 256 * occ;
+    long block_gap_sum = 256 * std::max(0L, occ);
     for (long j = block_beg; j < block_end; ++j)
       block_gap_sum += gap->m_count[j];
 
@@ -140,9 +147,14 @@ void compute_sum2(inmem_gap_array *gap, long range_beg, long range_end,
 // To answer each of the queries we start a separate thread. Each thread uses
 // the partial sums of gap array at block boundaries to find a good starting
 // point for search and then scans the gap array from there.
+//
+//------------------------------------------------------------------------------
+//
+// NEW: also returns gap[0] + gap[1] +  .. + gap[i0].
+//
 //==============================================================================
-void answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
-    long *a, long *b, long *c, long max_threads) {
+long answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
+    long *a, long *b, long *c, long max_threads, long i0) {
   //----------------------------------------------------------------------------
   // STEP 1: split gap array into at most blocks and in parallel compute sum
   // of values inside each block.
@@ -191,7 +203,14 @@ void answer_gap_queries(inmem_gap_array *gap, long length, long n_queries,
   fprintf(stderr, "%.2Lf ", utils::wclock() - start);
   for (long i = 0; i < n_queries; ++i) delete threads[i];
   delete[] threads;
+
+  long result = -1;
+  if (i0 != -1) 
+    result = compute_sum3(gap, i0 + 1, max_block_size, gapsum);
+
   delete[] gapsum;
+
+  return result;
 }
 
 
@@ -347,9 +366,15 @@ void parallel_permute(T *tab, T** index, std::mutex *mutexes,
 //
 // The function is almost in-place and fully parallelized.
 // Add here the exact extra space usage.
+//
+//------------------------------------------------------------------------------
+//
+// NEW: returns gap[0] + gap[1] + .. + gap[i0].
+//
 //==============================================================================
 template<typename T, unsigned pagesize_bits>
-void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
+long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
+    long i0) {
   static const unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
@@ -387,8 +412,8 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
 
   // Answer these queries in parallel and convert the
   // answers to left_idx, right_idx and remaining_gap values.
-  answer_gap_queries(gap, n1 + 1, n_threads, gap_query,
-      gap_answer_a, gap_answer_b, max_threads);
+  long result = answer_gap_queries(gap, n1 + 1, n_threads, gap_query,
+      gap_answer_a, gap_answer_b, max_threads, i0);
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
     long j = gap_answer_a[i], s = gap_answer_b[i];
@@ -486,6 +511,8 @@ void merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads) {
   delete[] threads;
   delete[] mutexes;
   delete[] pageindex;
+
+  return result;
 }
 
 #endif  // __PARALLEL_MERGE_H_INCLUDED

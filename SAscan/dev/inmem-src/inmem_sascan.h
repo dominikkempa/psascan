@@ -35,6 +35,9 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
 
+  unsigned char *bwt = (unsigned char *)malloc(text_length);
+
+
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
   //----------------------------------------------------------------------------
@@ -51,6 +54,7 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   initial_partial_sufsort(text, text_length, gt, sa, max_blocks);
   fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
 
+
   //----------------------------------------------------------------------------
   // STEP 2: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging. Also, create block description array.
@@ -61,10 +65,11 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
     gt_end_to_gt_begin(text, text_length, gt, max_blocks);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
 
-    balanced_merge<T>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, false);
+    balanced_merge<T>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, bwt, false);
   }
 
   delete gt;
+  free(bwt);
 }
 
 

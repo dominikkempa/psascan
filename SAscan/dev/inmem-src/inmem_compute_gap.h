@@ -81,8 +81,8 @@
 
 template<typename T>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
-    long left_block_size, long right_block_size, T *partial_sa,
-    bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt,
+    long left_block_size, long right_block_size, T *partial_sa, unsigned char *bwt_check,
+    bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
     long stream_buffer_size = (1L << 20)) {
   long double start;
 
@@ -98,10 +98,17 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
   fprintf(stderr, "    Computing bwt: ");
   start = utils::wclock();
-  long i0 = bwt_from_sa_into_dest<T>(partial_sa,
+  bwt_from_sa_into_dest<T>(partial_sa,
       left_block, left_block_size, bwt, max_threads);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
 
+  //
+  if (!std::equal(bwt, bwt + left_block_size, bwt_check)) {
+    fprintf(stdout, "bwts are different!\n");
+    std::fflush(stdout);
+    std::exit(EXIT_FAILURE);
+  }
+  //
 
   //----------------------------------------------------------------------------
   // STEP 2: build rank data structure over BWT and delete BWT.
