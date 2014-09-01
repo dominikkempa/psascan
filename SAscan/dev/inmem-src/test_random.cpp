@@ -110,10 +110,10 @@ int main() {
   dup2(redir, 2);
   close(redir);
 
-//  test_random(10000, 10, 5);
-//  test_random(10000, 10, 20);
-//  test_random(10000, 10, 128);
-//  test_random(10000, 10, 255);
+  test_random(100, 10, 5);
+  test_random(100, 10, 20);
+  test_random(100, 10, 128);
+  test_random(100, 10, 255);
 
   test_random(100, 1000, 5);
   test_random(100, 1000, 20);

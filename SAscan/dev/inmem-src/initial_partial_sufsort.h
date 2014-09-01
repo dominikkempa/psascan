@@ -11,10 +11,15 @@
 //==============================================================================
 // Rename the given block using its gt bitvector.
 //==============================================================================
-void rename_block(unsigned char *block, long block_length, bitvector *gt) {
+void rename_block(unsigned char *text, long block_beg, long block_length,
+    bitvector *gt) {
+  long block_end = block_beg + block_length;
+
+  unsigned char *block = text + block_beg;
   unsigned char last = block[block_length - 1];
   for (long i = 0; i + 1 < block_length; ++i)
-    if (block[i] > last || (block[i] == last && gt->get(i + 1))) ++block[i];
+    if (block[i] > last || (block[i] == last && gt->get(block_end - i - 2)))
+      ++block[i];
   ++block[block_length - 1];
 }
 
@@ -37,9 +42,10 @@ void rerename_block(unsigned char *block, long block_length) {
 //==============================================================================
 template<typename T>
 void initial_partial_sufsort(unsigned char *text, long text_length,
-    bitvector** &gt, T* &partial_sa, long max_threads) {
+    bitvector* &gt, T* &partial_sa, long max_threads) {
   long double start = utils::wclock();
   long max_block_size = (text_length + max_threads - 1) / max_threads;
+  while (max_block_size & 7) ++max_block_size;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   // Rename the blocks in parallel.
@@ -51,7 +57,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     long block_end = std::min(block_beg + max_block_size, text_length);
     long block_size = block_end - block_beg;
     threads[i] = new std::thread(rename_block,
-        text + block_beg, block_size, gt[i]);
+        text, block_beg, block_size, gt);
   }
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();
   for (long i = 0; i < n_blocks; ++i) delete threads[i];

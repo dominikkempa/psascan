@@ -13,25 +13,30 @@
 // Compute bitvectors bv[0..ref_pos) and undecided[0..ref_pos), where:
 //   undecided[i] == 0 iff lcp(text[0..txtlen), text[ref_pos..txtlen)) < max_lcp
 //   gt[i] == 1 iff undecided[i] == 0 and text[0..txtlen) > text[ref_pos..txtlen)
+//
+// NOTE: we store the gt bitvector reversed, so that later we can overwrite
+// it with gt_begin in place.
 //==============================================================================
-void compute_partial_gt(unsigned char *text, long ref_pos, long max_lcp,
-    long txtlen, bitvector *gt, bitvector *undecided, bool &all_decided) {
+void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
+    long end, long max_lcp, bitvector *gt, bitvector *undecided, bool &all_decided) {
   long i = 0, el = 0, s = 0, p = 0, r = 0;
   long i_max = 0, el_max = 0, s_max = 0, p_max = 0, r_max = 0;
 
-  unsigned char *pat = text + ref_pos;
+  unsigned char *txt = text + begin;
+  unsigned char *pat = text + end;
+  long range_size = end - begin;
 
   all_decided = true;
-  while (i < ref_pos) {
-    while (el < max_lcp && text[i + el] == pat[el])
+  while (i < range_size) {
+    while (el < max_lcp && txt[i + el] == pat[el])
       next(pat, ++el, s, p, r);
      
     if (el < max_lcp) {
-      if (text[i + el] > pat[el]) gt->set(i);
-    } else if (ref_pos + el == txtlen) {
-      gt->set(i);
+      if (txt[i + el] > pat[el]) gt->set(end - i - 1);
+    } else if (end + el == text_length) {
+      gt->set(end - i - 1);
     } else {
-      undecided->set(i);
+      undecided->set(begin + i);
       all_decided = false;
     }
 
@@ -48,18 +53,18 @@ void compute_partial_gt(unsigned char *text, long ref_pos, long max_lcp,
       ++i;
       el = 0;
     } else if (p > 0 && (p << 2) <= el && !memcmp(pat, pat + p, s)) {
-      for (long k = 1; k < std::min(p, ref_pos - i); ++k) {
-        if (undecided->get(j + k)) undecided->set(i + k);
-        if (gt->get(j + k)) gt->set(i + k);
+      for (long k = 1; k < std::min(p, range_size - i); ++k) {
+        if (undecided->get(begin + j + k)) undecided->set(begin + i + k);
+        if (gt->get(end - (j + k) - 1)) gt->set(end - (i + k) - 1);
       }
 
       i += p;
       el -= p;
     } else {
       long h = (el >> 2) + 1;
-      for (long k = 1; k < std::min(h, ref_pos - i); ++k) {
-        if (undecided->get(j + k)) undecided->set(i + k);
-        if (gt->get(j + k)) gt->set(i + k);
+      for (long k = 1; k < std::min(h, range_size - i); ++k) {
+        if (undecided->get(begin + j + k)) undecided->set(begin + i + k);
+        if (gt->get(end - (j + k) - 1)) gt->set(end - (i + k) - 1);
       }
 
       i += h;
@@ -76,25 +81,29 @@ void compute_partial_gt(unsigned char *text, long ref_pos, long max_lcp,
 // [mb_beg..mb_end)) of all gt bitvectors to their correct values.
 //==============================================================================
 void compute_final_gt(long length, long max_block_size,
-    long mb_beg, long mb_end, bitvector** &gt, bitvector** &undecided,
+    long mb_beg, long mb_end, bitvector* &gt, bitvector* &undecided,
     bool *all_decided) {
 
-  // Go through blocks right-to-left.
+  // Go through blocks right to left.
   long n_blocks = (length + max_block_size - 1) / max_block_size;
-  for (long i = n_blocks - 1; i >= 0; --i) {
-    if (all_decided[i]) continue; // optimization
-    long beg = i * max_block_size;
-    long end = std::min(beg + max_block_size, length);
-    long block_size = end - beg;
-    long this_mb_end = std::min(block_size, mb_end);
+  for (long i = n_blocks - 1, next_block_end = length; i >= 0; --i) {
+    long block_beg = i * max_block_size;
+    long block_end = std::min(block_beg + max_block_size, length);
+    long this_block_size = block_end - block_beg;
+    long this_mb_end = std::min(this_block_size, mb_end);
 
-    // Scan the bits inside the microblock of block i.
-    for (long j = mb_beg; j < this_mb_end; ++j) {
-      if (undecided[i]->get(j)) {
-        // j-th bit of gt[i] was undecided -> copy it from the right.
-        if (gt[i + 1]->get(j)) gt[i]->set(j);
+    if (!all_decided[i]) {
+      // Scan the bits inside the microblock of block i.
+      for (long j = mb_beg; j < this_mb_end; ++j) {
+        if (undecided->get(block_beg + j)) {
+          // j-th bit of gt[i] was undecided -> copy it from the right.
+          if (gt->get(next_block_end - j - 1))
+            gt->set(block_end - j - 1);
+        }
       }
     }
+
+    next_block_end = block_end;
   }
 }
 
@@ -103,9 +112,10 @@ void compute_final_gt(long length, long max_block_size,
 // Fully parallel computation of gt bitvectors.
 //==============================================================================
 void compute_initial_gt_bitvectors(unsigned char *text, long length,
-    bitvector** &gt, long max_blocks, long max_threads) {
+    bitvector* &gt, long max_blocks, long max_threads) {
   long double start;
   long max_block_size = (length + max_blocks - 1) / max_blocks;
+  while (max_block_size & 7) ++max_block_size;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 
 
@@ -116,16 +126,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   // Allocate ane zero-initialize (in parallel) bitvectors.
   fprintf(stderr, "  Allocating: ");
   start = utils::wclock();
-  bitvector **undecided = new bitvector*[n_blocks];
-  gt = new bitvector*[n_blocks];
-  for (long i = 0; i < n_blocks; ++i) {
-    long beg = i * max_block_size;
-    long end = std::min(beg + max_block_size, length);
-    long this_block_size = end - beg;
-
-    undecided[i] = new bitvector(this_block_size, max_threads);
-    gt[i] = new bitvector(this_block_size, max_threads);
-  }
+  gt = new bitvector(length, max_threads);
+  bitvector *undecided = new bitvector(length, max_threads);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // all_decided[i] == true, if all bits inside block i were
@@ -143,9 +145,9 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
     long this_block_size = end - beg;
 
     // Compute bitvectors 'gt' and 'undecided' for block i.
-    threads[i] = new std::thread(compute_partial_gt, text + beg,
-      this_block_size, next_block_size, length - beg, gt[i],
-      undecided[i], std::ref(all_decided[i]));
+    threads[i] = new std::thread(compute_partial_gt_end,
+        text, length, beg, end, next_block_size, gt,
+        undecided, std::ref(all_decided[i]));
 
     next_block_size = this_block_size;
   }
@@ -184,9 +186,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
 
   fprintf(stderr, "  Deallocating: ");
   start = utils::wclock();
-  for (long i = 0; i < n_blocks; ++i) delete undecided[i];
   delete[] threads;
-  delete[] undecided;
+  delete undecided;
   delete[] all_decided;
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 }

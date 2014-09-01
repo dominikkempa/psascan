@@ -32,6 +32,11 @@ struct bitvector {
     m_data[i >> 3] &= (~(1 << (i & 7)));
   }
 
+  inline void flip(long i) {
+    if (get(i)) reset(i);
+    else set(i);
+  }
+
   ~bitvector() {
     delete[] m_data;
   }

@@ -22,6 +22,13 @@
 #include "inmem_update.h"
 
 
+//==============================================================================
+// The main streaming function.
+//
+// Note:
+//    * it reads and writes bits in range
+//      [stream_block_beg..stream_block_end) from gt bitvector right to left.
+//==============================================================================
 template<typename block_offset_type>
 void inmem_parallel_stream(
     unsigned char *text,
@@ -37,10 +44,6 @@ void inmem_parallel_stream(
     long gap_range_size,
     long n_increasers,
     bitvector *gt,
-    bitvector *gt_out,
-    bool compute_gt_out,
-    long gt_out_origin,
-    long gt_origin,
     block_offset_type *temp,
     int *oracle) {
 
@@ -66,6 +69,7 @@ void inmem_parallel_stream(
   // STEP 2: perform the actual streaming.
   //----------------------------------------------------------------------------
   long j = stream_block_end;
+  bool gt_bit = gt->get(j - 1);
   while (j > stream_block_beg) {
     //--------------------------------------------------------------------------
     // Get a buffer from the poll of empty buffers.
@@ -83,29 +87,26 @@ void inmem_parallel_stream(
     b->m_filled = std::min(left, b->m_size);
     std::fill(block_count, block_count + n_buckets, 0);
 
-    if (!compute_gt_out) {  // Version that does not compute gt_out.
-      for (long t = 0; t < b->m_filled; ++t, --j) {
-        bool gt_bit = gt->get(j - gt_origin);
-        unsigned char c = text[j - 1];
+    for (long t = 0; t < b->m_filled; ++t) {
 
-        int delta = (i > i0 && c == 0);
-        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
-        if (c == last && gt_bit) ++i;
-        temp[t] = i;
-        block_count[i >> bucket_size_bits]++;
-      }
-    } else {  // Compute gt_out.
-      for (long t = 0; t < b->m_filled; ++t, --j) {
-        bool gt_bit = gt->get(j - gt_origin);
-        unsigned char c = text[j - 1];
-        int delta = (i > i0 && c == 0);
-        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
-        if (c == last && gt_bit) ++i;
-        if (i > i0) gt_out->set(j - 1 - gt_out_origin);  // write bit of gt_out
-        temp[t] = i;
-        block_count[i >> bucket_size_bits]++;
-      }    
-    }
+      bool new_gt_bit = (i > i0);
+
+      if (new_gt_bit) gt->set(j - 1);
+      else gt->reset(j - 1);
+
+      unsigned char c = text[j - 1];
+
+      // Compute new i.
+      int delta = (new_gt_bit && c == 0);
+      i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+      if (c == last && gt_bit) ++i;
+
+      temp[t] = i;
+      block_count[i >> bucket_size_bits]++;
+
+      --j;
+      gt_bit = gt->get(j - 1);
+    }    
 
     //--------------------------------------------------------------------------
     // Partition the buffer into equal n_increasers parts.

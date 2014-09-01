@@ -13,15 +13,12 @@
 
 
 struct block_description {
-  block_description(long beg = 0, long end = 0,
-      bitvector *gt = NULL) {
+  block_description(long beg = 0, long end = 0) {
     m_beg = beg;
     m_end = end;
-    m_gt = gt;
   }
 
   long m_beg, m_end;
-  bitvector *m_gt;
 };
 
 
@@ -44,15 +41,15 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
   //----------------------------------------------------------------------------
-  bitvector **initial_gt;
   fprintf(stderr, "Compute initial bitvectors:\n");
+  bitvector *gt;
   start = utils::wclock();
-  compute_initial_gt_bitvectors(text, text_length, initial_gt, max_blocks, max_threads);
+  compute_initial_gt_bitvectors(text, text_length, gt, max_blocks, max_threads);
   fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
-  initial_partial_sufsort(text, text_length, initial_gt, sa, max_blocks);
+  initial_partial_sufsort(text, text_length, gt, sa, max_blocks);
   fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
 
 
@@ -61,30 +58,21 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   //         side during the merging. Also, create block description array.
   //----------------------------------------------------------------------------
   long max_block_size = (text_length + max_blocks - 1) / max_blocks;
+  while (max_block_size & 7) ++max_block_size;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   std::vector<block_description> block_desc;
-  fprintf(stderr, "Overwriting gt_end with gt_begin:\n");
-  long double start1 = utils::wclock();
+  fprintf(stderr, "Overwriting gt_end with gt_begin: ");
+  start = utils::wclock();
+  gt_end_to_gt_begin(text, text_length, gt, max_blocks);
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+  // Create initial blocks.
   for (long i = 0; i < n_blocks; ++i) {
     long block_beg = i * max_block_size;
     long block_end = std::min(block_beg + max_block_size, text_length);
-
-    bitvector *gt = NULL;
-    if ((i & 1) || (i > 0 && i == n_blocks - 1)) {
-      fprintf(stderr, "  Processing block %ld: ", i);
-      start = utils::wclock();
-      change_gt_reference_point(text, text_length, block_beg,
-          block_end, initial_gt[i], gt, max_threads);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-    }
-    delete initial_gt[i];
-
-    block_desc.push_back(block_description(block_beg, block_end, gt));
+    block_desc.push_back(block_description(block_beg, block_end));
   }
-  delete[] initial_gt;
-  fprintf(stderr, "  %.2Lf\n", utils::wclock() - start1);
-
 
   //----------------------------------------------------------------------------
   // STEP 3: keep merging blocks until we have only one left.
@@ -94,17 +82,15 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
 
     for (long i = 0; i < n_blocks; i += 2) {
       // Check if block has no right neighbour to merge
-      // with. If ues, promote to the next merging roung.
+      // with. If yes, promote to the next merging roung.
       if (i + 1 == n_blocks) {
         new_block_desc.push_back(block_desc[i]);
         break;
       }
 
-
       //------------------------------------------------------------------------
       // Merge blocks with description in block_desc[i] and block_desc[i + 1].
       //------------------------------------------------------------------------
-
       fprintf(stderr, "Merging blocks [%ld..%ld) and [%ld..%ld):\n",
           block_desc[i].m_beg, block_desc[i].m_end,
           block_desc[i + 1].m_beg, block_desc[i + 1].m_end);
@@ -117,25 +103,16 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
       long rend = block_desc[i + 1].m_end;
       long lsize = block_desc[i].m_end - lbeg;
       long rsize = rend - block_desc[i + 1].m_beg;
-      bool compute_gt_out = (((i >> 1) & 1) || (i > 0 && i + 2 == n_blocks));
 
       // 2
       //
-      // Compute gap and new gt bitvector (if necessary).
-      // fprintf(stderr, "computing gap array: ");
-      bitvector *gt_out;
+      // Compute gap and new gt bitvector.
       inmem_gap_array *gap;
       fprintf(stderr, "  Computing gap:\n");
-      start1 = utils::wclock();
-      inmem_compute_gap(text, text_length, lbeg, lsize, rsize, sa + lbeg,
-          block_desc[i + 1].m_gt, gt_out, compute_gt_out, gap, max_threads,
-          (1L << 21));
+      long double start1 = utils::wclock();
+      inmem_compute_gap(text, text_length, lbeg, lsize, rsize,
+          sa + lbeg, gt, gap, max_threads, (1L << 21));
       fprintf(stderr, "    Time: %.2Lf\n", utils::wclock() - start1);
-
-      fprintf(stderr, "  Deleting old gt: ");
-      start1 = utils::wclock();
-      delete block_desc[i + 1].m_gt;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - start1);
 
       // 3
       //
@@ -155,12 +132,14 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
       // 4
       //
       // Promote the merged block to the next round.
-      new_block_desc.push_back(block_description(lbeg, rend, gt_out));
+      new_block_desc.push_back(block_description(lbeg, rend));
     }
 
     block_desc = new_block_desc;
     n_blocks = (long)block_desc.size();
   }
+
+  delete gt;
 }
 
 

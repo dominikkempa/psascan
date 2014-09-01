@@ -20,7 +20,7 @@ void test(unsigned char *text, T text_length,
   inmem_sascan(text, text_length, computed_sa, max_blocks, max_threads);
   fprintf(stderr, "\nTotal time: %.2Lf\n", utils::wclock() - start);
 
-  /*fprintf(stderr, "\nRunning divsufsort\n");
+  fprintf(stderr, "\nRunning divsufsort\n");
   T *correct_sa = new T[text_length];
   start = utils::wclock();
   run_divsufsort(text, correct_sa, text_length);
@@ -30,7 +30,7 @@ void test(unsigned char *text, T text_length,
     fprintf(stderr, "FAIL\n");
   else fprintf(stderr, "OK\n");
 
-  delete[] correct_sa;*/
+  delete[] correct_sa;
   delete[] computed_sa;
 }
 

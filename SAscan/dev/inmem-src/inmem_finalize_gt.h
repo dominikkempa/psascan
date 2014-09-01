@@ -41,13 +41,13 @@ void finalize_gt_aux(unsigned char *text, long text_length, long left_block_beg,
     long left_block_size, long range_beg, long range_end, bitvector *gt_in,
     bitvector *gt_out) {
   // We avoid the redundant long comparisong, gt_out[0] (correctly) stays 0.
-  if (range_beg == left_block_beg) ++range_beg;
+  // if (range_beg == left_block_beg) ++range_beg;
 
   // Run string range matching, i is relative to left_block_beg,
   // its valid values are inside range [range_beg - left_block_beg .. 
   // range_end - left_block_beg).
   unsigned char *pat = text + left_block_beg, *txt = pat;
-  long i = range_beg - left_block_beg, el = 0L, s = 0L, p = 0L, r = 0L;
+  long i = /*range_beg - left_block_beg*/1, el = 0L, s = 0L, p = 0L, r = 0L;
   long i_max = i, el_max = 0L, s_max = 0L, p_max = 0L, r_max = 0L;
   while (i < range_end - left_block_beg) {
     // Compute lcp(text[left_block_beg..), text[left_block_beg+i..),
@@ -58,7 +58,7 @@ void finalize_gt_aux(unsigned char *text, long text_length, long left_block_beg,
 
     if (left_block_beg + i + el != text_length &&
          ((el < left_block_size && txt[i + el] > pat[el]) ||
-         (el == left_block_size && gt_in->get(i)))) gt_out->set(i);
+         (el == left_block_size && gt_in->get(left_block_beg + i - 1)))) gt_out->set(i - 1);
 
     long j = i_max;
     if (el > el_max) {
@@ -71,14 +71,14 @@ void finalize_gt_aux(unsigned char *text, long text_length, long left_block_beg,
 
     if (p > 0L && 3L * p <= el && !memcmp(pat, pat + p, s)) {
       for (long k = 1L; k < std::min(range_end - left_block_beg - i, p); ++k)
-        if (gt_out->get(j + k)) gt_out->set(i + k);
+        if (gt_out->get((j + k) - 1)) gt_out->set((i + k) - 1);
 
       i += p;
       el -= p;
     } else {
       long h = (el / 3L) + 1L;
       for (long k = 1L; k < std::min(range_end - left_block_beg - i, h); ++k)
-        if (gt_out->get(j + k)) gt_out->set(i + k);
+        if (gt_out->get((j + k) - 1)) gt_out->set((i + k) - 1);
 
       i += h;
       el = 0;
@@ -109,21 +109,27 @@ void finalize_gt(unsigned char *text, long text_length, long left_block_beg,
   // Max range size has to be a multiple of 8. Otherwise two
   // threads might try to update bits in the same byte.
   long left_block_end = left_block_beg + left_block_size;
-  long max_range_size = (left_block_size + max_threads - 1) / max_threads;
-  while (max_range_size & 7) ++max_range_size;
-  long n_blocks = (left_block_size + max_range_size - 1) / max_range_size;
+//  long max_range_size = (left_block_size + max_threads - 1) / max_threads;
+//  while (max_range_size & 7) ++max_range_size;
+//  long n_blocks = (left_block_size + max_range_size - 1) / max_range_size;
 
-  std::thread **threads = new std::thread*[n_blocks];
+  std::thread *th = new std::thread(finalize_gt_aux, text, text_length,
+      left_block_beg, left_block_size, left_block_beg, left_block_end, gt_in, gt_out);
+  th->join();
+  delete th;
+
+/*  std::thread **threads = new std::thread*[n_blocks];
   for (long i = 0; i < n_blocks; ++i) {
     long range_beg = left_block_beg + i * max_range_size;
     long range_end = std::min(range_beg + max_range_size, left_block_end);
     
     threads[i] = new std::thread(finalize_gt_aux, text, text_length,
         left_block_beg, left_block_size, range_beg, range_end, gt_in, gt_out);
+    threads[i]->join();
   }
-  for (long i = 0; i < n_blocks; ++i) threads[i]->join();
+  //for (long i = 0; i < n_blocks; ++i) threads[i]->join();
   for (long i = 0; i < n_blocks; ++i) delete threads[i];
-  delete[] threads;
+  delete[] threads;*/
 }
 
 #endif  // __INMEM_FINALIZE_GT_H
