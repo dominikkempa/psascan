@@ -374,7 +374,7 @@ void parallel_permute(T *tab, T** index, std::mutex *mutexes,
 //==============================================================================
 template<typename T, unsigned pagesize_bits>
 long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
-    long i0) {
+    long i0, long what_to_add) {
   static const unsigned pagesize = (1U << pagesize_bits);
   long length = n1 + n2;
 
@@ -439,7 +439,7 @@ long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
 
     threads[i] = new std::thread(parallel_merge<T, pagesize_bits>,
       tab, gap, length, pageindex, left_idx[i], right_idx[i],
-      remaining_gap[i], res_beg, res_size, n1);
+      remaining_gap[i], res_beg, res_size, what_to_add);
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];

@@ -73,7 +73,7 @@ void read_objects_from_file(T* &tab, long &length, std::string fname) {
   std::rewind(f);
   
   tab = new T[length];
-  read_objects_from_file<T>(tab, length, f);
+  read_objects_from_file(tab, length, f);
   
   std::fclose(f);
 }
@@ -81,7 +81,7 @@ void read_objects_from_file(T* &tab, long &length, std::string fname) {
 template<typename T>
 void read_n_objects_from_file(T* tab, long length, std::string fname) {
   std::FILE *f = open_file(fname, "r");
-  read_objects_from_file<T>(tab, length, f);
+  read_objects_from_file(tab, length, f);
   std::fclose(f);
 }
 

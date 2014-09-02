@@ -60,13 +60,13 @@ long balanced_merge(unsigned char *text, long text_length, T *sa, bitvector *gt,
 
   fprintf(stderr, "  Merging partial SAs: ");
   start1 = utils::wclock();
-  long delta_i0 = merge<T, 12>(sa + lbeg, lsize, rsize, gap, max_threads, left_i0);
+  long delta_i0 = merge<T, 12>(sa + lbeg, lsize, rsize, gap, max_threads, left_i0, lsize);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
   fprintf(stderr, "  Merging BWTs: ");
   start1 = utils::wclock();
   bwt[rbeg + right_i0] = text[rbeg - 1];
-  merge<unsigned char, 12>(bwt + lbeg, lsize, rsize, gap, max_threads, -1);
+  merge<unsigned char, 12>(bwt + lbeg, lsize, rsize, gap, max_threads, -1, 0);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
   fprintf(stderr, "  Deleting gap: ");

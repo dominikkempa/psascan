@@ -81,53 +81,25 @@
 
 template<typename T>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
-    long left_block_size, long right_block_size, T *partial_sa, unsigned char *bwt_check,
+    long left_block_size, long right_block_size, T *partial_sa, unsigned char *bwt,
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
     long stream_buffer_size = (1L << 20)) {
   long double start;
 
   //----------------------------------------------------------------------------
-  // STEP 1: compute BWT from partial_sa. Together with BWT we get the index
-  //         i0, such that partial_sa[i0] = 0.
-  //----------------------------------------------------------------------------
-  fprintf(stderr, "    Allocating bwt: ");
-  start = utils::wclock();
-  unsigned char *left_block = text + left_block_beg;
-  unsigned char *bwt = (unsigned char *)malloc(left_block_size);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-
-  fprintf(stderr, "    Computing bwt: ");
-  start = utils::wclock();
-  bwt_from_sa_into_dest<T>(partial_sa,
-      left_block, left_block_size, bwt, max_threads);
-  fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
-
-  //
-  if (!std::equal(bwt, bwt + left_block_size, bwt_check)) {
-    fprintf(stdout, "bwts are different!\n");
-    std::fflush(stdout);
-    std::exit(EXIT_FAILURE);
-  }
-  //
-
-  //----------------------------------------------------------------------------
-  // STEP 2: build rank data structure over BWT and delete BWT.
+  // STEP 1: build rank data structure over BWT.
   //----------------------------------------------------------------------------
   fprintf(stderr, "    Building rank: ");
   start = utils::wclock();
   rank4n<> *rank = new rank4n<>(bwt, left_block_size, max_threads);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
 
-  fprintf(stderr, "    Deallocating bwt: ");
-  start = utils::wclock();
-  free(bwt);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-
 
   //----------------------------------------------------------------------------
-  // STEP 3: compute symbol counts and the last symbol of the left block.
+  // STEP 2: compute symbol counts and the last symbol of the left block.
   //----------------------------------------------------------------------------
   long *count = new long[256];
+  unsigned char *left_block = text + left_block_beg;
   std::copy(rank->m_count, rank->m_count + 256, count);
   unsigned char last = left_block[left_block_size - 1];
   ++count[last];
@@ -138,7 +110,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 4: compute starting positions for all streaming threads.
+  // STEP 3: compute starting positions for all streaming threads.
   //----------------------------------------------------------------------------
   long left_block_end = left_block_beg + left_block_size;
   long right_block_beg = left_block_end;
@@ -170,7 +142,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 5: allocate gap array. As explained in the description of the module
+  // STEP 4: allocate gap array. As explained in the description of the module
   //         on the top of the page, the gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
@@ -181,7 +153,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 6: allocate buffers and buffer polls.
+  // STEP 5: allocate buffers and buffer polls.
   //----------------------------------------------------------------------------
 
   // Allocate buffers.
@@ -203,7 +175,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 8: stream.
+  // STEP 6: stream.
   //----------------------------------------------------------------------------
 
   // Allocate temp arrays and oracles.
@@ -259,7 +231,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
 
   //----------------------------------------------------------------------------
-  // STEP 9: sort excess values. Consider using gnu parallel sort here.
+  // STEP 7: sort excess values. Consider using gnu parallel sort here.
   //----------------------------------------------------------------------------
   fprintf(stderr, "    Sorting m_excess: ");
   start = utils::wclock();
