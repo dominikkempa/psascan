@@ -146,19 +146,16 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //         on the top of the page, the gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Allocating gap array: ");
+  fprintf(stderr, "    Allocations: ");
   start = utils::wclock();
   gap = new inmem_gap_array(left_block_size + 1, max_threads);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
-  // STEP 5: allocate buffers and buffer polls.
+  // STEP 5: allocate buffers, buffer polls and auxiliary arrays.
   //----------------------------------------------------------------------------
 
   // Allocate buffers.
-  fprintf(stderr, "    Allocating buffers: ");
-  start = utils::wclock();
   long n_stream_buffers = 2 * n_threads;
   buffer<T> **buffers = new buffer<T>*[n_stream_buffers];
   for (long i = 0; i < n_stream_buffers; ++i)
@@ -171,20 +168,17 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Add empty buffers to empty poll.
   for (long i = 0; i < n_stream_buffers; ++i)
     empty_buffers->add(buffers[i]);
+
+  // Allocate temp arrays and oracles.
+  long max_buffer_elems = stream_buffer_size / sizeof(T);
+  T *temp = (T *)malloc(max_buffer_elems * n_threads * sizeof(T));
+  int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
   // STEP 6: stream.
   //----------------------------------------------------------------------------
-
-  // Allocate temp arrays and oracles.
-  start = utils::wclock();
-  fprintf(stderr, "    Allocating temp/oracle: ");
-  long max_buffer_elems = stream_buffer_size / sizeof(T);
-  T *temp = (T *)malloc(max_buffer_elems * n_threads * sizeof(T));
-  int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
-  fprintf(stderr, "%.4Lf\n", utils::wclock() - start);
 
   // Start streaming threads.
   fprintf(stderr, "    Streaming: ");
@@ -213,8 +207,10 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", streaming_time,
       streaming_speed);
 
-  // Clean up.
-  fprintf(stderr, "    Cleaning up: ");
+  //----------------------------------------------------------------------------
+  // Clean up and sort m_excess. Consider using gnu parallel sort.
+  //----------------------------------------------------------------------------
+  fprintf(stderr, "    Cleaning: ");
   start = utils::wclock();
   free(oracle);
   free(temp);
@@ -227,14 +223,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   delete full_buffers;
   delete rank;
   delete[] count;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
-
-  //----------------------------------------------------------------------------
-  // STEP 7: sort excess values. Consider using gnu parallel sort here.
-  //----------------------------------------------------------------------------
-  fprintf(stderr, "    Sorting m_excess: ");
-  start = utils::wclock();
   std::sort(gap->m_excess.begin(), gap->m_excess.end());
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 }

@@ -31,9 +31,8 @@
 
 #include "utils.h"
 
-//#define PRINT_TIMES
 
-template<unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 18, unsigned k_sigma_log = 8>
+template<unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 20, unsigned k_sigma_log = 8>
 class rank4n {
   private:
     static const unsigned k_cblock_size;
@@ -109,7 +108,7 @@ class rank4n {
 
       unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
       bool *cblock_type = new bool[n_cblocks];
-      fprintf(stderr, "%.3Lf ", utils::wclock() - start);
+      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
       fprintf(stderr, "s1: ");
       start = utils::wclock();
