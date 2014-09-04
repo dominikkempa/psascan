@@ -232,16 +232,16 @@ class rank4n {
       unsigned *min_block_size_precomputed = new unsigned[k_sigma];
       unsigned long *refpoint_mask_precomputed = new unsigned long[k_sigma];
 
-      long double phase_1 = 0.L;
+/*      long double phase_1 = 0.L;
       long double phase_2 = 0.L;
       long double phase_3 = 0.L;
       long double phase_4 = 0.L;
       long double phase_4a = 0.L;
       long double phase_4b = 0.L;
-      long double phase_4c = 0.L;
+      long double phase_4c = 0.L;*/
 
       for (unsigned long cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
-        long double start = utils::wclock();
+//        long double start = utils::wclock();
         unsigned long cblock_beg = cblock_id << k_cblock_size_log;
         unsigned long cblock_end = cblock_beg + k_cblock_size;
 
@@ -333,7 +333,7 @@ class rank4n {
           r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_rare;
         }
 
-        phase_1 += utils::wclock() - start;
+//        phase_1 += utils::wclock() - start;
 
 
 
@@ -343,7 +343,7 @@ class rank4n {
  
           // Compute lists of occurrences.
           unsigned *cblock_trunk = r.m_freq_trunk + cblock_beg;
-          start = utils::wclock();
+//          start = utils::wclock();
 
 
 //          for (unsigned long i = cblock_beg; i < cblock_end; ++i) {
@@ -362,10 +362,10 @@ class rank4n {
 //            list_beg2[c] = list_beg[c + 1];
 //          list_beg2[k_sigma - 1] = k_cblock_size;
 
-          phase_2 += utils::wclock() - start;
+//          phase_2 += utils::wclock() - start;
 
           // Precompute some values and store lookup bits into the header.
-          start = utils::wclock();
+//          start = utils::wclock();
           for (unsigned c = 0; c < k_sigma; ++c) {
             lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 2);
             r.m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
@@ -379,7 +379,7 @@ class rank4n {
             unsigned long refpoint_dist_mask_neg = (~refpoint_dist_mask);
             refpoint_mask_precomputed[c] = refpoint_dist_mask_neg;
           }
-          phase_3 += utils::wclock() - start;
+//          phase_3 += utils::wclock() - start;
 
 #if 0
           start = utils::wclock();
@@ -464,7 +464,7 @@ class rank4n {
 
 
 #if 1
-          start = utils::wclock();
+//          start = utils::wclock();
           for (unsigned c = 0; c < k_sigma; ++c) {
             unsigned freq = cblock_count[c];
             unsigned min_block_size = min_block_size_precomputed[c];
@@ -472,22 +472,22 @@ class rank4n {
             unsigned refpoint_dist_mask_neg = refpoint_mask_precomputed[c];
             unsigned c_list_beg = list_beg[c];
 
-            long double start1 = utils::wclock();
+//            long double start1 = utils::wclock();
             for (unsigned j = 0; j < freq; ++j)
               cblock_trunk[c_list_beg + j] = freq + 1;
             if (freq) cblock_trunk[c_list_beg + freq - 1] = freq;
-            phase_4a += utils::wclock() - start1;
+//            phase_4a += utils::wclock() - start1;
 
-            start1 = utils::wclock();
+//            start1 = utils::wclock();
             unsigned block_beg = 0;
             for (unsigned j = 0; j < freq; ++j) {
               refpoint_precomputed[j] = (block_beg & refpoint_dist_mask_neg);
               block_beg += min_block_size;
               if ((((unsigned long)block_beg * freq) >> k_cblock_size_log) == j) ++block_beg;
             }
-            phase_4b += utils::wclock() - start1;
+//            phase_4b += utils::wclock() - start1;
 
-            start1 = utils::wclock();
+//            start1 = utils::wclock();
             unsigned refpoint, block_id;
             unsigned mask = (~((1UL << lookup_bits) - 1));
             if (freq) {
@@ -499,9 +499,9 @@ class rank4n {
                 cblock_trunk[c_list_beg + j] |= ((occ[c_list_beg + j] - refpoint) << lookup_bits);
               }
             }
-            phase_4c += utils::wclock() - start1;
+//            phase_4c += utils::wclock() - start1;
           }
-          phase_4 += utils::wclock() - start;
+//          phase_4 += utils::wclock() - start;
 #endif
 
 #if 0
@@ -579,8 +579,8 @@ class rank4n {
       delete[] refpoint_mask_precomputed;
       free(refpoint_precomputed);
 
-      fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf (%.4Lf + %.4Lf + %.4Lf)\n",
-         phase_1, phase_2, phase_3, phase_4, phase_4a, phase_4b, phase_4c);
+//      fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf (%.4Lf + %.4Lf + %.4Lf)\n",
+//         phase_1, phase_2, phase_3, phase_4, phase_4a, phase_4b, phase_4c);
     }
 
     static void construction_step_3(rank4n &r, unsigned char *text,
