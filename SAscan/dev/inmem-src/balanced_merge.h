@@ -25,7 +25,7 @@ long balanced_merge(unsigned char *text, long text_length, T *sa, bitvector *gt,
   }
 
   // Split blocks almost equally into two groups.
-  long lrange_size = (range_size + 1) / 2;
+  long lrange_size = /*(range_size + 1) / 2*/range_size - 1;
   long rrange_size = range_size - lrange_size;
 
   long lrange_beg = range_beg;

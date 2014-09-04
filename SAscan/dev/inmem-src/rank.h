@@ -108,7 +108,12 @@ class rank4n {
 
       unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
       bool *cblock_type = new bool[n_cblocks];
+
+      unsigned **occ = (unsigned **)malloc(n_ranges * sizeof(unsigned *));
+      for (unsigned long i = 0; i < n_ranges; ++i)
+        occ[i] = (unsigned *)malloc((k_cblock_size + 1) * sizeof(unsigned));
       fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+
 
       fprintf(stderr, "s1: ");
       start = utils::wclock();
@@ -118,11 +123,17 @@ class rank4n {
         unsigned long range_end = std::min(range_beg + range_size, n_cblocks);
 
         threads[i] = new std::thread(construction_step_1, std::ref(*this),
-            text, range_beg, range_end, rare_trunk_size, cblock_type);
+            text, range_beg, range_end, rare_trunk_size, cblock_type, occ[i]);
       }
       for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
+
+      for (unsigned long i = 0; i < n_ranges; ++i) {
+        free(occ[i]);
+      }
+      free(occ);
+
       fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
 
@@ -206,10 +217,12 @@ class rank4n {
 
     static void construction_step_1(rank4n &r, unsigned char *text,
         unsigned long cblock_range_beg, unsigned long cblock_range_end,
-        unsigned long *rare_trunk_size, bool *cblock_type) {
+        unsigned long *rare_trunk_size, bool *cblock_type, unsigned *occ) {
       std::vector<std::pair<uint32_t, unsigned char> > sorted_chars;
       std::vector<unsigned char> freq_chars;
       std::vector<unsigned char> rare_chars;
+
+      unsigned *refpoint_precomputed = (unsigned *)malloc(k_cblock_size * sizeof(unsigned));
 
       unsigned *cblock_count = new unsigned[k_sigma];
       unsigned *list_beg = new unsigned[k_sigma];
@@ -217,12 +230,15 @@ class rank4n {
       bool *isfreq = new bool[k_sigma];
       unsigned *lookup_bits_precomputed = new unsigned[k_sigma];
       unsigned *min_block_size_precomputed = new unsigned[k_sigma];
-      unsigned *occ = (unsigned *)malloc(k_cblock_size * sizeof(unsigned));
+      unsigned long *refpoint_mask_precomputed = new unsigned long[k_sigma];
 
       long double phase_1 = 0.L;
       long double phase_2 = 0.L;
       long double phase_3 = 0.L;
       long double phase_4 = 0.L;
+      long double phase_4a = 0.L;
+      long double phase_4b = 0.L;
+      long double phase_4c = 0.L;
 
       for (unsigned long cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
         long double start = utils::wclock();
@@ -328,24 +344,167 @@ class rank4n {
           // Compute lists of occurrences.
           unsigned *cblock_trunk = r.m_freq_trunk + cblock_beg;
           start = utils::wclock();
-          for (unsigned long i = cblock_beg; i < cblock_end; ++i) {
-            unsigned char c = (i < r.m_length ? text[i] : 0);
+
+
+//          for (unsigned long i = cblock_beg; i < cblock_end; ++i) {
+//            unsigned char c = (i < r.m_length ? text[i] : 0);
+//            occ[list_beg2[c]++] = i - cblock_beg;
+//          }
+          unsigned long maxi = std::min(cblock_end, r.m_length);
+          for (unsigned long i = cblock_beg; i < maxi; ++i) {
+            unsigned char c = text[i];
             occ[list_beg2[c]++] = i - cblock_beg;
           }
+          for (unsigned long i = maxi; i < cblock_end; ++i)
+            occ[list_beg2[0]++] = i - cblock_beg;
+
+//          for (long c = 0; c + 1 < k_sigma; ++c)
+//            list_beg2[c] = list_beg[c + 1];
+//          list_beg2[k_sigma - 1] = k_cblock_size;
+
           phase_2 += utils::wclock() - start;
 
           // Precompute some values and store lookup bits into the header.
           start = utils::wclock();
           for (unsigned c = 0; c < k_sigma; ++c) {
-            lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 1);
+            lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 2);
             r.m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
             if (cblock_count[c])
               min_block_size_precomputed[c] = k_cblock_size / cblock_count[c];
             else min_block_size_precomputed[c] = 0;
+
+            unsigned refpoint_dist_log = 31 - lookup_bits_precomputed[c];
+            unsigned long refpoint_dist = (1UL << refpoint_dist_log);
+            unsigned long refpoint_dist_mask = refpoint_dist - 1;
+            unsigned long refpoint_dist_mask_neg = (~refpoint_dist_mask);
+            refpoint_mask_precomputed[c] = refpoint_dist_mask_neg;
           }
           phase_3 += utils::wclock() - start;
 
+#if 0
+          start = utils::wclock();
+          for (unsigned c = 0; c < k_sigma; ++c) {
+            unsigned freq = cblock_count[c];
+            unsigned min_block_size = min_block_size_precomputed[c];
+            unsigned refpoint_dist_mask_neg = refpoint_mask_precomputed[c];
+            unsigned c_list_beg = list_beg[c];
 
+            long double start1 = utils::wclock();
+            for (unsigned j = 0; j < freq; ++j)
+              cblock_trunk[c_list_beg + j] = freq + 1;
+            if (freq) cblock_trunk[c_list_beg + freq - 1] = freq;
+            phase_4a += utils::wclock() - start1;
+
+            start1 = utils::wclock();
+            unsigned block_beg = 0;
+            for (unsigned j = 0; j < freq; ++j) {
+              refpoint_precomputed[c_list_beg + j] = (block_beg & refpoint_dist_mask_neg);
+              block_beg += min_block_size;
+              if ((((unsigned long)block_beg * freq) >> k_cblock_size_log) == j) ++block_beg;
+            }
+            phase_4b += utils::wclock() - start1;
+          }
+
+          long double start1 = utils::wclock();
+          unsigned refpoint, block_id, mask, freq, lookup_bits;
+
+          long long_cblock_beg = (long)cblock_beg;
+          long long_cblock_end = (long)cblock_end;
+          unsigned char c;
+          long max_i = std::min((long)r.m_length, long_cblock_end);
+          for (long i = long_cblock_end - 1; i >= max_i; --i) {
+            lookup_bits = lookup_bits_precomputed[0];
+            freq = cblock_count[0];
+            mask = (~((1UL << lookup_bits) - 1));
+            block_id = (((i - long_cblock_beg) * freq) >> k_cblock_size_log);
+            refpoint = refpoint_precomputed[list_beg[0] + block_id];
+            cblock_trunk[list_beg[0] + block_id] &= mask;
+            cblock_trunk[list_beg[0] + block_id] |= (list_beg2[0] - list_beg[0] - 1);
+            cblock_trunk[list_beg2[0] - 1] |= (((i - long_cblock_beg) - refpoint) << lookup_bits);
+            --list_beg2[0];
+          }
+          for (long i = max_i - 1; i >= long_cblock_beg; --i) {
+            c = text[i];
+            lookup_bits = lookup_bits_precomputed[c];
+            freq = cblock_count[c];
+            mask = (~((1UL << lookup_bits) - 1));
+            block_id = (((i - long_cblock_beg) * freq) >> k_cblock_size_log);
+            long idx = list_beg[c] + block_id;
+            refpoint = refpoint_precomputed[idx];
+            cblock_trunk[idx] &= mask;
+            cblock_trunk[idx] |= (list_beg2[c] - list_beg[c] - 1);
+            cblock_trunk[list_beg2[c] - 1] |= (((i - long_cblock_beg) - refpoint) << lookup_bits);
+            --list_beg2[c];
+          }
+          phase_4c += utils::wclock() - start1;
+          phase_4 += utils::wclock() - start;
+
+
+          /*for (unsigned c = 0; c < k_sigma; ++c) {
+            unsigned freq = cblock_count[c];
+            unsigned lookup_bits = lookup_bits_precomputed[c];
+            unsigned c_list_beg = list_beg[c];
+
+            long double start1 = utils::wclock();
+            unsigned refpoint, block_id;
+            unsigned mask = (~((1UL << lookup_bits) - 1));
+            if (freq) {
+              for (long j = freq - 1; j >= 0; --j) {
+                block_id = (((unsigned long)occ[c_list_beg + j] * freq) >> k_cblock_size_log);
+                refpoint = refpoint_precomputed[c_list_beg + block_id];
+                cblock_trunk[c_list_beg + block_id] &= mask;
+                cblock_trunk[c_list_beg + block_id] |= (unsigned)j;
+                cblock_trunk[c_list_beg + j] |= ((occ[c_list_beg + j] - refpoint) << lookup_bits);
+              }
+            }
+            phase_4c += utils::wclock() - start1;
+          }
+          phase_4 += utils::wclock() - start;*/
+#endif
+
+
+#if 1
+          start = utils::wclock();
+          for (unsigned c = 0; c < k_sigma; ++c) {
+            unsigned freq = cblock_count[c];
+            unsigned min_block_size = min_block_size_precomputed[c];
+            unsigned lookup_bits = lookup_bits_precomputed[c];
+            unsigned refpoint_dist_mask_neg = refpoint_mask_precomputed[c];
+            unsigned c_list_beg = list_beg[c];
+
+            long double start1 = utils::wclock();
+            for (unsigned j = 0; j < freq; ++j)
+              cblock_trunk[c_list_beg + j] = freq + 1;
+            if (freq) cblock_trunk[c_list_beg + freq - 1] = freq;
+            phase_4a += utils::wclock() - start1;
+
+            start1 = utils::wclock();
+            unsigned block_beg = 0;
+            for (unsigned j = 0; j < freq; ++j) {
+              refpoint_precomputed[j] = (block_beg & refpoint_dist_mask_neg);
+              block_beg += min_block_size;
+              if ((((unsigned long)block_beg * freq) >> k_cblock_size_log) == j) ++block_beg;
+            }
+            phase_4b += utils::wclock() - start1;
+
+            start1 = utils::wclock();
+            unsigned refpoint, block_id;
+            unsigned mask = (~((1UL << lookup_bits) - 1));
+            if (freq) {
+              for (long j = freq - 1; j >= 0; --j) {
+                block_id = (((unsigned long)occ[c_list_beg + j] * freq) >> k_cblock_size_log);
+                refpoint = refpoint_precomputed[block_id];
+                cblock_trunk[c_list_beg + block_id] &= mask;
+                cblock_trunk[c_list_beg + block_id] |= (unsigned)j;
+                cblock_trunk[c_list_beg + j] |= ((occ[c_list_beg + j] - refpoint) << lookup_bits);
+              }
+            }
+            phase_4c += utils::wclock() - start1;
+          }
+          phase_4 += utils::wclock() - start;
+#endif
+
+#if 0
           start = utils::wclock();
           for (unsigned c = 0; c < k_sigma; ++c) {
             unsigned freq = cblock_count[c];
@@ -359,71 +518,44 @@ class rank4n {
             unsigned long refpoint_dist = (1UL << refpoint_dist_log);
             unsigned long refpoint_dist_mask = refpoint_dist - 1;
             unsigned long refpoint_dist_mask_neg = (~refpoint_dist_mask);
-
-            // For each block compute:
-            //   * its boundaries (begin and end)
-            //   * lookup table at entry corresponding to the block
-            //   * store lists of occurrences of all symbols. Each
-            //     value in the occurrence list is a distance to the
-            //     reference block associated with the block containing
-            //     the position. Such reference point is defined as the
-            //     closest reference point to the left of the block begin
             unsigned c_list_beg = list_beg[c];
-            unsigned occ_ptr = 0;
 
-            unsigned prev_block_end = 0;
+
+
+            long double start1 = utils::wclock();
+            for (unsigned j = 0; j < freq; ++j)
+              cblock_trunk[c_list_beg + j] = freq + 1;
+            if (freq) cblock_trunk[c_list_beg + freq - 1] = freq;
+            phase_4a += utils::wclock() - start1;
+
+            start1 = utils::wclock();
+            unsigned block_beg = 0;
             for (unsigned j = 0; j < freq; ++j) {
-              // Process j-th block.
-
-              // 1
-              //
-              // Compute block boundaries.
-              unsigned block_beg = prev_block_end;
-              unsigned block_end = std::min(k_cblock_size, block_beg + min_block_size);
-              if (block_end < k_cblock_size && (((unsigned long)block_end * freq) >> k_cblock_size_log) == j)
-                ++block_end;
-
-              // 2
-              //
-              // Find the range of elements from the current block inside occ[c].
-              unsigned range_beg = occ_ptr;
-              while (occ_ptr < freq && occ[c_list_beg + occ_ptr] < block_end) ++occ_ptr;
-              unsigned range_end = occ_ptr;
-
-              // 3
-              //
-              // Store the value in the lookup table.
-              cblock_trunk[c_list_beg + j] &= (~((1UL << lookup_bits) - 1));
-              cblock_trunk[c_list_beg + j] |= range_beg;
-
-              // 4
-              //
-              // Add the occurrences occ[c][range_beg..range_end) to the
-              // list of c's occurrences in the trunk. Encode them with
-              // respect to the closes reference point on the left of block_beg.
-              unsigned closest_ref_point = (block_beg & refpoint_dist_mask_neg);
-              for (unsigned occ_id = range_beg; occ_id < range_end; ++occ_id) {
-                cblock_trunk[c_list_beg + occ_id] &= ((1 << lookup_bits) - 1);
-                cblock_trunk[c_list_beg + occ_id] |= ((occ[c_list_beg + occ_id] - closest_ref_point) << lookup_bits);
-              }
-              prev_block_end = block_end;
+              block_beg_precomputed[j] = block_beg;
+              block_beg += min_block_size;
+              if ((((unsigned long)block_beg * freq) >> k_cblock_size_log) == j)
+                ++block_beg;
             }
+            phase_4b += utils::wclock() - start1;
+
+            start1 = utils::wclock();
+            unsigned ref_point;
+            unsigned block_id;
+            unsigned mask = (~((1UL << lookup_bits) - 1));
+            if (freq) {
+              for (long j = freq - 1; j >= 0; --j) {
+                block_id = (((unsigned long)occ[c_list_beg + j] * freq) >> k_cblock_size_log);
+                ref_point = (block_beg_precomputed[block_id] & refpoint_dist_mask_neg);
+                cblock_trunk[c_list_beg + block_id] &= mask;
+                cblock_trunk[c_list_beg + block_id] |= (unsigned)j;
+                cblock_trunk[c_list_beg + j] |= ((occ[c_list_beg + j] - ref_point) << lookup_bits);
+              }
+            }
+            phase_4c += utils::wclock() - start1;
           }
           phase_4 += utils::wclock() - start;
+#endif
 
-          // Compute pointers for the lookup table.
-          /*start = utils::wclock();
-          for (long c = 0; c < k_sigma; ++c) {
-            long occ_ptr = 0;
-            long c_list_beg = list_beg[c];
-            long freq = cblock_count[c];
-            for (long j = 0; j < freq; ++j) {
-              cblock_trunk[c_list_beg + j] |= occ_ptr;
-              while (occ_ptr < freq && fast_occ[c_list_beg + occ_ptr] < block_end_precomputed[c_list_beg + j])
-                ++occ_ptr;                                                                      
-            }                                                                                 
-          }
-          phase_7 += utils::wclock() - start;*/
 
         } else {
           // Update rare_trunk_size.
@@ -440,14 +572,15 @@ class rank4n {
       }
       delete[] list_beg;
       delete[] list_beg2;
-      delete[] occ;
       delete[] isfreq;
       delete[] cblock_count;
       delete[] lookup_bits_precomputed;
       delete[] min_block_size_precomputed;
+      delete[] refpoint_mask_precomputed;
+      free(refpoint_precomputed);
 
-      // fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf\n",
-      //    phase_1, phase_2, phase_3, phase_4);
+      fprintf(stderr, "          P1: %.4Lf, P2: %.4Lf, P3: %.4Lf, P4: %.4Lf (%.4Lf + %.4Lf + %.4Lf)\n",
+         phase_1, phase_2, phase_3, phase_4, phase_4a, phase_4b, phase_4c);
     }
 
     static void construction_step_3(rank4n &r, unsigned char *text,
@@ -624,7 +757,24 @@ class rank4n {
         // Extract the lookup table entry.
         long lookup_mask = (1 << lookup_bits) - 1;
         long begin = (m_freq_trunk[cblock_beg + list_beg + approx] & lookup_mask);
-        long next_block_begin =  (approx + 1 == list_size) ? list_size : (m_freq_trunk[cblock_beg + list_beg + approx + 1] & lookup_mask);
+
+        // Empty block optimization.
+        if (begin == list_size + 1) { // block containing cblock_i is empty, just find the beginning.
+          ++approx;
+          while ((m_freq_trunk[cblock_beg + list_beg + approx] & lookup_mask) == list_size + 1) ++approx;
+          begin = (m_freq_trunk[cblock_beg + list_beg + approx] & lookup_mask);
+          return rank_up_to_cblock + begin;
+        }
+        
+        long next_block_begin =  (approx + 1 == list_size) ? list_size :
+          (m_freq_trunk[cblock_beg + list_beg + approx + 1] & lookup_mask);
+
+        // correct next_block_begin
+        if (approx + 1 != list_size && next_block_begin == list_size + 1) {
+          ++approx;
+          while ((m_freq_trunk[cblock_beg + list_beg + approx + 1] & lookup_mask) == list_size + 1) ++approx;
+          next_block_begin = (m_freq_trunk[cblock_beg + list_beg + approx + 1] & lookup_mask);
+        }
 
         // 6
         //
