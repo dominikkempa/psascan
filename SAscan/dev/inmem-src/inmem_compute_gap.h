@@ -148,7 +148,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   fprintf(stderr, "    Allocations: ");
   start = utils::wclock();
-  gap = new inmem_gap_array(left_block_size + 1, max_threads);
+  gap = new inmem_gap_array(left_block_size + 1);
 
 
   //----------------------------------------------------------------------------

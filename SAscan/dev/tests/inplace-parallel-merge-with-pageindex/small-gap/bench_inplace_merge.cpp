@@ -7,7 +7,8 @@
 
 #include "utils.h"
 #include "parallel_merge.h"
-#include "gap_array.h"
+#include "inmem_gap_array.h"
+
 
 void test(long n1, long n2) {
   fprintf(stderr, "n1 = %ld\n", n1);
@@ -18,26 +19,29 @@ void test(long n1, long n2) {
 
   for (long i = 0; i < length; ++i) {
     if ((i % (1 << 20)) == 0)
-      fprintf(stderr, "\rgenerating tab: %.2Lf%%", (100.L * i) / (n1 + n2));
+      fprintf(stderr, "generating tab: %.2Lf%%\r", (100.L * i) / (n1 + n2));
     tab[i] = i * i;
   }
   fprintf(stderr, "\n");
 
-  gap_array *gap = new gap_array(n1 + 1);
+  inmem_gap_array *gap = new inmem_gap_array(n1 + 1);
   static const long bufsize = (1 << 20);
   long *buf = new long[bufsize];
   int *buf2 = new int[bufsize];
   long left = n2;
   while (left) {
-    fprintf(stderr, "\rgenerating gap: %.2Lf%%", (100.L * (n2 - left)) / n2);
+    fprintf(stderr, "generating gap: %.2Lf%%\r", (100.L * (n2 - left)) / n2);
     for (long j = 0; j < bufsize; ++j) {
       buf[j] = utils::random_long(0, n1);
       buf2[j] = (int)utils::random_long(0L, std::min(5L, left));
       left -= buf2[j];
     }
     for (long j = 0; j < bufsize; ++j)
-      for (long jj = 0; jj < buf2[j]; ++jj)
-        gap->increment(buf[j]);
+      for (long jj = 0; jj < buf2[j]; ++jj) {
+        gap->m_count[buf[j]] += 1;
+        if (gap->m_count[buf[j]] == 0)
+          gap->m_excess.push_back(buf[j]);
+      }
   }
   delete[] buf;
   delete[] buf2;

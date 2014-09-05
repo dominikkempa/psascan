@@ -23,15 +23,16 @@
 // be, that when used with one thread, the procedure simply runs divsufsort
 // and there is no overhead of running this function over running divsufsort.
 //==============================================================================
-template<typename T>
+template<typename T, unsigned pagesize_log = 12>
 void inmem_sascan(unsigned char *text, long text_length, T* sa,
     long max_threads = 1, long max_blocks = -1) {
+  static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
   long double start;
   if (max_blocks == -1)
     max_blocks = max_threads;
 
   long max_block_size = (text_length + max_blocks - 1) / max_blocks;
-  while (max_block_size & 7) ++max_block_size;
+  while ((max_block_size & 7) || (max_block_size & pagesize_mask)) ++max_block_size;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
 
@@ -45,13 +46,13 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   if (n_blocks > 1) {
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
-    compute_initial_gt_bitvectors(text, text_length, gt, max_blocks, max_threads);
+    compute_initial_gt_bitvectors(text, text_length, gt, max_block_size, max_threads);
     fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
   }
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
-  initial_partial_sufsort(text, text_length, gt, sa, max_blocks);
+  initial_partial_sufsort(text, text_length, gt, sa, max_block_size, max_threads);
   fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
 
 
@@ -62,10 +63,10 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   if (n_blocks > 1) {
     fprintf(stderr, "Overwriting gt_end with gt_begin: ");
     start = utils::wclock();
-    gt_end_to_gt_begin(text, text_length, gt, max_blocks);
+    gt_end_to_gt_begin(text, text_length, gt, max_block_size, max_threads);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
 
-    balanced_merge<T>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, bwt, false);
+    balanced_merge<T, pagesize_log>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, bwt, false);
   }
 
   delete gt;

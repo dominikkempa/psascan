@@ -37,7 +37,7 @@ struct bitvector {
   }
 
   ~bitvector() {
-    delete[] m_data;
+    free(m_data);
   }
 
   long m_alloc_bytes;

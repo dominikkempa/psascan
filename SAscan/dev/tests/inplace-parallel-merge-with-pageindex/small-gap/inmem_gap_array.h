@@ -125,6 +125,8 @@ struct inmem_gap_array {
     // STEP 1: split gap array into at most max_threads blocks
     // and in parallel compute sum of values inside each block.
     //----------------------------------------------------------------------------
+    fprintf(stderr, "Precomp1: ");
+    long double start = utils::wclock();
     long max_block_size = std::min(4L << 20, (m_length + max_threads - 1) / max_threads);
     long n_blocks = (m_length + max_block_size - 1) / max_block_size;
     long *gapsum = new long[n_blocks];
@@ -143,19 +145,23 @@ struct inmem_gap_array {
     for (long i = 0; i < n_ranges; ++i) threads[i]->join();
     for (long i = 0; i < n_ranges; ++i) delete threads[i];
     delete[] threads;
-
+    fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
     //----------------------------------------------------------------------------
     // STEP 2: compute partial sum from block counts.
     //----------------------------------------------------------------------------
     // Change gapsum so that gapsum[i] is the sum of blocks 0, 1, .., i - 1.
+    fprintf(stderr, "Precomp2: ");
+    start = utils::wclock();
     for (long i = 0, s = 0, t; i < n_blocks; ++i)
       { t = gapsum[i]; gapsum[i] = s; s += t; }
-
+    fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
     //----------------------------------------------------------------------------
     // STEP 3: Answer the queries in parallel.
     //----------------------------------------------------------------------------
+    fprintf(stderr, "Precomp3: ");
+    start = utils::wclock();
     threads = new std::thread*[n_queries];
     for (long i = 0; i < n_queries; ++i)
       threads[i] = new std::thread(answer_single_gap_query, this,
@@ -163,6 +169,7 @@ struct inmem_gap_array {
     for (long i = 0; i < n_queries; ++i) threads[i]->join();
     for (long i = 0; i < n_queries; ++i) delete threads[i];
     delete[] threads;
+    fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
     long result = -1;
     if (i0 != -1) 

@@ -42,13 +42,12 @@ void rerename_block(unsigned char *block, long block_length) {
 //==============================================================================
 template<typename T>
 void initial_partial_sufsort(unsigned char *text, long text_length,
-    bitvector* &gt, T* &partial_sa, long max_threads) {
+    bitvector* &gt, T* &partial_sa, long max_block_size, long /*max_threads*/) {
   long double start = utils::wclock();
-  long max_block_size = (text_length + max_threads - 1) / max_threads;
-  while (max_block_size & 7) ++max_block_size;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   // Rename the blocks in parallel.
+  // XXX change this parallelism to vertical!
   if (n_blocks > 1) {
     fprintf(stderr, "    Renaming blocks: ");
     start = utils::wclock();
@@ -66,7 +65,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
-  // Now run the threads.
+  // Now run the threads. This parallelism has to be horizontal.
   fprintf(stderr, "    Running divsufsort in parallel: ");
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
@@ -83,6 +82,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // Finally, we restore the text.
+  // XXX: change parallelism to vertical.
   if (n_blocks > 1) {
     fprintf(stderr, "    Rerenaming blocks: ");
     start = utils::wclock();

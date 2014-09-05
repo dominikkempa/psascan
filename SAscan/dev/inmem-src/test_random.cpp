@@ -12,6 +12,7 @@
 #include "inmem_sascan.h"
 
 
+template<unsigned pagesize_log>
 void test(unsigned char *text, long text_length, long max_threads) {
   //----------------------------------------------------------------------------
   // STEP 1: compute correct answer.
@@ -26,8 +27,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   // 1) compute gt_in of size block_size, where gt_in[i] == 1 iff
   //    text[block_beg + i..) > text[block_end..).
   int *computed_sa = new int[text_length];
-  inmem_sascan(text, text_length, computed_sa, max_threads);
-
+  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa, max_threads);
 
   //----------------------------------------------------------------------------
   // STEP 3: compare answers.
@@ -61,10 +61,11 @@ void test(unsigned char *text, long text_length, long max_threads) {
   delete[] computed_sa;
 }
 
-
+template<unsigned pagesize_log>
 void test_random(long testcases, long max_length, long max_sigma) {
-  fprintf(stdout, "TEST, testcases = %ld, max_length = %ld, max_sigma = %ld\n",
-      testcases, max_length, max_sigma);
+  static const unsigned pagesize = (1U << pagesize_log);
+  fprintf(stdout, "TEST, testcases = %4ld, pagesize = %5u, max_length = %8ld, max_sigma = %3ld\n",
+      testcases, pagesize, max_length, max_sigma);
   std::fflush(stdout);
   unsigned char *text = new unsigned char[max_length];
 
@@ -94,7 +95,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     fprintf(stdout, "\n");
     fprintf(stdout, "max_threads = %ld\n", max_threads);*/
 
-    test(text, length, max_threads);
+    test<pagesize_log>(text, length, max_threads);
   }
 
   // Clean up.
@@ -110,25 +111,32 @@ int main() {
   dup2(redir, 2);
   close(redir);
 
-  test_random(100, 10, 5);
-  test_random(100, 10, 20);
-  test_random(100, 10, 128);
-  test_random(100, 10, 255);
+  test_random<7> (50, 1000, 5);
+  test_random<12>(50, 1000, 5);
+  test_random<7> (50, 1000, 20);
+  test_random<12>(50, 1000, 20);
+  test_random<7> (50, 1000, 128);
+  test_random<12>(50, 1000, 128);
+  test_random<7> (50, 1000, 255);
+  test_random<12>(50, 1000, 255);
+  
+  test_random<7> (20, 10000, 5);
+  test_random<12>(20, 10000, 5);
+  test_random<7> (20, 10000, 20);
+  test_random<12>(20, 10000, 20);
+  test_random<7> (20, 10000, 128);
+  test_random<12>(20, 10000, 128);
+  test_random<7> (20, 10000, 255);
+  test_random<12>(20, 10000, 255);
 
-  test_random(100, 1000, 5);
-  test_random(100, 1000, 20);
-  test_random(100, 1000, 128);
-  test_random(100, 1000, 255);
-
-  test_random(100, 10000, 5);
-  test_random(100, 10000, 20);
-  test_random(100, 10000, 128);
-  test_random(100, 10000, 255);
-
-  test_random(100, 1000000, 5);
-  test_random(100, 1000000, 20);
-  test_random(100, 1000000, 128);
-  test_random(100, 1000000, 255);
+  test_random<7> (20, 1000000, 5);
+  test_random<12>(20, 1000000, 5);
+  test_random<7> (20, 1000000, 20);
+  test_random<12>(20, 1000000, 20);
+  test_random<7> (20, 1000000, 128);
+  test_random<12>(20, 1000000, 128);
+  test_random<7> (20, 1000000, 255);
+  test_random<12>(20, 1000000, 255);
 
   fprintf(stdout, "All tests passed.\n");
 }

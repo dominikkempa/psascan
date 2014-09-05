@@ -113,10 +113,8 @@ void compute_final_gt(long length, long max_block_size,
 // Fully parallel computation of gt bitvectors.
 //==============================================================================
 void compute_initial_gt_bitvectors(unsigned char *text, long length,
-    bitvector* &gt, long max_blocks, long max_threads) {
+    bitvector* &gt, long max_block_size, long max_threads) {
   long double start;
-  long max_block_size = (length + max_blocks - 1) / max_blocks;
-  while (max_block_size & 7) ++max_block_size;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 
 

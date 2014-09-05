@@ -11,7 +11,7 @@
 
 
 // Returns i0, or -1 if unknown.
-template<typename T>
+template<typename T, unsigned pagesize_log>
 long balanced_merge(unsigned char *text, long text_length, T *sa, bitvector *gt,
     long max_block_size, long range_beg, long range_end, long max_threads,
     unsigned char *bwt, bool need_gt) {
@@ -41,11 +41,11 @@ long balanced_merge(unsigned char *text, long text_length, T *sa, bitvector *gt,
   long rsize = rend - rbeg;
 
   // Compute partial sa for the blocks recursively.
-  long left_i0  = balanced_merge(text, text_length, sa, gt, max_block_size,
-      lrange_beg, lrange_end, max_threads, bwt, need_gt);
+  long left_i0  = balanced_merge<T, pagesize_log>(text, text_length, sa, gt,
+      max_block_size, lrange_beg, lrange_end, max_threads, bwt, need_gt);
   // right
-  long right_i0 = balanced_merge(text, text_length, sa, gt, max_block_size, rrange_beg,
-      rrange_end, max_threads, bwt, true);
+  long right_i0 = balanced_merge<T, pagesize_log>(text, text_length, sa, gt,
+      max_block_size, rrange_beg, rrange_end, max_threads, bwt, true);
 
   // Merge partial suffix arrays.
   fprintf(stderr, "Merging blocks [%ld..%ld) and [%ld..%ld):\n", lbeg, lend, rbeg, rend);
@@ -54,19 +54,19 @@ long balanced_merge(unsigned char *text, long text_length, T *sa, bitvector *gt,
   inmem_gap_array *gap;
   fprintf(stderr, "  Computing gap:\n");
   long double start1 = utils::wclock();
-  inmem_compute_gap(text, text_length, lbeg, lsize, rsize, sa + lbeg, bwt + lbeg, gt,
-      gap, max_threads, need_gt, left_i0, (1L << 21));
+  inmem_compute_gap(text, text_length, lbeg, lsize, rsize, sa + lbeg,
+      bwt + lbeg, gt, gap, max_threads, need_gt, left_i0, (1L << 21));
   fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
 
   fprintf(stderr, "  Merging partial SAs: ");
   start1 = utils::wclock();
-  long delta_i0 = merge<T, 12>(sa + lbeg, lsize, rsize, gap, max_threads, left_i0, lsize);
+  long delta_i0 = merge<T, pagesize_log>(sa + lbeg, lsize, rsize, gap, max_threads, left_i0, lsize);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
   fprintf(stderr, "  Merging BWTs: ");
   start1 = utils::wclock();
   bwt[rbeg + right_i0] = text[rbeg - 1];
-  merge<unsigned char, 12>(bwt + lbeg, lsize, rsize, gap, max_threads, -1, 0);
+  merge<unsigned char, pagesize_log>(bwt + lbeg, lsize, rsize, gap, max_threads, -1, 0);
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
   fprintf(stderr, "  Deleting gap: ");

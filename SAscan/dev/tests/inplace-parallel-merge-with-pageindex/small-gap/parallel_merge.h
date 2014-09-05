@@ -11,6 +11,7 @@
 #include <mutex>
 
 #include "pagearray.h"
+//#include "gap_routines.h"
 #include "inmem_gap_array.h"
 
 
@@ -105,6 +106,7 @@ void parallel_merge_aux(
   }
 }
 
+//template<typename T, unsigned pagesize_log>
 template<typename pagearray_type>
 pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pagearray,
     inmem_gap_array *gap, long max_threads, long i0, long add_how_much, long &aux_result) {
@@ -130,8 +132,6 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   // In short, if we did it sequentially, the thread would just produce the
   // elements of the output in the range [res_beg .. rea_beg + res_size).
   //----------------------------------------------------------------------------
-  fprintf(stderr, "queries: ");
-  long double start = utils::wclock();
   long length = l_pagearray->m_length + r_pagearray->m_length;
   long n_pages = (length + pagesize - 1) / pagesize;
   long pages_per_thread = (n_pages + max_threads - 1) / max_threads;
@@ -151,6 +151,8 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
 
   // Answer these queries in parallel and convert the answers
   // to left_idx, right_idx and remaining_gap values.
+//  aux_result = answer_gap_queries(gap, l_pagearray->m_length + 1,
+//      n_threads, gap_query, gap_answer_a, gap_answer_b, max_threads, i0);
   aux_result = gap->answer_queries(n_threads, gap_query, gap_answer_a, gap_answer_b, max_threads, i0);
   for (long i = 0; i < n_threads; ++i) {
     long res_beg = i * pages_per_thread * pagesize;
@@ -162,14 +164,13 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   delete[] gap_query;
   delete[] gap_answer_a;
   delete[] gap_answer_b;
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
   // STEP 2: merging the arrays.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "merge: ");
-  start = utils::wclock();
+  fprintf(stderr, "Merging: ");
+  long double start = utils::wclock();
   typedef pagearray<value_type, pagesize_log> output_type;
   output_type *result = new output_type(l_pagearray->m_origin, length);
 
@@ -184,6 +185,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
         remaining_gap[i], res_beg, res_size, add_how_much);
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
+  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
   for (long i = 0; i < n_threads; ++i) delete threads[i];
   delete[] threads;
   delete[] left_idx;
@@ -208,6 +210,8 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   }
 
   // Find unused input pages.
+  fprintf(stderr, "Erase aux pages: ");
+  start = utils::wclock();
   bool *usedpage = new bool[n_pages];
   std::fill(usedpage, usedpage + n_pages, false);
   std::vector<std::pair<long, value_type*> > auxpages;
@@ -231,7 +235,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
     }
   }
   delete[] usedpage;
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
   return result;
 }
@@ -249,19 +253,19 @@ long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
     std::exit(EXIT_FAILURE);
   }
 
-  fprintf(stderr, "(init: ");
+  fprintf(stderr, "Initializing: ");
   long double start = utils::wclock();
   pagearray_type *l_pagearray = new pagearray_type(tab, tab + n1);
   pagearray_type *r_pagearray = new pagearray_type(tab + n1, tab + n1 + n2);
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  fprintf(stderr, "%5.2Lf ", utils::wclock() - start);
 
   long result;
   pagearray_type *output = parallel_merge(l_pagearray, r_pagearray, gap, max_threads, i0, add_how_much, result);
 
-  fprintf(stderr, "permute: ");
+  fprintf(stderr, "Permuting: ");
   start = utils::wclock();
   output->permute_to_plain_array(max_threads);
-  fprintf(stderr, "%.2Lf) ", utils::wclock() - start);
+  fprintf(stderr, "%5.2Lf\n", utils::wclock() - start);
   delete l_pagearray;
   delete r_pagearray;
   delete output;

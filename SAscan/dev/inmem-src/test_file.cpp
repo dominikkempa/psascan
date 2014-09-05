@@ -23,7 +23,7 @@ void test(unsigned char *text, T text_length,
   fprintf(stderr, "Running inmem sascan\n\n");
   T *computed_sa = new T[text_length];
   start = utils::wclock();
-  inmem_sascan(text, text_length, computed_sa, max_blocks, max_threads);
+  inmem_sascan<T>(text, text_length, computed_sa, max_blocks, max_threads);
   fprintf(stderr, "\nTotal time: %.2Lf\n", utils::wclock() - start);
 
   fprintf(stderr, "\nRunning divsufsort\n");
