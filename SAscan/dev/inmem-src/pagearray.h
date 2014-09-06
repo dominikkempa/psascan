@@ -60,6 +60,10 @@ struct pagearray {
       m_pageindex[i] = begin + i * pagesize;
   }
 
+  inline value_type access(long i) {
+    return m_pageindex[i >> pagesize_log][i & pagesize_mask];
+  }
+
   // Used only for testing.
   void random_shuffle() {
     long trimmed_length = m_length - m_length % pagesize;

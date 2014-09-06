@@ -77,13 +77,15 @@
 #include "inmem_stream.h"
 #include "inmem_update.h"
 #include "inmem_bwt_from_sa.h"
+#include "pagearray.h"
 
 
-template<typename T>
+template<typename pagearray_type>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
-    long left_block_size, long right_block_size, T *partial_sa, unsigned char *bwt,
+    long left_block_size, long right_block_size, pagearray_type *partial_sa, unsigned char *bwt,
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
     long stream_buffer_size = (1L << 20)) {
+  typedef typename pagearray_type::value_type value_type;
   long double start;
 
   //----------------------------------------------------------------------------
@@ -130,7 +132,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
     // The i-th thread streams symbols text[beg..end), right-to-left.
     // where beg = stream_block_beg[i], end = stream_block_end[i];
-    threads[i] = new std::thread(inmem_smaller_suffixes<T>, text,
+    threads[i] = new std::thread(inmem_smaller_suffixes<pagearray_type>, text,
         text_length, left_block_beg, left_block_end, stream_block_end,
         partial_sa, std::ref(initial_ranks[i]));
   }
@@ -157,21 +159,21 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
   // Allocate buffers.
   long n_stream_buffers = 2 * n_threads;
-  buffer<T> **buffers = new buffer<T>*[n_stream_buffers];
+  buffer<value_type> **buffers = new buffer<value_type>*[n_stream_buffers];
   for (long i = 0; i < n_stream_buffers; ++i)
-    buffers[i] = new buffer<T>(stream_buffer_size, max_threads);
+    buffers[i] = new buffer<value_type>(stream_buffer_size, max_threads);
 
   // Create poll of empty and full buffers.
-  buffer_poll<T> *empty_buffers = new buffer_poll<T>();
-  buffer_poll<T> *full_buffers = new buffer_poll<T>(n_threads);
+  buffer_poll<value_type> *empty_buffers = new buffer_poll<value_type>();
+  buffer_poll<value_type> *full_buffers = new buffer_poll<value_type>(n_threads);
 
   // Add empty buffers to empty poll.
   for (long i = 0; i < n_stream_buffers; ++i)
     empty_buffers->add(buffers[i]);
 
   // Allocate temp arrays and oracles.
-  long max_buffer_elems = stream_buffer_size / sizeof(T);
-  T *temp = (T *)malloc(max_buffer_elems * n_threads * sizeof(T));
+  long max_buffer_elems = stream_buffer_size / sizeof(value_type);
+  value_type *temp = (value_type *)malloc(max_buffer_elems * n_threads * sizeof(value_type));
   int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
@@ -188,14 +190,14 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long beg = right_block_beg + t * max_stream_block_size;
     long end = std::min(beg + max_stream_block_size, right_block_end);
 
-    threads[t] = new std::thread(inmem_parallel_stream<T>,
+    threads[t] = new std::thread(inmem_parallel_stream<value_type>,
       text, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, max_threads, gt,
       temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
   }
 
   // Start updating thread.
-  std::thread *updater = new std::thread(inmem_gap_updater<T>,
+  std::thread *updater = new std::thread(inmem_gap_updater<value_type>,
       full_buffers, empty_buffers, gap, max_threads);
 
   // Wait to all threads to finish.

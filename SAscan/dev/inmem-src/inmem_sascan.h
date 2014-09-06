@@ -10,8 +10,8 @@
 #include "change_gt_reference_point.h"
 #include "inmem_compute_gap.h"
 #include "parallel_merge.h"
-
 #include "balanced_merge.h"
+#include "pagearray.h"
 
 
 //==============================================================================
@@ -35,9 +35,7 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   while ((max_block_size & 7) || (max_block_size & pagesize_mask)) ++max_block_size;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-
   unsigned char *bwt = (unsigned char *)malloc(text_length);
-
 
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
@@ -66,7 +64,17 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
     gt_end_to_gt_begin(text, text_length, gt, max_block_size, max_threads);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
 
-    balanced_merge<T, pagesize_log>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, bwt, false);
+    typedef pagearray<T, pagesize_log> pagearray_type;
+    long i0;
+    pagearray_type *result = 
+      balanced_merge<T, pagesize_log>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, bwt, false, i0);
+
+    // We permute it to plain array.
+    fprintf(stderr, "\nPermuting the resulting SA to plain array: ");
+    start = utils::wclock();
+    result->permute_to_plain_array(max_threads);
+    delete result;
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
   delete gt;
