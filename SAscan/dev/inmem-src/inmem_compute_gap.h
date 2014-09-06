@@ -148,7 +148,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //         on the top of the page, the gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Allocations: ");
   start = utils::wclock();
   gap = new inmem_gap_array(left_block_size + 1);
 
@@ -175,7 +174,9 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   long max_buffer_elems = stream_buffer_size / sizeof(value_type);
   value_type *temp = (value_type *)malloc(max_buffer_elems * n_threads * sizeof(value_type));
   int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  long double allocations_time = utils::wclock() - start;
+  if (allocations_time > 0.05L)
+    fprintf(stderr, "    Allocations: %.2Lf\n", allocations_time);
 
 
   //----------------------------------------------------------------------------
@@ -212,7 +213,6 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   //----------------------------------------------------------------------------
   // Clean up and sort m_excess. Consider using gnu parallel sort.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Cleaning: ");
   start = utils::wclock();
   free(oracle);
   free(temp);
@@ -227,7 +227,10 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   delete[] count;
 
   std::sort(gap->m_excess.begin(), gap->m_excess.end());
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+  long double cleaning_time = utils::wclock() - start;
+  if (cleaning_time > 0.1L)
+    fprintf(stderr, "    Cleaning: %.2Lf\n", cleaning_time);
 }
                  
 #endif  // __INMEM_COMPUTE_GAP_H_INCLUDED

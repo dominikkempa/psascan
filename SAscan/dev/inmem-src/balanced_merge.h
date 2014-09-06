@@ -24,7 +24,10 @@ pagearray<T, pagesize_log> *balanced_merge(unsigned char *text, long text_length
     long block_end = std::min(block_beg + max_block_size, text_length);
     long block_size = block_end - block_beg;
 
-    result_i0 = bwt_from_sa_into_dest<T>(sa + block_beg, text + block_beg, block_size, bwt + block_beg, max_threads);
+    fprintf(stderr, "Computing BWT for block [%ld..%ld): ", block_beg, block_end);
+    long double start = utils::wclock();
+    bwt_from_sa_into_dest<T>(sa + block_beg, text + block_beg, block_size, bwt + block_beg, max_threads, result_i0);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
     return new pagearray_type(sa + block_beg, sa + block_beg + block_size);
   }
 
@@ -67,7 +70,7 @@ pagearray<T, pagesize_log> *balanced_merge(unsigned char *text, long text_length
       bwt + lbeg, gt, gap, max_threads, need_gt, left_i0, (1L << 21));
   fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
 
-  fprintf(stderr, "  Merging partial SAs: ");
+  fprintf(stderr, "  Merging partial SAs:  ");
   start1 = utils::wclock();
   long delta_i0;
   pagearray_type *merged_pagearray = parallel_merge(l_pagearray, r_pagearray, gap, max_threads, left_i0, lsize, delta_i0);
@@ -76,7 +79,7 @@ pagearray<T, pagesize_log> *balanced_merge(unsigned char *text, long text_length
 
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
-  fprintf(stderr, "  Merging BWTs: ");
+  fprintf(stderr, "  Merging partial BWTs: ");
   start1 = utils::wclock();
   bwt[rbeg + right_i0] = text[rbeg - 1];
   merge<unsigned char, pagesize_log>(bwt + lbeg, lsize, rsize, gap, max_threads, -1, 0);

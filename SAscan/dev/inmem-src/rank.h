@@ -96,7 +96,6 @@ class rank4n {
       unsigned long range_size = (n_cblocks + max_threads - 1) / max_threads;
       unsigned long n_ranges = (n_cblocks + range_size - 1) / range_size;
 
-      fprintf(stderr, "(alloc: ");
       long double start = utils::wclock();
       m_sblock_header = (unsigned long *)malloc(n_sblocks * sizeof(unsigned long) * k_sigma);
       m_cblock_header = (unsigned long *)malloc(n_cblocks * sizeof(unsigned long));
@@ -112,7 +111,9 @@ class rank4n {
       unsigned **occ = (unsigned **)malloc(n_ranges * sizeof(unsigned *));
       for (unsigned long i = 0; i < n_ranges; ++i)
         occ[i] = (unsigned *)malloc((k_cblock_size + 1) * sizeof(unsigned));
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+      long double alloc_time = utils::wclock() - start;
+      if (alloc_time > 0.05L)
+        fprintf(stderr, "alloc: %.2Lf ", alloc_time);
 
 
       fprintf(stderr, "s1: ");
@@ -209,7 +210,7 @@ class rank4n {
       for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
-      fprintf(stderr, "%.2Lf) ", utils::wclock() - start);
+      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
       m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
 

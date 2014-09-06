@@ -249,11 +249,11 @@ long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
     std::exit(EXIT_FAILURE);
   }
 
-  fprintf(stderr, "(init: ");
   long double start = utils::wclock();
   pagearray_type *l_pagearray = new pagearray_type(tab, tab + n1);
   pagearray_type *r_pagearray = new pagearray_type(tab + n1, tab + n1 + n2);
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  long double init_time = utils::wclock() - start;
+  if (init_time > 0.1L) fprintf(stderr, "init: %.2Lf ", init_time); // reduce the size of output log
 
   long result;
   pagearray_type *output = parallel_merge(l_pagearray, r_pagearray, gap, max_threads, i0, add_how_much, result);
@@ -261,7 +261,7 @@ long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
   fprintf(stderr, "permute: ");
   start = utils::wclock();
   output->permute_to_plain_array(max_threads);
-  fprintf(stderr, "%.2Lf) ", utils::wclock() - start);
+  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
   delete l_pagearray;
   delete r_pagearray;
   delete output;

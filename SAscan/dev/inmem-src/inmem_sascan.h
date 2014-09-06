@@ -35,6 +35,10 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   while ((max_block_size & 7) || (max_block_size & pagesize_mask)) ++max_block_size;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
+  fprintf(stderr, "Text length = %ld (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
+  fprintf(stderr, "Max block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
+  fprintf(stderr, "\n");
+
   unsigned char *bwt = (unsigned char *)malloc(text_length);
 
   //----------------------------------------------------------------------------

@@ -32,8 +32,8 @@ void bwt_from_sa_into_dest_aux(T *tab, unsigned char *text, long beg, long end,
 
 
 template<typename T>
-long bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
-  unsigned char *dest, long max_threads) {
+void bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
+  unsigned char *dest, long max_threads, long &result) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
   long *index_0 = new long[n_blocks];
@@ -53,11 +53,10 @@ long bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
   delete[] threads;
 
   // Find and return i0.
-  long i0 = -1;
+  result = -1;
   for (long i = 0; i < n_blocks; ++i)
-    if (index_0[i] != -1) i0 = index_0[i];
+    if (index_0[i] != -1) result = index_0[i];
   delete[] index_0;
-  return i0;
 }
 
 
