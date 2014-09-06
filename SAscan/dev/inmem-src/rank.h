@@ -35,9 +35,9 @@
 template<unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 20, unsigned k_sigma_log = 8>
 class rank4n {
   private:
-    static const unsigned k_cblock_size;
-    static const unsigned k_cblock_size_mask;
-    static const unsigned k_cblock_size_mask_neg;
+    static const unsigned long k_cblock_size;
+    static const unsigned long k_cblock_size_mask;
+    static const unsigned long k_cblock_size_mask_neg;
     static const unsigned k_cblocks_in_sblock_log;
     static const unsigned k_cblocks_in_sblock;
     static const unsigned k_cblocks_in_sblock_mask;
@@ -891,11 +891,11 @@ class rank4n {
 
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+  const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size = (1 << k_cblock_size_log);
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+  const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size_mask = (1 << k_cblock_size_log) - 1;
   
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
@@ -915,7 +915,7 @@ template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigm
   ::k_sigma_mask = (1 << k_sigma_log) - 1;
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+  const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size_mask_neg = ~((1 << k_cblock_size_log) - 1);
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
