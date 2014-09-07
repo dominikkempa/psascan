@@ -3,7 +3,7 @@
 
 
 template<typename sa_type>
-struct bwtsa {
+struct bwtsa_t {
   sa_type sa;
   unsigned char bwt;
 } __attribute__((packed));

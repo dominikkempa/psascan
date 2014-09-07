@@ -19,21 +19,22 @@
 #include <thread>
 
 #include "utils.h"
+#include "bwtsa.h"
 
 
-template<typename T>
-void bwt_from_sa_into_dest_aux(T *tab, unsigned char *text, long beg, long end,
-    unsigned char *dest, long *i0) {
+template<typename saidx_t>
+void bwt_from_sa_into_dest_aux(unsigned char *text, long beg, long end,
+    bwtsa_t<saidx_t> *dest, long *i0) {
   *i0 = -1;
   for (long j = beg; j < end; ++j)
-    if (tab[j]) dest[j] = text[tab[j] - 1];
-    else { dest[j] = 0; *i0 = j; }
+    if (dest[j].sa) dest[j].bwt = text[dest[j].sa - 1];
+    else { dest[j].bwt = 0; *i0 = j; }
 }
 
 
-template<typename T>
-void bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
-  unsigned char *dest, long max_threads, long &result) {
+template<typename saidx_t>
+void bwt_from_sa_into_dest(unsigned char *text, long length,
+  bwtsa_t<saidx_t> *dest, long max_threads, long &result) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
   long *index_0 = new long[n_blocks];
@@ -44,8 +45,8 @@ void bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
     long block_beg = i * max_block_size;
     long block_end = std::min(block_beg + max_block_size, length);
 
-    threads[i] = new std::thread(bwt_from_sa_into_dest_aux<T>,
-        sa, text, block_beg, block_end, dest, index_0 + i);
+    threads[i] = new std::thread(bwt_from_sa_into_dest_aux<saidx_t>,
+        text, block_beg, block_end, dest, index_0 + i);
   }
 
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();

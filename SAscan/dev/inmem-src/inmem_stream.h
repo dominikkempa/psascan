@@ -29,7 +29,7 @@
 //    * it reads and writes bits in range
 //      [stream_block_beg..stream_block_end) from gt bitvector right to left.
 //==============================================================================
-template<typename block_offset_type>
+template<typename rank_type, typename block_offset_type>
 void inmem_parallel_stream(
     unsigned char *text,
     long stream_block_beg,
@@ -40,7 +40,7 @@ void inmem_parallel_stream(
     buffer_poll<block_offset_type> *empty_buffers,
     block_offset_type i,
     block_offset_type i0,
-    rank4n<> *rank,
+    rank_type *rank,
     long gap_range_size,
     long n_increasers,
     bitvector *gt,

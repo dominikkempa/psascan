@@ -27,7 +27,8 @@ void parallel_merge_aux(
     inmem_gap_array *gap,
     long left_idx, long right_idx,
     int remaining_gap, long res_beg,
-    long res_size, long add_how_much) {
+    long res_size,
+    long what_to_add) {
 
   typedef typename pagearray_type::value_type value_type;
   static const unsigned pagesize_mask = pagearray_type::pagesize_mask;
@@ -53,8 +54,10 @@ void parallel_merge_aux(
     if (remaining_gap > 0) {
       --remaining_gap;
       // The next element comes from the right subarray.
-      dest[filled++] = add_how_much + rpage[right_idx & pagesize_mask];
-      right_idx++;
+      dest[filled] = rpage[right_idx & pagesize_mask];
+      dest[filled].sa += what_to_add;
+      ++filled;
+      ++right_idx;
       ++rpage_read;
       if (!(right_idx & pagesize_mask)) {
         // We reached the end of page in the right subarray.
@@ -72,7 +75,7 @@ void parallel_merge_aux(
       // Next elem comes from the left subarray.
       dest[filled++] = lpage[left_idx & pagesize_mask];
       left_idx++;
-      
+
       // Compute gap[left_idx].
       long gap_left_idx = gap->m_count[left_idx];
       while (excess_ptr < gap->m_excess.size() &&
@@ -107,7 +110,7 @@ void parallel_merge_aux(
 
 template<typename pagearray_type>
 pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pagearray,
-    inmem_gap_array *gap, long max_threads, long i0, long add_how_much, long &aux_result) {
+    inmem_gap_array *gap, long max_threads, long i0, long &aux_result, long what_to_add) {
   typedef typename pagearray_type::value_type value_type;
   static const unsigned pagesize_log = pagearray_type::pagesize_log;
   static const unsigned pagesize = pagearray_type::pagesize;
@@ -181,7 +184,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
 
     threads[i] = new std::thread(parallel_merge_aux<pagearray_type>,
         l_pagearray, r_pagearray, result, gap,  left_idx[i], right_idx[i],
-        remaining_gap[i], res_beg, res_size, add_how_much);
+        remaining_gap[i], res_beg, res_size, what_to_add);
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
@@ -236,37 +239,5 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   return result;
 }
 
-// Wrapper for new merging method, compatible with the older interface.
-template<typename T, unsigned pagesize_log>
-long merge(T *tab, long n1, long n2, inmem_gap_array *gap, long max_threads,
-    long i0 = -1, long add_how_much = 0) {
-  static const unsigned pagesize = (1U << pagesize_log);
-  typedef pagearray<T, pagesize_log> pagearray_type;
-
-  if (n1 % pagesize) {
-    fprintf(stderr, "Error: new in-place parallel merging requires "
-        "that n1 is a multiple of pagesize! Exiting...\n");
-    std::exit(EXIT_FAILURE);
-  }
-
-  long double start = utils::wclock();
-  pagearray_type *l_pagearray = new pagearray_type(tab, tab + n1);
-  pagearray_type *r_pagearray = new pagearray_type(tab + n1, tab + n1 + n2);
-  long double init_time = utils::wclock() - start;
-  if (init_time > 0.1L) fprintf(stderr, "init: %.2Lf ", init_time); // reduce the size of output log
-
-  long result;
-  pagearray_type *output = parallel_merge(l_pagearray, r_pagearray, gap, max_threads, i0, add_how_much, result);
-
-  fprintf(stderr, "permute: ");
-  start = utils::wclock();
-  output->permute_to_plain_array(max_threads);
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
-  delete l_pagearray;
-  delete r_pagearray;
-  delete output;
-
-  return result;
-}
 
 #endif  // __PARALLEL_MERGE_H_INCLUDED

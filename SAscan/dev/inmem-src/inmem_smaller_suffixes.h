@@ -20,7 +20,7 @@ bool lcp_compare(unsigned char *text, long length, long i, long j, long &lcp) {
 
 template<typename pagearray_type>
 void inmem_smaller_suffixes(unsigned char *text, long text_length,
-    long block_beg, long block_end, long suf_start, pagearray_type *partial_sa, long &ret) {
+    long block_beg, long block_end, long suf_start, const pagearray_type &partial_bwtsa, long &ret) {
 
   //----------------------------------------------------------------------------
   // Find the smallest j such that text[partial_sa[j]..text_length) >
@@ -34,7 +34,7 @@ void inmem_smaller_suffixes(unsigned char *text, long text_length,
     long mid = (left + right) / 2;
     long lcp = std::min(llcp, rlcp);
 
-    if (lcp_compare(text, text_length, suf_start, block_beg + partial_sa->access(mid), lcp)) {
+    if (lcp_compare(text, text_length, suf_start, block_beg + partial_bwtsa[mid].sa, lcp)) {
       right = mid;
       rlcp = lcp;
     } else {

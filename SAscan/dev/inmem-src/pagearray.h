@@ -60,7 +60,7 @@ struct pagearray {
       m_pageindex[i] = begin + i * pagesize;
   }
 
-  inline value_type access(long i) {
+  inline value_type &operator[] (long i) const {
     return m_pageindex[i >> pagesize_log][i & pagesize_mask];
   }
 

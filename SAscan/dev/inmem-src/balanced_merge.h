@@ -9,14 +9,16 @@
 #include "inmem_bwt_from_sa.h"
 #include "parallel_merge.h"
 #include "pagearray.h"
+#include "bwtsa.h"
 
 
-// Returns i0, or -1 if unknown.
-template<typename T, unsigned pagesize_log>
-pagearray<T, pagesize_log> *balanced_merge(unsigned char *text, long text_length, T *sa,
-    bitvector *gt, long max_block_size, long range_beg, long range_end, long max_threads,
-    unsigned char *bwt, bool need_gt, long &result_i0) {
-  typedef pagearray<T, pagesize_log> pagearray_type;
+template<typename saidx_t, unsigned pagesize_log>
+pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
+    long text_length, bwtsa_t<saidx_t> *bwtsa, bitvector *gt,
+    long max_block_size, long range_beg, long range_end, long max_threads,
+    bool need_gt, long &result_i0) {
+  typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
+
   long range_size = range_end - range_beg;
 
   if (range_size == 1) {
@@ -26,12 +28,17 @@ pagearray<T, pagesize_log> *balanced_merge(unsigned char *text, long text_length
 
     fprintf(stderr, "Computing BWT for block [%ld..%ld): ", block_beg, block_end);
     long double start = utils::wclock();
-    bwt_from_sa_into_dest<T>(sa + block_beg, text + block_beg, block_size, bwt + block_beg, max_threads, result_i0);
+    bwt_from_sa_into_dest<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, result_i0);
+    pagearray_type *bwtsa_pagearray = new pagearray_type(bwtsa + block_beg, bwtsa + block_beg + block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-    return new pagearray_type(sa + block_beg, sa + block_beg + block_size);
+
+    return bwtsa_pagearray;
   }
 
-  // Split blocks almost equally into two groups.
+
+  //----------------------------------------------------------------------------
+  // STEP 1: Split the blocks in the left and right group.
+  //----------------------------------------------------------------------------
   long lrange_size = /*(range_size + 1) / 2*/range_size - 1;
   long rrange_size = range_size - lrange_size;
 
@@ -47,54 +54,73 @@ pagearray<T, pagesize_log> *balanced_merge(unsigned char *text, long text_length
   long lsize = lend - lbeg;
   long rsize = rend - rbeg;
 
-  // Compute partial sa for the blocks recursively.
-  typedef pagearray<T, pagesize_log> pagearray_type;
 
+  //----------------------------------------------------------------------------
+  // STEP 2: Compute partial SAs and BWTs for left and right block.
+  //----------------------------------------------------------------------------
+
+  // 1
+  //
+  // left block
   long left_i0;
-  pagearray_type *l_pagearray = balanced_merge<T, pagesize_log>(text, text_length, sa, gt,
-      max_block_size, lrange_beg, lrange_end, max_threads, bwt, need_gt, left_i0);
+  pagearray_type *l_bwtsa =
+    balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
+    max_block_size, lrange_beg, lrange_end, max_threads, need_gt, left_i0);
 
-  // right
+  // 2
+  // 
+  // right block
   long right_i0;
-  pagearray_type *r_pagearray = balanced_merge<T, pagesize_log>(text, text_length, sa, gt,
-      max_block_size, rrange_beg, rrange_end, max_threads, bwt, true, right_i0);
+  pagearray_type *r_bwtsa =
+      balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
+      max_block_size, rrange_beg, rrange_end, max_threads, true, right_i0);
 
-  // Merge partial suffix arrays.
+
+  //----------------------------------------------------------------------------
+  // STEP 3: Merge partial suffix arrays.
+  //----------------------------------------------------------------------------
   fprintf(stderr, "Merging blocks [%ld..%ld) and [%ld..%ld):\n", lbeg, lend, rbeg, rend);
   long double start = utils::wclock();
 
-  inmem_gap_array *gap;
+
+  // 1
+  //
+  // Compute gap
   fprintf(stderr, "  Computing gap:\n");
+  inmem_gap_array *gap;
   long double start1 = utils::wclock();
-  inmem_compute_gap(text, text_length, lbeg, lsize, rsize, l_pagearray,
-      bwt + lbeg, gt, gap, max_threads, need_gt, left_i0, (1L << 21));
+  inmem_compute_gap<saidx_t, pagesize_log>(text, text_length, lbeg, lsize, rsize,
+      *l_bwtsa, gt, gap, max_threads, need_gt, left_i0, (1L << 21));
   fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
 
-  fprintf(stderr, "  Merging partial SAs:  ");
+
+  // 2
+  //
+  // Merge partial SAs and BWTs
+  fprintf(stderr, "  Merging SA/BWT:  ");
   start1 = utils::wclock();
   long delta_i0;
-  pagearray_type *merged_pagearray = parallel_merge(l_pagearray, r_pagearray, gap, max_threads, left_i0, lsize, delta_i0);
-  delete l_pagearray;
-  delete r_pagearray;
-
+  (*r_bwtsa)[right_i0].bwt = text[rbeg - 1];
+  pagearray_type *result = parallel_merge(l_bwtsa, r_bwtsa, gap, max_threads, left_i0, delta_i0, lsize);
+  result_i0 = left_i0 + delta_i0;
   fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
 
-  fprintf(stderr, "  Merging partial BWTs: ");
-  start1 = utils::wclock();
-  bwt[rbeg + right_i0] = text[rbeg - 1];
-  merge<unsigned char, pagesize_log>(bwt + lbeg, lsize, rsize, gap, max_threads, -1, 0);
 
-  fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start1);
-
-  fprintf(stderr, "  Deleting gap: ");
+  // 3
+  //
+  // Clean up.
   start1 = utils::wclock();
+  delete l_bwtsa;
+  delete r_bwtsa;
   delete gap;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start1);
+  long double cleaning_time = utils::wclock() - start1;
+  if (cleaning_time > 0.2L)
+    fprintf(stderr, "Cleaning: %.2Lf\n", cleaning_time);
 
   fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
-  result_i0 = left_i0 + delta_i0;
 
-  return merged_pagearray;
+
+  return result;
 }
 
 #endif  // __BALANCED_MERGE_H

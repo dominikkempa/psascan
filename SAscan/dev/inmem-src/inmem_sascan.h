@@ -12,6 +12,7 @@
 #include "parallel_merge.h"
 #include "balanced_merge.h"
 #include "pagearray.h"
+#include "bwtsa.h"
 
 
 //==============================================================================
@@ -23,8 +24,8 @@
 // be, that when used with one thread, the procedure simply runs divsufsort
 // and there is no overhead of running this function over running divsufsort.
 //==============================================================================
-template<typename T, unsigned pagesize_log = 12>
-void inmem_sascan(unsigned char *text, long text_length, T* sa,
+template<typename saidx_t, unsigned pagesize_log = 12>
+void inmem_sascan(unsigned char *text, long text_length, saidx_t* sa,
     long max_threads = 1, long max_blocks = -1) {
   static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
   long double start;
@@ -37,9 +38,13 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
 
   fprintf(stderr, "Text length = %ld (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
   fprintf(stderr, "Max block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
+  fprintf(stderr, "Max blocks = %ld\n", max_blocks);
+  fprintf(stderr, "Max threads = %ld\n", max_threads);
+  fprintf(stderr, "sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
+  fprintf(stderr, "pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "\n");
 
-  unsigned char *bwt = (unsigned char *)malloc(text_length);
+  bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)malloc(text_length * sizeof(bwtsa_t<saidx_t>));
 
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
@@ -54,7 +59,7 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
-  initial_partial_sufsort(text, text_length, gt, sa, max_block_size, max_threads);
+  initial_partial_sufsort(text, text_length, gt, bwtsa, max_block_size, max_threads);
   fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
 
 
@@ -68,10 +73,10 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
     gt_end_to_gt_begin(text, text_length, gt, max_block_size, max_threads);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
 
-    typedef pagearray<T, pagesize_log> pagearray_type;
     long i0;
-    pagearray_type *result = 
-      balanced_merge<T, pagesize_log>(text, text_length, sa, gt, max_block_size, 0, n_blocks, max_threads, bwt, false, i0);
+    pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = 
+      balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
+          max_block_size, 0, n_blocks, max_threads, false, i0);
 
     // We permute it to plain array.
     fprintf(stderr, "\nPermuting the resulting SA to plain array: ");
@@ -82,7 +87,12 @@ void inmem_sascan(unsigned char *text, long text_length, T* sa,
   }
 
   delete gt;
-  free(bwt);
+
+  fprintf(stderr, "Copying bwtsa.sa into sa: ");
+  start = utils::wclock();
+  for (long i = 0; i < text_length; ++i) sa[i] = bwtsa[i].sa;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  free(bwtsa);
 }
 
 
