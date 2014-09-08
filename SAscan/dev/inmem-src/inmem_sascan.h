@@ -13,6 +13,7 @@
 #include "balanced_merge.h"
 #include "pagearray.h"
 #include "bwtsa.h"
+#include "parallel_shrink.h"
 
 
 //==============================================================================
@@ -25,7 +26,7 @@
 // and there is no overhead of running this function over running divsufsort.
 //==============================================================================
 template<typename saidx_t, unsigned pagesize_log = 12>
-void inmem_sascan(unsigned char *text, long text_length, saidx_t* sa,
+void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     long max_threads = 1, long max_blocks = -1) {
   static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
   long double start;
@@ -44,7 +45,7 @@ void inmem_sascan(unsigned char *text, long text_length, saidx_t* sa,
   fprintf(stderr, "pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "\n");
 
-  bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)malloc(text_length * sizeof(bwtsa_t<saidx_t>));
+  bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
 
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
@@ -88,11 +89,12 @@ void inmem_sascan(unsigned char *text, long text_length, saidx_t* sa,
 
   delete gt;
 
-  fprintf(stderr, "Copying bwtsa.sa into sa: ");
+  fprintf(stderr, "Shrinking bwtsa.sa into sa: ");
   start = utils::wclock();
-  for (long i = 0; i < text_length; ++i) sa[i] = bwtsa[i].sa;
+
+  parallel_shrink<bwtsa_t<saidx_t>, saidx_t>(bwtsa, text_length, max_threads);
+
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-  free(bwtsa);
 }
 
 

@@ -35,9 +35,10 @@ void test(unsigned char *text, long text_length, long max_blocks,
   }
 
   fprintf(stderr, "Running inmem sascan\n\n");
-  saidx_t *computed_sa = new saidx_t[text_length];
+  unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(saidx_t) + 1)];
+  saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   start = utils::wclock();
-  inmem_sascan<saidx_t>(text, text_length, computed_sa, max_blocks, max_threads);
+  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_blocks, max_threads);
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "\nTotal time:\n");
   fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
@@ -65,7 +66,7 @@ void test(unsigned char *text, long text_length, long max_blocks,
   fprintf(stderr, "Compared %ld values", compared);
   fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
 
-  delete[] computed_sa;
+  delete[] computed_sa_temp;
   delete sa_reader;
 }
 
@@ -78,9 +79,11 @@ void test_file(const char *filename) {
   utils::read_objects_from_file(text, length, filename);
   fprintf(stderr, "DONE\n");
 
+  // test<uint40>(text, length, 24, 8, filename);
+  // test<uint40>(text, length, 24, 12, filename);
   test<uint40>(text, length, 24, 16, filename);
-//  test<long>(text, length, 24, 24, filename);
-//  test<long>(text, length, 24, 32, filename);
+  // test<uint40>(text, length, 24, 24, filename);
+  // test<uint40>(text, length, 24, 32, filename);
 
   delete[] text;
 }

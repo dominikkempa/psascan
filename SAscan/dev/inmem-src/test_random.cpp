@@ -26,8 +26,9 @@ void test(unsigned char *text, long text_length, long max_threads) {
   //----------------------------------------------------------------------------
   // 1) compute gt_in of size block_size, where gt_in[i] == 1 iff
   //    text[block_beg + i..) > text[block_end..).
-  int *computed_sa = new int[text_length];
-  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa, max_threads);
+  unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(int) + 1)];
+  int *computed_sa = (int *)computed_sa_temp;
+  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads);
 
   //----------------------------------------------------------------------------
   // STEP 3: compare answers.
@@ -58,7 +59,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   // STEP 4: clean up.
   //----------------------------------------------------------------------------
   delete[] correct_sa;
-  delete[] computed_sa;
+  delete[] computed_sa_temp;
 }
 
 template<unsigned pagesize_log>
