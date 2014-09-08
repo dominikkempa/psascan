@@ -35,7 +35,7 @@ void test(unsigned char *text, long text_length, long max_blocks,
   }
 
   fprintf(stderr, "Running inmem sascan\n\n");
-  unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(saidx_t) + 1)];
+  unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   start = utils::wclock();
   inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_blocks, max_threads);
@@ -66,7 +66,7 @@ void test(unsigned char *text, long text_length, long max_blocks,
   fprintf(stderr, "Compared %ld values", compared);
   fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
 
-  delete[] computed_sa_temp;
+  free(computed_sa_temp);
   delete sa_reader;
 }
 
