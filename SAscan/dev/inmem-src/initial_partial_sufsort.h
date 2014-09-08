@@ -81,7 +81,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
 
 
 
-  if (text_length >= (2L << 30)) {  // Use 64-bit divsufsort.
+  if (max_block_size >= (2L << 30)) {  // Use 64-bit divsufsort.
     //----------------------------------------------------------------------------
     // STEP 2: Compute and allocate extra space.
     //----------------------------------------------------------------------------

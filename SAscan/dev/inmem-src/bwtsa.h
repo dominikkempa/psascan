@@ -3,7 +3,6 @@
 
 #include "uint40.h"
 
-
 template<typename sa_type>
 struct bwtsa_t {
   sa_type sa;

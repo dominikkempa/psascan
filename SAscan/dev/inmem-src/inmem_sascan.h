@@ -27,7 +27,7 @@
 //==============================================================================
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
-    long max_threads = 1, long max_blocks = -1) {
+    long max_threads = 1, long max_blocks = -1, bool compute_bwt = false) {
   static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
   long double start;
   if (max_blocks == -1)
@@ -43,6 +43,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   fprintf(stderr, "Max threads = %ld\n", max_threads);
   fprintf(stderr, "sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
   fprintf(stderr, "pagesize = %u\n", (1U << pagesize_log));
+  fprintf(stderr, "compute bwt = %s\n", compute_bwt ? "true" : "false");
   fprintf(stderr, "\n");
 
   bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
@@ -89,12 +90,32 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
   delete gt;
 
+  unsigned char *bwt = NULL;
+  if (compute_bwt) {
+    // Allocate aux, copy bwt into aux.
+    fprintf(stderr, "Copying bwtsa.bwt into aux memory: ");
+    start = utils::wclock();
+    bwt = (unsigned char *)malloc(text_length);
+    parallel_copy<bwtsa_t<saidx_t>, unsigned char>(bwtsa, bwt, text_length, max_threads);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  }
+
   fprintf(stderr, "Shrinking bwtsa.sa into sa: ");
   start = utils::wclock();
 
   parallel_shrink<bwtsa_t<saidx_t>, saidx_t>(bwtsa, text_length, max_threads);
 
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+  if (compute_bwt) {
+    // Copy from aux into the end of bwtsa.
+    fprintf(stderr, "Copying bwt from aux memory to the end of bwtsa: ");
+    start = utils::wclock();
+    unsigned char *dest = (unsigned char *)(((saidx_t *)bwtsa) + text_length);
+    parallel_copy<unsigned char, unsigned char>(bwt, dest, text_length, max_threads);
+    free(bwt);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  }
 }
 
 
