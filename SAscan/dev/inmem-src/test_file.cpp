@@ -58,7 +58,7 @@ void test(unsigned char *text, long text_length, long max_blocks,
     }
 
     long next_correct_sa = sa_reader->read();
-    if (next_correct_sa != computed_sa[i].ll()) {
+    if (next_correct_sa != (long)computed_sa[i]) {
       eq = false;
       break;
     }
