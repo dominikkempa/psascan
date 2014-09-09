@@ -74,20 +74,25 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     start = utils::wclock();
     gt_end_to_gt_begin(text, text_length, gt, max_block_size, max_threads);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
+  }
 
-    long i0;
-    pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = 
-      balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-          max_block_size, 0, n_blocks, max_threads, false, i0);
 
+  long i0;
+  pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = NULL;
+  if (n_blocks > 1 || compute_bwt) {
+    result = balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
+        gt, max_block_size, 0, n_blocks, max_threads, false, i0);
+  }
+
+  if (n_blocks > 1) {
     // We permute it to plain array.
     fprintf(stderr, "\nPermuting the resulting SA to plain array: ");
     start = utils::wclock();
     result->permute_to_plain_array(max_threads);
-    delete result;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
+  delete result;
   delete gt;
 
   unsigned char *bwt = NULL;
