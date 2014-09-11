@@ -122,6 +122,7 @@ class rank4n {
 
       unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
       bool *cblock_type = new bool[n_cblocks];
+      std::fill(cblock_type, cblock_type + n_cblocks, 0);
 
       unsigned **occ = (unsigned **)malloc(n_ranges * sizeof(unsigned *));
       for (unsigned long i = 0; i < n_ranges; ++i)

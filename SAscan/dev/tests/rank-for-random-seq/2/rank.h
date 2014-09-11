@@ -123,6 +123,7 @@ struct rank4n {
       //         beginning pointers to beginnings of occurrence lists.
       //------------------------------------------------------------------------
       for (long c = 0; c < k_sigma; ++c) {
+        if (!cblock_count[c]) m_cblock_header[(cblock_id << k_sigma_log) + c] = 0;
         m_cblock_header[(cblock_id << k_sigma_log) + c] |= (list_beg[c] << 5);
         m_cblock_header[(cblock_id << k_sigma_log) + c] |= (m_count[c] << (k_cblock_size_log + 6));
       }
