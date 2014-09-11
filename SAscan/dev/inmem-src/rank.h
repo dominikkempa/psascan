@@ -121,6 +121,8 @@ class rank4n {
       std::fill(m_cblock_type, m_cblock_type + (n_cblocks + 7) / 8, 0);
 
       unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
+      std::fill(rare_trunk_size, rare_trunk_size + n_cblocks, 0);
+
       bool *cblock_type = new bool[n_cblocks];
       std::fill(cblock_type, cblock_type + n_cblocks, 0);
 
