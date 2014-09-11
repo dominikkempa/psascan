@@ -19,8 +19,8 @@ void read_sa(saidx_t* &sa, std::string filename) {
 
 
 template<typename saidx_t>
-void test(unsigned char *text, long text_length, long max_blocks,
-    long max_threads, std::string filename) {
+void test(unsigned char *text, long text_length, long max_threads,
+    long max_blocks, std::string filename) {
   long double start;
 
   std::string sa_filename = filename + ".sa" + utils::intToStr(sizeof(long));
@@ -39,7 +39,7 @@ void test(unsigned char *text, long text_length, long max_blocks,
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
   start = utils::wclock();
-  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_blocks, max_threads, true);
+  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, true, max_blocks);
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "\nTotal time:\n");
   fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);

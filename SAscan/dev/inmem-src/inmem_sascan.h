@@ -14,6 +14,7 @@
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
+#include "skewed-merge.h"
 
 
 //==============================================================================
@@ -27,7 +28,7 @@
 //==============================================================================
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
-    long max_threads = 1, long max_blocks = -1, bool compute_bwt = false) {
+    long max_threads = 1, bool compute_bwt = false, long max_blocks = -1) {
   static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
   long double start;
   if (max_blocks == -1)
@@ -76,12 +77,23 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
   }
 
+  float rl_ratio = 10.L; // estimated empirically
+  int max_left_size = std::max(1, (int)floor((n_blocks * 0.575)));
+  fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
+  fprintf(stderr, "Max left size = %d\n", max_left_size);
+  fprintf(stderr, "Peak memory usage during last merging = %.3Lfn\n",
+      (2.125L + sizeof(saidx_t)) + (5.L * max_left_size) / n_blocks);
+  MergeSchedule schedule(n_blocks, rl_ratio, max_left_size);
+
+  fprintf(stderr, "Skewed merge schedule:\n");
+  print_schedule(schedule, n_blocks);
+  fprintf(stderr, "\n");
 
   long i0;
   pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = NULL;
   if (n_blocks > 1 || compute_bwt) {
     result = balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
-        gt, max_block_size, 0, n_blocks, max_threads, false, i0);
+        gt, max_block_size, 0, n_blocks, max_threads, false, i0, schedule);
   }
 
   if (n_blocks > 1) {

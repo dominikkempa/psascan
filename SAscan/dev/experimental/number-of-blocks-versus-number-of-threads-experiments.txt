@@ -1,0 +1,106 @@
+- all runs are on 5GiB files and using numactl -i 0-1 interleaving
+- cache was cleared before each run
+- when the number of threads is less than 24, I use the (experimentally
+  confirmed to be the best) optimal assignment of threads to cores, the
+  information about the binding of cpus to phisical cores can be found from
+  /proc/cpuinfo. Based on this information, the optimal binding for e.g. 16
+  threads is numactl -i 0-1 -C 0-13,18-19 and the worst is e.g.
+  numactl -i 0-1 -C 0-7,12-19; equally bad: -C 4-11, 16-23.
+- note than then the number of threads is less than 24 I *have* to use either
+  numactl -C or taskset -c because during the streaming I create more threads
+  than the given maximum (about twice as much; some for streaming some for
+  updating).
+- divsufsort64 (non-parallel) times:
+    hg.reads: 1625.72
+    TBA
+- note: there seem to be two reasons to always set: #blocks = #threads, first
+  is that it's easy and we make sure not to waste any cpu power at the bottom
+  level, but perhaps more importantly when we use more threads than blocks, there
+  is not way to assure that the threads in the bottom level will be assigned to
+  cores to minimize the effect of hyper threading. taskset cannot be used here.
+  Also  we do not (almost) lose any speed when using #blocks = #threads (there
+  are small exceptions, e.g. using 16 blocks rather than 24 is (slightly)
+  better on random255, when #threads=24, but the difference is only about 2%
+  and anyway it only happens for random255).
+  
+================================================================================
+bottom line: we should always set #blocks = #threads, and always make sure
+that we use optimal binding of threas to cores (when #threads < 24).
+================================================================================
+
+
+
+
+24 threads
+==========
+
+MAX SKEWING (16 blocks), it uses close to 12.125n bytes of memory
+  countries:    224.10 / 223.25 / 222.38                              23.02MiB/s
+  wiki:         254.57 / 255.87 / 254.72                              20.11MiB/s
+  hg.reads:     270.20 / 268.14 / 268.33                              19.09MiB/s
+  random255:    312.17 / 311.54 / 311.55                              16.40MiB/s
+
+24 blocks
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    226.52 / 226.42 / TBA                                 22.60MiB/s
+  wiki:         261.36 / 261.77 / 261.40                              19.56MiB/s
+  hg.reads:     273.60 / 273.65 / 274.18                              18.71MiB/s
+  random255:    316.50 / 316.55 / 316.78                              16.17MiB/s
+
+20 blocks
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    225.60 / 225.95 / 224.42                              22.70MiB/s
+  wiki:         259.34 / 259.34 / 259.24                              19.74MiB/s
+  hg.reads:     272.81 / 273.61 / 273.35                              18.77MiB/s
+  random255:    312.41 / 313.20 / 313.63                              16.39MiB/s
+
+16 blocks
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    222.07 / 222.07 / 221.69                              23.06MiB/s
+  wiki:         260.36 / 261.17 / 260.10                              19.60MiB/s
+  hg.reads:     275.24 / 275.54 / 277.01                              18.60MiB/s
+  random255:    309.61 / 310.64 / 311.52                              16.54MiB/s
+
+12 blocks (notice the increased (but expected) volatility)
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    235.49 / 240.94 / 242.38
+  wiki:         282.68 / 287.39 / 285.39
+  hg.reads:     318.07 / 319.39 / 310.64
+  random255:    337.06 / 347.30 / 347.44
+  
+16 blocks, no cpu numactl -C used. first, observe the volatility, second:
+actually we use more than 16 threads (because the streaming creates 2x16)
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    249.67 / 235.65 / 226.64 / 235.70
+  wiki:         283.74 / 286.06 / 298.25 / 275.71
+  hg.reads:     
+  random255:
+
+
+
+
+16 threads
+==========
+
+16 blocks
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    253.03 / 251.51 / 249.94                              20.36MiB/s
+  wiki:         289.54 / 291.31 / 290.58                              17.70MiB/s
+  hg.reads:     304.99 / 307.12 / 305.54                              16.79MiB/s
+  random255:    370.03 / 371.53 / 371.53                              13.78MiB/s
+  
+12 blocks (notice larger volatility caused the the freedom to choose cores at
+  the bottom level)
+---------
+10n SKEWING (rl_ratio = 10)
+  countries:    258.28 / 259.95 / 269.20
+  wiki:         311.16 / 312.71 / 314.90
+  hg.reads:     338.73 / 329.35 / 323.93
+  random255:    386.99 / 384.87 / 393.07
+

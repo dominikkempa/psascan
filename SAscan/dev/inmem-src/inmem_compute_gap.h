@@ -86,7 +86,8 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long left_block_size, long right_block_size,
     const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
-    long stream_buffer_size = (1L << 20)) {
+    long stream_buffer_size,
+    long double &rank_init_time, long double &streaming_time) {
 
   //----------------------------------------------------------------------------
   // STEP 1: build rank data structure over BWT.
@@ -95,7 +96,8 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   long double start = utils::wclock();
   typedef rank4n<saidx_t, pagesize_log> rank_type;
   rank_type *rank = new rank_type(&bwtsa, left_block_size, max_threads);
-  fprintf(stderr, "total: %.2Lf\n", utils::wclock() - start);
+  rank_init_time = utils::wclock() - start;
+  fprintf(stderr, "total: %.2Lf\n", rank_init_time);
 
 
   //----------------------------------------------------------------------------
@@ -206,7 +208,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // Wait to all threads to finish.
   for (long t = 0; t < n_threads; ++t) threads[t]->join();
   updater->join();
-  long double streaming_time = utils::wclock() - start;
+  streaming_time = utils::wclock() - start;
   long double streaming_speed =
     (right_block_size / (1024.L * 1024)) / streaming_time;
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", streaming_time,

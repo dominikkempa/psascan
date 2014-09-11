@@ -29,7 +29,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(int) + 1)];
   int *computed_sa = (int *)computed_sa_temp;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads, max_threads, true);
+  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads, true);
 
   //----------------------------------------------------------------------------
   // STEP 3: compare answers.
