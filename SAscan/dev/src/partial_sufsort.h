@@ -33,6 +33,7 @@
 #include "update.h"
 #include "stream_info.h"
 #include "aux_parallel.h"
+#include "multifile_bitvector.h"
 
 long stream_buffer_size;
 
@@ -41,26 +42,112 @@ template<typename output_type> distributed_file<output_type> *partial_SAscan(std
     bool compute_bwt, long ram_use, unsigned char **BWT, std::string text_filename, long text_offset,
     long max_threads);
 
+
+void compute_initial_ranks(unsigned char *block, long block_beg,
+    long block_end, long text_length, std::string text_filename, long stream_max_block_size,
+    std::vector<long> &result, multifile &gt_files) {
+  fprintf(stderr, "  [PARALLEL]Computing initial ranks: ");
+  long double start = utils::wclock();
+
+  long block_size = block_end - block_beg;
+  long tail_length = text_length - block_end;
+  long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
+
+  result.resize(n_threads);
+  std::thread **threads = new std::thread*[n_threads];
+  for (int t = 0; t < n_threads; ++t) {
+    long stream_block_beg = block_end + t * stream_max_block_size;
+    long stream_block_end = std::min(stream_block_beg + stream_max_block_size, text_length);
+
+    threads[t] = new std::thread(parallel_smaller_suffixes, block,
+        block_size, text_filename, stream_block_end, std::ref(result[t]), std::ref(gt_files));
+  }
+
+  for (int t = 0; t < n_threads; ++t) threads[t]->join();
+  for (int t = 0; t < n_threads; ++t) delete threads[t];
+  delete[] threads;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+}
+
+
+void rename_block(unsigned char *block, long block_beg, long block_end,
+    long max_block_size, long text_length, std::string text_filename,
+    multifile *gt_multifile) {
+  long block_size = block_end - block_beg;
+  long tail_length = text_length - block_end;
+  long prev_block_size = std::min(tail_length, max_block_size);
+
+  //----------------------------------------------------------------------------
+  // STEP 1: read previous block.
+  //----------------------------------------------------------------------------
+  fprintf(stderr, "  Read prev block: ");
+  long double start = utils::wclock();
+  unsigned char *prev_block = (unsigned char *)malloc(prev_block_size);
+  utils::read_block(text_filename, block_end, prev_block_size, prev_block);
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+
+  //----------------------------------------------------------------------------
+  // STEP 2: compute gt_end for the block, from gt_begin for the tail.
+  //----------------------------------------------------------------------------
+  fprintf(stderr, "  Compute gt_end for block: ");
+  start = utils::wclock();
+  bitvector *gt_end = new bitvector(block_size);
+  compute_gt_end(block, block_size, prev_block, prev_block_size, tail_length, gt_multifile, gt_end);
+  free(prev_block);
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+
+  //----------------------------------------------------------------------------
+  // STEP 3: remap the block.
+  //----------------------------------------------------------------------------
+  fprintf(stderr, "  Rename block: ");
+  start = utils::wclock();
+  unsigned char block_last = block[block_size - 1];
+  for (long j = 0; j + 1 < block_size; ++j)
+    if (block[j] > block_last || (block[j] == block_last && gt_end->get(j + 1)))
+      block[j] += 1;
+  block[block_size - 1] += 1;
+  delete gt_end;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+}
+
+
 //=============================================================================
-// Compute partial SA of B[0..block_size) and store on disk.
-// If block_id != n_block also compute the BWT of B.
+// Compute partial SA of block[0..block_size) and store on disk.
+// If block_id != n_block also compute the BWT of block.
 //
 // INVARIANT: on entry to the function it holds: 5.2 * block_size <= ram_use
 //=============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
-    unsigned char *B,
-    long block_size,
-    long block_id,
+    unsigned char *block,
+    long block_beg,
+    long block_end,
+    long max_block_size,
+    long text_length,
     long ram_use,
-    std::string text_fname,
-    std::string sa_fname,
-    bool compute_bwt,
-    bitvector *gt_eof_bv,
+    std::string text_filename,
     unsigned char **BWT,
-    long block_offset,
-    long max_threads) {
+    long max_threads,
+    long &isa0,
+    multifile *gt_files) {
 
+  long block_id = block_beg / max_block_size;
+  long block_size = block_end - block_beg;
+  bool compute_bwt = (block_end != text_length);
+
+  fprintf(stderr, "  Compute gt_begin for block: ");
+  long double start = utils::wclock();
+  bitvector *gt_begin = new bitvector(block_size);
+  isa0 = compute_gt_begin(block, block_size, gt_begin); // note, after renaming we don't need anything else!
+  std::string gt_begin_filename = text_filename + ".gt_begin." + utils::random_string_hash();
+  gt_begin->save(gt_begin_filename); // XXX the function could immediatelly store gt on disk.
+  delete gt_begin;
+  gt_files->add_file(text_length - block_end, text_length - block_beg, gt_begin_filename);
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+  std::string sa_fname = text_filename + ".partial_sa." + utils::intToStr(block_id);
   distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(sa_fname.c_str(),
       std::max((long)sizeof(block_offset_type), ram_use / 10L));
   fprintf(stderr, "  compute-bwt = %s\n", compute_bwt ? "TRUE" : "FALSE");
@@ -70,7 +157,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     fprintf(stderr, "  Computing partial SA (divsufsort): ");
     long double sa_start = utils::wclock();
     int *SA = new int[block_size];
-    divsufsort(B, SA, (int)block_size);
+    divsufsort(block, SA, (int)block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
 
     fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
@@ -85,25 +172,26 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
       // Remap symbols of B back to original.
       fprintf(stderr, "  Re-remapping B: ");
       long double reremap_start = utils::wclock();
-      for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
+      unsigned char block_last = block[block_size - 1] - 1;
+      for (long j = 0; j < block_size; ++j)
+        if (block[j] > block_last) block[j] -= 1;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
 
       // Compute BWT
       fprintf(stderr, "  Compute BWT: ");
       long double bwt_start = utils::wclock();
-      bwt_from_sa_replace_text(SA, B, block_size, max_threads);
-      *BWT = B;
+      bwt_from_sa_replace_text(SA, block, block_size, max_threads);
+      *BWT = block;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-    } else delete[] B;
+    } else delete[] block;
     
     delete[] SA;
-    delete gt_eof_bv;
   } else if (9L * block_size <= ram_use) {
     // Easy case: block_size >= 2GiB but enough RAM to use divsufsort64.
     fprintf(stderr, "  Computing partial SA (divsufsort64): ");
     long double sa_start = utils::wclock();
     long *SA = new long[block_size];
-    divsufsort64(B, SA, block_size);
+    divsufsort64(block, SA, block_size);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
     
     fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
@@ -118,18 +206,19 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
       // Remap symbols of B back to original.
       fprintf(stderr, "  Re-remapping B: ");
       long double reremap_start = utils::wclock();
-      for (long j = 0; j < block_size; ++j) B[j] -= gt_eof_bv->get(j);
+      unsigned char block_last = block[block_size - 1] - 1;
+      for (long j = 0; j < block_size; ++j)
+        if (block[j] > block_last) block[j] -= 1;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
 
       // Compute BWT
       fprintf(stderr, "  Compute BWT: ");
       long double bwt_start = utils::wclock();
-      bwt_from_sa_replace_text(SA, B, block_size, max_threads);
-      *BWT = B;
+      bwt_from_sa_replace_text(SA, block, block_size, max_threads); /// XXX this we also change.
+      *BWT = block;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-    } else  delete[] B;
+    } else delete[] block;
     
-    delete gt_eof_bv;
     delete[] SA;
   } else {
     //-------------------------------------------------------------------------
@@ -141,15 +230,14 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     long double rec_partial_sa_start = utils::wclock();
 
     // Save the remapped block to temp file.
-    std::string B_fname = text_fname + ".block" + utils::intToStr(block_id);
-    utils::write_objects_to_file(B, block_size, B_fname);
+    std::string B_fname = text_filename + ".block" + utils::intToStr(block_id);
+    utils::write_objects_to_file(block, block_size, B_fname);
 
     // Free all memory.
-    delete gt_eof_bv;
-    delete[] B;
+    delete[] block;
 
     result = partial_SAscan<block_offset_type>(B_fname, compute_bwt, ram_use,
-        BWT, text_fname, block_offset, max_threads);
+        BWT, text_filename, block_beg, max_threads);
 
     utils::file_delete(B_fname);
     fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
@@ -159,256 +247,183 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
   return result;
 }
 
+template<typename block_offset_type>
+buffered_gap_array* compute_gap(
+    unsigned char *BWT,
+    long block_beg,
+    long block_end,
+    long text_length,
+    std::string text_filename,
+    std::vector<long> initial_ranks,
+    long max_threads,
+    unsigned char block_last_symbol,
+    long isa0,
+    multifile *gt_files,
+    multifile *new_gt_files) {
+
+  long block_size = block_end - block_beg;
+
+  long tail_length = text_length - block_end;
+  long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
+  long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
+
+  std::vector<std::string> gt_filenames(n_threads);
+
+  // 5a. Build the rank support for BWT.
+  fprintf(stderr, "  Building the rank data structure: ");
+  long double building_rank_start = utils::wclock();
+  rank4n<> *rank = new rank4n<>(BWT, block_size - 1, max_threads);
+  delete[] BWT;
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
+
+
+  // Get symbol counts of a block and turn into exclusive partial sum.
+  long *count = new long[256];
+  std::copy(rank->c_rank, rank->c_rank + 256, count);
+  ++count[block_last_symbol];
+  for (long j = 0, s = 0, t; j < 256; ++j) {
+    t = count[j];
+    count[j] = s;
+    s += t;
+  }
+
+
+  // 5b. Allocate the gap array, do the streaming and store gap to disk.
+  fprintf(stderr, "  [PARALLEL]Stream:");
+  long double stream_start = utils::wclock();
+
+  buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
+
+  // Allocate buffers.
+  long n_stream_buffers = 2 * max_threads;
+  buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[n_stream_buffers];
+  for (long i = 0L; i < n_stream_buffers; ++i)
+    buffers[i] = new buffer<block_offset_type>(stream_buffer_size);
+
+  // Create poll of empty and full buffers.
+  buffer_poll<block_offset_type> *empty_buffers = new buffer_poll<block_offset_type>();
+  buffer_poll<block_offset_type> *full_buffers = new buffer_poll<block_offset_type>(n_threads);
+
+  // Add empty buffers to empty poll.
+  for (long i = 0L; i < n_stream_buffers; ++i)
+    empty_buffers->add(buffers[i]);
+
+  // Start workers.
+  stream_info info(n_threads, tail_length);
+  std::thread **streamers = new std::thread*[n_threads];
+  for (long t = 0L; t < n_threads; ++t) {
+    long stream_block_beg = block_end + t * stream_max_block_size;
+    long stream_block_end = std::min(stream_block_beg + stream_max_block_size, text_length);
+    gt_filenames[t] = text_filename + ".gt_tail." + utils::random_string_hash();
+
+    new_gt_files->add_file(text_length - stream_block_end,
+        text_length - stream_block_beg, gt_filenames[t]);
+
+    streamers[t] = new std::thread(parallel_stream<block_offset_type>,
+        full_buffers, empty_buffers, stream_block_beg, stream_block_end,
+        initial_ranks[t], count, isa0, rank, block_last_symbol, text_filename, text_length,
+        std::ref(gt_filenames[t]), &info, t, gap->m_length, stream_buffer_size, gt_files);
+  }
+
+  // Start updaters.
+  std::thread *updater = new std::thread(gap_updater<block_offset_type>,
+        full_buffers, empty_buffers, gap);
+
+  // Wait for all threads to finish.
+  for (long i = 0L; i < n_threads; ++i) streamers[i]->join();
+  updater->join();
+
+  // Clean up.
+  for (long i = 0L; i < n_threads; ++i) delete streamers[i];
+  for (long i = 0L; i < n_stream_buffers; ++i) delete buffers[i];
+  delete updater;
+  delete[] streamers;
+  delete[] buffers;
+  delete empty_buffers;
+  delete full_buffers;
+  delete rank;
+  delete[] count;
+
+  long double stream_time = utils::wclock() - stream_start;
+  long double speed = ((text_length - block_end) / (1024.L * 1024)) / stream_time;
+  fprintf(stderr,"\r  [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
+      "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
+      stream_time, info.m_thread_count, speed / n_threads, speed);
+
+  // 5c. Save gap to file.
+  return gap;
+}
+
+
 //=============================================================================
 // Compute partial SAs and gap arrays and write to disk.
 // Return the array of handlers to distributed files as a result.
 //=============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string filename,
-    long length, long max_block_size, long ram_use, long max_threads) {
-  long n_stream_buffers = 2 * max_threads;
-  long n_block = (length + max_block_size - 1) / max_block_size;
-  long block_id = n_block - 1, prev_end = length;
+    long text_length, long max_block_size, long ram_use, long max_threads) {
+  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  distributed_file<block_offset_type> **distrib_files = new distributed_file<block_offset_type>*[n_blocks];
 
-  distributed_file<block_offset_type> **distrib_files = new distributed_file<block_offset_type>*[n_block];
 
-  while (block_id >= 0) {
-    long beg = max_block_size * block_id;
-    long end = std::min(length, beg + max_block_size);
-    long block_size = end - beg; // B = text[beg..end), current block
-    bool need_streaming = (block_id + 1 != n_block);
+  multifile *gt_files = NULL;
+  for (long block_id = n_blocks - 1; block_id >= 0; --block_id) {
+    long block_beg = max_block_size * block_id;
+    long block_end = std::min(block_beg + max_block_size, text_length);
+    long block_size = block_end - block_beg;
 
-    fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n",
-      n_block - block_id, n_block, beg, end);
+    long tail_length = text_length - block_end;
+    long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
+    bool need_streaming = (block_end != text_length);
+    multifile *new_gt_files = new multifile();
+
+    fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n", n_blocks - block_id, n_blocks, block_beg, block_end);
     fprintf(stderr, "  need_streaming = %s\n", need_streaming ? "TRUE" : "FALSE");
-    fprintf(stderr, "  block_size = %ld (%.2LfMiB)\n", block_size,
-        (long double)block_size / (1 << 20));
+    fprintf(stderr, "  block_size = %ld (%.2LfMiB)\n", block_size, (long double)block_size / (1 << 20));
 
-    //--------------------------------------------------------------------------
-    // Invariant: if the current block [beg..end) is not the last block of
-    // text, there is a file called filename.gt on disk containing bitvector of
-    // size length - end defined as follows:
-    //
-    // gt[i] == 1
-    //
-    //   iff
-    //
-    // the suffix of text of length i + 1 is lexicographically greater
-    // than the current tail of the text, text[end..length).
-    //--------------------------------------------------------------------------
-    // The bitvector is required during the streaming and other computations,
-    // e.g. during the computation of gt_eof bitvector required for renaming
-    // the block.
-    //
-    // Typically the bitvector is accessed via the 'gt_accessor' class (see
-    // smaller_suffixes.h). This class implements random access via
-    // operator []. Access is efficient (essentially streaming) if its
-    // sequential.
-    //
-    // Example:
-    //
-    // gt_accessor *gt = new gt_accessor(filename + ".gt");
-    // printf("%d", gt[5]);
-    //--------------------------------------------------------------------------
+
 
     // 1. Read current block.
     fprintf(stderr, "  Reading block: ");
     long double read_start = utils::wclock();
-    unsigned char *B = new unsigned char[block_size];
-    utils::read_block(filename, beg, block_size, B);
-    unsigned char last = B[block_size - 1];
+    unsigned char *block = (unsigned char *)malloc(block_size);
+    utils::read_block(filename, block_beg, block_size, block);
+    unsigned char block_last_symbol = block[block_size - 1];
     fprintf(stderr, "%.2Lf\n", utils::wclock() - read_start);
 
-    long right_part_length = length - end;
-    long stream_block_size = (right_part_length + max_threads - 1) / max_threads;
-    long n_threads = 0L;
-    if (end != length)
-      n_threads = (right_part_length + stream_block_size - 1) / stream_block_size;
-    std::vector<std::string> gt_filenames(n_threads);
-    std::vector<long> initial_rank(n_threads);
 
-    bitvector *gt_eof_bv = NULL;
-    if (need_streaming) {
-      //------------------------------------------------------------------------
-      // Compute initial ranks for streaming.
-      //------------------------------------------------------------------------
-      fprintf(stderr, "  [PARALLEL]Computing initial ranks: ");
-      long double initial_ranks_start = utils::wclock();
-      std::thread **threads = new std::thread*[n_threads];
-      for (int t = 0; t < n_threads; ++t) {
-        long stream_block_beg = end + t * stream_block_size;
-        long stream_block_end = std::min(stream_block_beg + stream_block_size, length);
-        threads[t] = new std::thread(parallel_smaller_suffixes, B, block_size, filename,
-            stream_block_end, std::ref(initial_rank[t]));
-      }
-      for (int t = 0; t < n_threads; ++t) threads[t]->join();
-      for (int t = 0; t < n_threads; ++t) delete threads[t];
-      delete[] threads;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_start);
- 
-      // 2b. Read previous block.
-      fprintf(stderr, "  Read previous block: ");
-      long double prev_block_reading_start = utils::wclock();
-      unsigned char *extprevB = new unsigned char[max_block_size + 1];
-      long ext_prev_block_size = prev_end - end + 1;
-      utils::read_block(filename, end - 1, ext_prev_block_size, extprevB);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - prev_block_reading_start);
 
-      // 2c. Compute gt_eof.
-      fprintf(stderr, "  Compute gt_eof_bv: ");
-      long double gt_eof_start = utils::wclock();
-      gt_eof_bv = new bitvector(block_size);
-      gt_accessor *gt = new gt_accessor(filename + ".gt");
-      long gt_length = length - end;
-      compute_gt_eof_bv(extprevB, ext_prev_block_size, B, block_size, *gt, gt_length, gt_eof_bv);
-      delete gt;
-      delete[] extprevB;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - gt_eof_start);
 
-      // FIXME
-      bool used = false;
-      for (long j = 0; j < block_size; ++j)
-        if (B[j] == 255) used = true;
-      if (used) {
-        printf("\nError: Input text cannot contain symbol 255.\n");
-        std::exit(EXIT_FAILURE);
-      }
-
-      // 2d. Remap symbols of B.
-      fprintf(stderr, "  Remapping B: ");
-      long double remap_start = utils::wclock();
-      for (long j = 0; j < block_size; ++j) B[j] += gt_eof_bv->get(j);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - remap_start);
+    std::vector<long> initial_ranks;
+    if (block_end != text_length) {
+      compute_initial_ranks(block, block_beg, block_end, text_length, filename, stream_max_block_size, initial_ranks, *gt_files);
+      rename_block(block, block_beg, block_end, max_block_size, text_length, filename, gt_files);
     }
 
-    // 3. Compute the head of the new gt bitvector.
-    long whole_suffix_rank = 0;
-    fprintf(stderr, "  Compute new_gt_head_bv: ");
-    long double new_gt_head_bv_start = utils::wclock();
-    bitvector *new_gt_head_bv = new bitvector(block_size);
-    whole_suffix_rank = compute_new_gt_head_bv(B, block_size, new_gt_head_bv);
-    new_gt_head_bv->save(filename + ".gt_head");
-    delete new_gt_head_bv;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - new_gt_head_bv_start);
+
 
     // 4. Compute/save partial SA. Compute BWT if it's not the last block.
     unsigned char *BWT = NULL;
-    std::string sa_fname = filename + ".partial_sa." + utils::intToStr(block_id);
+    long isa0;
+    distrib_files[block_id] = compute_partial_sa_and_bwt<block_offset_type>(block, block_beg,
+        block_end, max_block_size, text_length, ram_use, filename, &BWT, max_threads, isa0, new_gt_files);
 
-    distrib_files[block_id] = compute_partial_sa_and_bwt<block_offset_type>(
-        B, block_size, block_id, ram_use, filename, sa_fname, need_streaming,
-        gt_eof_bv, &BWT, beg, max_threads);
 
-    if (need_streaming) {
-      // 5a. Build the rank support for BWT.
-      fprintf(stderr, "  Building the rank data structure: ");
-      long double building_rank_start = utils::wclock();
-      rank4n<> *rank = new rank4n<>(BWT, block_size - 1, max_threads);
-      delete[] BWT;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
 
-      // Get symbol counts of a block and turn into exclusive partial sum.
-      long *count = new long[256];
-      std::copy(rank->c_rank, rank->c_rank + 256, count);
-      ++count[last];
-      for (long jj = 0, s = 0, t; jj < 256; ++jj)
-      { t = count[jj]; count[jj] = s; s += t; }
+    if (block_end != text_length) {
+      buffered_gap_array *gap = compute_gap<block_offset_type>(BWT, block_beg,
+          block_end, text_length, filename, initial_ranks,
+          max_threads, block_last_symbol, isa0, gt_files, new_gt_files);
 
-      // 5b. Allocate the gap array, do the streaming and store gap to disk.
-      fprintf(stderr, "  [PARALLEL]Stream:");
-      long double stream_start = utils::wclock();
-
-      buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
-
-      // Allocate buffers.
-      buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[n_stream_buffers];
-      for (long i = 0L; i < n_stream_buffers; ++i)
-        buffers[i] = new buffer<block_offset_type>(stream_buffer_size);
-
-      // Create poll of empty and full buffers.
-      buffer_poll<block_offset_type> *empty_buffers = new buffer_poll<block_offset_type>();
-      buffer_poll<block_offset_type> *full_buffers = new buffer_poll<block_offset_type>(n_threads);
-
-      // Add empty buffers to empty poll.
-      for (long i = 0L; i < n_stream_buffers; ++i)
-        empty_buffers->add(buffers[i]);
-      
-      // Start workers.
-      stream_info info(n_threads, right_part_length);
-      std::thread **streamers = new std::thread*[n_threads];
-      for (long t = 0L; t < n_threads; ++t) {
-        long stream_block_beg = end + t * stream_block_size;
-        long stream_block_end = std::min(stream_block_beg + stream_block_size, length);
-        streamers[t] = new std::thread(parallel_stream<block_offset_type>,
-            full_buffers, empty_buffers, stream_block_beg, stream_block_end,
-            initial_rank[t], count, whole_suffix_rank, rank, last, filename, length,
-            std::ref(gt_filenames[t]), &info, t, gap->m_length, stream_buffer_size);
-      }
-
-      // Start updaters.
-      std::thread *updater = new std::thread(gap_updater<block_offset_type>,
-            full_buffers, empty_buffers, gap);
-
-      // Wait for all threads to finish.        
-      for (long i = 0L; i < n_threads; ++i) streamers[i]->join();
-      updater->join();
-
-      // Clean up.
-      for (long i = 0L; i < n_threads; ++i) delete streamers[i];
-      for (long i = 0L; i < n_stream_buffers; ++i) delete buffers[i];
-      delete updater;
-      delete[] streamers;
-      delete[] buffers;
-      delete empty_buffers;
-      delete full_buffers;
-      delete rank;
-      delete[] count;
-      utils::file_delete(filename + ".gt");
-
-      long double stream_time = utils::wclock() - stream_start;
-      long double speed = ((length - end) / (1024.L * 1024)) / stream_time;
-      fprintf(stderr,"\r  [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
-          "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
-          stream_time, info.m_thread_count, speed / n_threads, speed);
-
-      // 5c. Save gap to file.
       gap->save_to_file(filename + ".gap." + utils::intToStr(block_id));
       delete gap;
     }
 
-    // Concatenate all bitvectors into one.
-    //-------------------------------------------------------------------------
-    fprintf(stderr, "  Concatenating gt bitvectors: ");
-    long double gt_concat_start = utils::wclock();
-    bit_stream_writer *gt = new bit_stream_writer(filename + ".gt");
-    if (need_streaming) {
-      for (long jj = n_threads - 1; jj >= 0; --jj) {
-        long stream_block_beg = end + jj * stream_block_size;
-        long stream_block_end = std::min(stream_block_beg + stream_block_size, length);
-        long this_stream_block_size = stream_block_end - stream_block_beg;
-
-        bit_stream_reader *gt_tail = new bit_stream_reader(gt_filenames[jj]);
-        for (long tt = 0; tt < this_stream_block_size; ++tt) gt->write(gt_tail->read());
-        delete gt_tail;
-        utils::file_delete(gt_filenames[jj]);
-      }
-    }
-    bit_stream_reader *gt_head = new bit_stream_reader(filename + ".gt_head");
-    for (long tt = end - 1; tt >= beg; --tt) gt->write(gt_head->read());
-    delete gt_head;
-    utils::file_delete(filename + ".gt_head");
-    delete gt;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - gt_concat_start);
-    //--------------------------------------------------------------------------
-
-    prev_end = end;
-    end = beg;
-    --block_id;
+    delete gt_files;
+    gt_files = new_gt_files;
   }
 
-  if (utils::file_exists(filename + ".gt"))
-    utils::file_delete(filename + ".gt");
-
+  delete gt_files;
   return distrib_files;
 }
 

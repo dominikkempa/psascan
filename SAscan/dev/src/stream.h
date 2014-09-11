@@ -21,6 +21,7 @@
 #include "buffer.h"
 #include "update.h"
 #include "stream_info.h"
+#include "multifile_bitvector.h"
 
 std::mutex stdout_mutex;
 
@@ -41,7 +42,8 @@ void parallel_stream(
     stream_info *info,
     int thread_id,
     long gap_range_size,
-    long stream_buf_size) {
+    long stream_buf_size,
+    multifile *gt_files) {
 
   static const int max_buckets = 4092;
   int *block_id_to_sblock_id = new int[max_buckets];
@@ -62,12 +64,13 @@ void parallel_stream(
   long *ptr = new long[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
-  gt_accessor *gt_in = new gt_accessor(text_filename + std::string(".gt")); // 1MiB buffer
-  bool next_gt = (stream_block_end == length) ? 0 : (*gt_in)[length - stream_block_end - 1];
+  multifile_bitvector_reader gt_in(*gt_files);
+  gt_in.initialize_sequential_reading(std::max(0L, length - stream_block_end - 1));
+
+  bool next_gt = (stream_block_end == length) ? 0 : (gt_in.read());
   backward_skip_stream_reader<unsigned char> *text_streamer
     = new backward_skip_stream_reader<unsigned char>(text_filename, length - stream_block_end, 1 << 20); // 1MiB buffer
 
-  tail_gt_filename = text_filename + std::string(".gt_tail.") + utils::random_string_hash();
   bit_stream_writer *gt_out = new bit_stream_writer(tail_gt_filename); // 1MiB buffer
 
   long j = stream_block_end, dbg = 0L;
@@ -116,7 +119,7 @@ void parallel_stream(
       i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
       if (c == last && next_gt) ++i;
       gt_out->write(i > whole_suffix_rank);
-      next_gt = (*gt_in)[length - j];
+      next_gt = gt_in.read();
       temp[t] = i;
       block_count[i >> bucket_size_bits]++;
     }
@@ -203,7 +206,6 @@ void parallel_stream(
   }
 
   delete text_streamer;
-  delete gt_in;
   delete gt_out;
   
   // Report that another worker thread has finished.

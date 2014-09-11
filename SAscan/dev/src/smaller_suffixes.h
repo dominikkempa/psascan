@@ -5,6 +5,7 @@
 #include <string>
 
 #include "utils.h"
+#include "multifile_bitvector.h"
 
 #define SMALLER_SUFFIXES_DISK_BLOCK_SIZE 1048576L
 
@@ -107,6 +108,6 @@ struct gt_accessor {
 
 
 void parallel_smaller_suffixes(unsigned char *block, long block_size,
-    std::string text_filename, long suffix_start_pos, long &ret);
+    std::string text_filename, long suffix_start_pos, long &ret, multifile &gt_files);
 
 #endif // __SMALLER_SUFFIXES_H_INCLUDED

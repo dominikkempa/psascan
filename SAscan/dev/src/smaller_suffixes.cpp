@@ -40,6 +40,7 @@
 //=============================================================================
 
 #include "smaller_suffixes.h"
+#include "multifile_bitvector.h"
 
 #include <string>
 #include <vector>
@@ -234,7 +235,7 @@ private:
 // the suffix of text starting at position 'suffix_start_pos'.
 //==============================================================================
 void parallel_smaller_suffixes(unsigned char *block, long block_size,
-    std::string text_filename, long suffix_start_pos, long &ret) {
+    std::string text_filename, long suffix_start_pos, long &ret, multifile &gt_files) {
   long text_length = utils::file_size(text_filename);
   long pat_length = text_length - suffix_start_pos;
   if (!pat_length) {
@@ -242,7 +243,8 @@ void parallel_smaller_suffixes(unsigned char *block, long block_size,
     return;
   }
 
-  gt_accessor gt(text_filename + ".gt");
+  multifile_bitvector_reader gt_reader(gt_files);
+
   pattern pat(text_filename, suffix_start_pos);
 
   GS_sets GS;
@@ -255,7 +257,7 @@ void parallel_smaller_suffixes(unsigned char *block, long block_size,
 
     if (L < pat_length && (
            (i + L  < block_size && block[i + L] < pat[L]) ||
-           (i + L == block_size && gt[pat_length - L - 1])
+           (i + L == block_size && gt_reader.access((pat_length - block_size - 1) + i))
                           )
        ) ++count;
 
