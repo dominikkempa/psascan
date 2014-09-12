@@ -28,11 +28,25 @@
 //==============================================================================
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
-    long max_threads = 1, bool compute_bwt = false, long max_blocks = -1) {
+    long max_threads = 1, bool compute_bwt = false, bool compute_gt_begin = false,
+    bitvector *gt_begin = NULL, long max_blocks = -1) {
   static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
   long double start;
   if (max_blocks == -1)
     max_blocks = max_threads;
+
+  if (!compute_gt_begin) {
+    if (gt_begin) {
+      fprintf(stderr, "Error: check gt_begin == NULL failed\n");
+      std::exit(EXIT_FAILURE);
+    }
+    gt_begin = new bitvector(text_length, max_threads);
+  } else {
+    if (!gt_begin) {
+      fprintf(stderr, "inmem_sascan: gt_begin was requested but is not allocated!\n");
+      std::exit(EXIT_FAILURE);
+    }
+  }
 
   long max_block_size = (text_length + max_blocks - 1) / max_blocks;
   while ((max_block_size & 7) || (max_block_size & pagesize_mask)) ++max_block_size;
@@ -45,6 +59,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   fprintf(stderr, "sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
   fprintf(stderr, "pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "compute bwt = %s\n", compute_bwt ? "true" : "false");
+  fprintf(stderr, "compute gt_begin = %s\n", compute_gt_begin ? "true" : "false");
   fprintf(stderr, "\n");
 
   bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
@@ -52,17 +67,16 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
   //----------------------------------------------------------------------------
-  bitvector *gt = NULL;
-  if (n_blocks > 1) {
+  if (compute_gt_begin || n_blocks > 1) {
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
-    compute_initial_gt_bitvectors(text, text_length, gt, max_block_size, max_threads);
+    compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size, max_threads);
     fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
   }
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
-  initial_partial_sufsort(text, text_length, gt, bwtsa, max_block_size, max_threads);
+  initial_partial_sufsort(text, text_length, gt_begin, bwtsa, max_block_size, max_threads);
   fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
 
 
@@ -70,10 +84,10 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   // STEP 2: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging. Also, create block description array.
   //----------------------------------------------------------------------------
-  if (n_blocks > 1) {
+  if (compute_gt_begin || n_blocks > 1) {
     fprintf(stderr, "Overwriting gt_end with gt_begin: ");
     start = utils::wclock();
-    gt_end_to_gt_begin(text, text_length, gt, max_block_size, max_threads);
+    gt_end_to_gt_begin(text, text_length, gt_begin, max_block_size, max_threads);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
   }
 
@@ -93,7 +107,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = NULL;
   if (n_blocks > 1 || compute_bwt) {
     result = balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
-        gt, max_block_size, 0, n_blocks, max_threads, false, i0, schedule);
+        gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin, i0, schedule);
   }
 
   if (n_blocks > 1) {
@@ -105,7 +119,10 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   }
 
   delete result;
-  delete gt;
+  if (!compute_gt_begin && n_blocks > 1) {
+    delete gt_begin;
+    gt_begin = NULL;
+  }
 
   unsigned char *bwt = NULL;
   if (compute_bwt) {

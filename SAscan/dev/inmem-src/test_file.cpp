@@ -38,7 +38,7 @@ void test(unsigned char *text, long text_length, long max_threads,
   unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   start = utils::wclock();
-  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, max_blocks);
+  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, false, NULL, max_blocks);
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "\nTotal time:\n");
   fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
@@ -81,7 +81,7 @@ void test_file(const char *filename) {
 
   // test<uint40>(text, length, 24, 8, filename);
   // test<uint40>(text, length, 24, 12, filename);
-  test<uint40>(text, length, 24, 24, filename);
+  test<uint40>(text, length, 24, 16, filename);
   // test<uint40>(text, length, 24, 24, filename);
   // test<uint40>(text, length, 24, 32, filename);
 

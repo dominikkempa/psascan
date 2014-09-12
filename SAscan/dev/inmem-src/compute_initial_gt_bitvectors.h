@@ -125,7 +125,7 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   // Allocate ane zero-initialize (in parallel) bitvectors.
   fprintf(stderr, "  Allocating: ");
   start = utils::wclock();
-  gt = new bitvector(length, max_threads);
+//  gt = new bitvector(length, max_threads);
   bitvector *undecided = new bitvector(length, max_threads);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
