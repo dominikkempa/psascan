@@ -13,8 +13,7 @@
 // Compute range [microblock_beg..microblock_end) of bits in the output
 // bitvector gt_out.
 //==============================================================================
-void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
-    long block_beg, long block_end, bitvector *gt) {
+void gt_end_to_gt_begin_aux(unsigned char *text, long block_beg, long block_end, bitvector *gt) {
   long block_size = block_end - block_beg;
   unsigned char *pat = text + block_beg, *txt = pat;
 
@@ -28,8 +27,7 @@ void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
     while (block_beg + i + el < block_end && txt[i + el] == pat[el])
       next(pat, ++el, s, p, r);
 
-    if (block_beg + i + el != text_length &&
-        ((block_beg + i + el != block_end && txt[i + el] > pat[el]) ||
+    if (((block_beg + i + el != block_end && txt[i + el] > pat[el]) ||
          (block_beg + i + el == block_end && !gt->get(block_beg + i - 1))))
       gt->set(block_beg + i - 1);
     else gt->reset(block_beg + i - 1);
@@ -99,7 +97,7 @@ void gt_end_to_gt_begin(unsigned char *text, long text_length,
     if (block_end + min_block_size > text_length) block_end = text_length;
 
     threads[i] = new std::thread(gt_end_to_gt_begin_aux,
-        text, text_length, block_beg, block_end, gt);
+        text, block_beg, block_end, gt);
   }
 
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();
