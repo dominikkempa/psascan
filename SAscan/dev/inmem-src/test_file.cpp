@@ -71,7 +71,7 @@ void test(unsigned char *text, long text_length, long max_threads,
 }
 
 
-void test_file(const char *filename) {
+void test_file(const char *filename, long max_threads, long max_blocks) {
   fprintf(stderr, "Input filename: %s\n", filename);
   fprintf(stderr, "Reading text: ");
   long length;
@@ -79,17 +79,13 @@ void test_file(const char *filename) {
   utils::read_objects_from_file(text, length, filename);
   fprintf(stderr, "DONE\n");
 
-  // test<uint40>(text, length, 24, 8, filename);
-  // test<uint40>(text, length, 24, 12, filename);
-  test<uint40>(text, length, 24, 16, filename);
-  // test<uint40>(text, length, 24, 24, filename);
-  // test<uint40>(text, length, 24, 32, filename);
+  test<uint40>(text, length, max_threads, max_blocks, filename);
 
   delete[] text;
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
+  if (argc != 4) {
     fprintf(stderr, "Usage: %s <file>\n", argv[0]);
     std::exit(EXIT_FAILURE);
   }
@@ -99,5 +95,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, " %s", argv[i]);
   fprintf(stderr, "\n");
 
-  test_file(argv[1]);
+  long max_threads = std::atol(argv[2]);
+  long max_blocks = std::atol(argv[3]);
+
+  test_file(argv[1], max_threads, max_blocks);
 }
