@@ -18,8 +18,7 @@ struct bitvector {
       std::exit(EXIT_FAILURE);
     }
 
-    m_data = new unsigned char[m_alloc_bytes];
-    std::fill(m_data, m_data + m_alloc_bytes, 0);
+    m_data = (unsigned char *)calloc(m_alloc_bytes, sizeof(unsigned char));
   }
 
   inline bool get(long i) const {
@@ -34,12 +33,17 @@ struct bitvector {
     m_data[i >> 3] &= (~(1 << (i & 7)));
   }
 
+  inline void flip(long i) {
+    if (get(i)) reset(i);
+    else set(i);
+  }
+
   void save(std::string filename) const {
     utils::write_objects_to_file<unsigned char>(m_data, m_alloc_bytes, filename);
   }
 
   ~bitvector() {
-    delete[] m_data;
+    free(m_data);
   }
 
   long m_alloc_bytes;

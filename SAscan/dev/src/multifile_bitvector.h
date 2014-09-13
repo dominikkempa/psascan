@@ -53,13 +53,14 @@ private:
   std::vector<single_file_info> files_info;
 
 public:
-  multifile_bitvector_reader(multifile &m) {
+  multifile_bitvector_reader(multifile *m) {
     m_file = NULL;
     m_file_beg = 0;
     m_file_end = 0;
     m_buffer = new unsigned char[k_bufsize];
 
-    files_info = m.files_info;
+    if (m != NULL)
+      files_info = m->files_info;
   }
 
   // Subsequent access operations are quaranteed

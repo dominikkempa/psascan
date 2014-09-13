@@ -47,8 +47,8 @@ void SAscan(std::string input_filename, std::string output_filename,
   long double alg_start = utils::wclock();
 
   // Check if running divsufsort is enough.
-  if ((length <= MAX_32BIT_DIVSUFSORT_LENGTH && length * 5L <= ram_use) ||
-      (length > MAX_32BIT_DIVSUFSORT_LENGTH && length * 9L <= ram_use)) {
+  if (false/*(length <= MAX_32BIT_DIVSUFSORT_LENGTH && length * 5L <= ram_use) ||
+      (length > MAX_32BIT_DIVSUFSORT_LENGTH && length * 9L <= ram_use)*/) {
     // Read text.
     unsigned char *text = NULL;
     utils::read_objects_from_file<unsigned char>(text, length, input_filename);

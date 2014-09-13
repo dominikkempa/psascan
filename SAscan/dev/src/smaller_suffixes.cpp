@@ -234,17 +234,18 @@ private:
 // is a substring of text stored in 'text_filename') that are smaller than
 // the suffix of text starting at position 'suffix_start_pos'.
 //==============================================================================
-void parallel_smaller_suffixes(unsigned char *block, long block_size,
-    std::string text_filename, long suffix_start_pos, long &ret, multifile &gt_files) {
-  long text_length = utils::file_size(text_filename);
+void parallel_smaller_suffixes(unsigned char *block, long block_beg, long block_end,
+    long text_length, std::string text_filename, long suffix_start_pos, long &ret,
+    multifile *tail_gt_begin_reversed) {
+  long block_size = block_end - block_beg;
   long pat_length = text_length - suffix_start_pos;
+
   if (!pat_length) {
     ret = 0L;
     return;
   }
 
-  multifile_bitvector_reader gt_reader(gt_files);
-
+  multifile_bitvector_reader gt_reader(tail_gt_begin_reversed);
   pattern pat(text_filename, suffix_start_pos);
 
   GS_sets GS;
@@ -257,7 +258,7 @@ void parallel_smaller_suffixes(unsigned char *block, long block_size,
 
     if (L < pat_length && (
            (i + L  < block_size && block[i + L] < pat[L]) ||
-           (i + L == block_size && gt_reader.access((pat_length - block_size - 1) + i))
+           (i + L == block_size && gt_reader.access((pat_length - block_size) + i))
                           )
        ) ++count;
 

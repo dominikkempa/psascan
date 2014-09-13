@@ -43,7 +43,7 @@ void parallel_stream(
     int thread_id,
     long gap_range_size,
     long stream_buf_size,
-    multifile *gt_files) {
+    multifile *tail_gt_begin) {
 
   static const int max_buckets = 4092;
   int *block_id_to_sblock_id = new int[max_buckets];
@@ -64,10 +64,9 @@ void parallel_stream(
   long *ptr = new long[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
-  multifile_bitvector_reader gt_in(*gt_files);
-  gt_in.initialize_sequential_reading(std::max(0L, length - stream_block_end - 1));
+  multifile_bitvector_reader gt_in(tail_gt_begin);
+  gt_in.initialize_sequential_reading(length - stream_block_end);
 
-  bool next_gt = (stream_block_end == length) ? 0 : (gt_in.read());
   backward_skip_stream_reader<unsigned char> *text_streamer
     = new backward_skip_stream_reader<unsigned char>(text_filename, length - stream_block_end, 1 << 20); // 1MiB buffer
 
@@ -116,10 +115,12 @@ void parallel_stream(
 
     for (long t = 0L; t < b->m_filled; ++t, --j) {
       unsigned char c = text_streamer->read();
+
+      gt_out->write(i > whole_suffix_rank);
+      bool next_gt = (gt_in.read());
+
       i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
       if (c == last && next_gt) ++i;
-      gt_out->write(i > whole_suffix_rank);
-      next_gt = gt_in.read();
       temp[t] = i;
       block_count[i >> bucket_size_bits]++;
     }
