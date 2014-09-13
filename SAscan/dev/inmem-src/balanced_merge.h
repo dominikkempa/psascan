@@ -16,21 +16,23 @@
 template<typename saidx_t, unsigned pagesize_log>
 pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
     long text_length, bwtsa_t<saidx_t> *bwtsa, bitvector *gt,
-    long max_block_size, long range_beg, long range_end, long max_threads,
+    long min_block_size, long range_beg, long range_end, long max_threads,
     bool need_gt, long &result_i0, MergeSchedule &schedule) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 
   long range_size = range_end - range_beg;
 
   if (range_size == 1) {
-    long block_beg = max_block_size * range_beg;
-    long block_end = std::min(block_beg + max_block_size, text_length);
+    long block_beg = range_beg * min_block_size;
+    long block_end = block_beg + min_block_size;
+    if (block_end + min_block_size > text_length) block_end = text_length;
+
     long block_size = block_end - block_beg;
 
     fprintf(stderr, "Computing BWT for block %ld: ", range_beg + 1);
     long double start = utils::wclock();
     bwt_from_sa_into_dest<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, result_i0);
-    pagearray_type *bwtsa_pagearray = new pagearray_type(bwtsa + block_beg, bwtsa + block_beg + block_size);
+    pagearray_type *bwtsa_pagearray = new pagearray_type(bwtsa + block_beg, bwtsa + block_end);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
     return bwtsa_pagearray;
@@ -48,10 +50,12 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long rrange_beg = lrange_end;
   long rrange_end = rrange_beg + rrange_size;
 
-  long lbeg = lrange_beg * max_block_size;
-  long rbeg = rrange_beg * max_block_size;
+  long lbeg = lrange_beg * min_block_size;
+  long rbeg = rrange_beg * min_block_size;
   long lend = rbeg;
-  long rend = std::min(rbeg + rrange_size * max_block_size, text_length);
+  long rend = rbeg + rrange_size * min_block_size;
+  if (rend + min_block_size > text_length) rend = text_length;
+
   long lsize = lend - lbeg;
   long rsize = rend - rbeg;
 
@@ -66,7 +70,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long left_i0;
   pagearray_type *l_bwtsa =
     balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-    max_block_size, lrange_beg, lrange_end, max_threads, need_gt, left_i0, schedule);
+    min_block_size, lrange_beg, lrange_end, max_threads, need_gt, left_i0, schedule);
 
   // 2
   // 
@@ -74,7 +78,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long right_i0;
   pagearray_type *r_bwtsa =
       balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-      max_block_size, rrange_beg, rrange_end, max_threads, true, right_i0, schedule);
+      min_block_size, rrange_beg, rrange_end, max_threads, true, right_i0, schedule);
 
 
   //----------------------------------------------------------------------------

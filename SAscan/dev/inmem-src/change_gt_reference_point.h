@@ -74,16 +74,17 @@ void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
 // Change gt_end bitvector into gt_begin using string range matching.
 //==============================================================================
 void gt_end_to_gt_begin(unsigned char *text, long text_length,
-    bitvector *gt, long max_block_size, long /*max_threads*/) {
+    bitvector *gt, long min_block_size, long /*max_threads*/) {
   // NOTE: The called of this function *must* use the same max block size.
-  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  long n_blocks = text_length / min_block_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: Compute the last bit in every block.
   //----------------------------------------------------------------------------
   for (long i = 0; i < n_blocks; ++i) {
-    long block_beg = i * max_block_size;
-    long block_end = std::min(block_beg + max_block_size, text_length);
+    long block_beg = i * min_block_size;
+    long block_end = block_beg + min_block_size;
+    if (block_end + min_block_size > text_length) block_end = text_length;
 
     gt->flip(block_end - 1);
   }
@@ -93,8 +94,9 @@ void gt_end_to_gt_begin(unsigned char *text, long text_length,
   //----------------------------------------------------------------------------
   std::thread **threads = new std::thread*[n_blocks];
   for (long i = 0; i < n_blocks; ++i) {
-    long block_beg = i * max_block_size;
-    long block_end = std::min(block_beg + max_block_size, text_length);
+    long block_beg = i * min_block_size;
+    long block_end = block_beg + min_block_size;
+    if (block_end + min_block_size > text_length) block_end = text_length;
 
     threads[i] = new std::thread(gt_end_to_gt_begin_aux,
         text, text_length, block_beg, block_end, gt);

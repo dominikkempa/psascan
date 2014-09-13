@@ -81,27 +81,21 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
 // Set all undecided bits inside the given microblock (that is, the range
 // [mb_beg..mb_end)) of all gt bitvectors to their correct values.
 //==============================================================================
-void compute_final_gt(long length, long max_block_size,
+void compute_final_gt(long text_length, long min_block_size,
     long mb_beg, long mb_end, bitvector* &gt, bitvector* &undecided,
     bool *all_decided) {
 
   // Go through blocks right to left.
-  long n_blocks = (length + max_block_size - 1) / max_block_size;
-  for (long i = n_blocks - 1, next_block_end = length; i >= 0; --i) {
-    long block_beg = i * max_block_size;
-    long block_end = std::min(block_beg + max_block_size, length);
-    long this_block_size = block_end - block_beg;
-    long this_mb_end = std::min(this_block_size, mb_end);
+  long n_blocks = text_length / min_block_size;
+
+  for (long i = n_blocks - 2, next_block_end = text_length; i >= 0; --i) {
+    long block_beg = i * min_block_size;
+    long block_end = block_beg + min_block_size;
 
     if (!all_decided[i]) {
-      // Scan the bits inside the microblock of block i.
-      for (long j = mb_beg; j < this_mb_end; ++j) {
-        if (undecided->get(block_beg + j)) {
-          // j-th bit of gt[i] was undecided -> copy it from the right.
-          if (gt->get(next_block_end - j - 1))
-            gt->set(block_end - j - 1);
-        }
-      }
+      for (long j = mb_beg; j < mb_end; ++j)
+        if (undecided->get(block_beg + j))
+          if (gt->get(next_block_end - j - 1)) gt->set(block_end - j - 1);
     }
 
     next_block_end = block_end;
@@ -112,10 +106,10 @@ void compute_final_gt(long length, long max_block_size,
 //==============================================================================
 // Fully parallel computation of gt bitvectors.
 //==============================================================================
-void compute_initial_gt_bitvectors(unsigned char *text, long length,
-    bitvector* &gt, long max_block_size, long max_threads) {
+void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
+    bitvector* &gt, long min_block_size, long max_threads) {
   long double start;
-  long n_blocks = (length + max_block_size - 1) / max_block_size;
+  long n_blocks = text_length / min_block_size;
 
 
   //----------------------------------------------------------------------------
@@ -125,8 +119,7 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   // Allocate ane zero-initialize (in parallel) bitvectors.
   fprintf(stderr, "  Allocating: ");
   start = utils::wclock();
-//  gt = new bitvector(length, max_threads);
-  bitvector *undecided = new bitvector(length, max_threads);
+  bitvector *undecided = new bitvector(text_length, max_threads);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // all_decided[i] == true, if all bits inside block i were
@@ -139,13 +132,15 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
   for (long i = n_blocks - 1, next_block_size = 0L; i >= 0; --i) {
-    long beg = i * max_block_size;
-    long end = std::min(beg + max_block_size, length);
-    long this_block_size = end - beg;
+    long block_beg = i * min_block_size;
+    long block_end = block_beg + min_block_size;
+    if (block_end + min_block_size > text_length) block_end = text_length;
+
+    long this_block_size = block_end - block_beg;
 
     // Compute bitvectors 'gt' and 'undecided' for block i.
     threads[i] = new std::thread(compute_partial_gt_end,
-        text, length, beg, end, next_block_size, gt,
+        text, text_length, block_beg, block_end, std::min(min_block_size, next_block_size), gt,
         undecided, std::ref(all_decided[i]));
 
     next_block_size = this_block_size;
@@ -163,18 +158,19 @@ void compute_initial_gt_bitvectors(unsigned char *text, long length,
   
   // The size of micro block has to be a multiple of 8, otherwise two
   // threads might try to update the same char inside bitvector.
-  long max_microblock_size = (max_block_size + max_threads - 1) / max_threads;
+  long max_microblock_size = (min_block_size + max_threads - 1) / max_threads;
   while (max_microblock_size & 7) ++max_microblock_size;
-  long n_microblocks = (max_block_size + max_microblock_size - 1) / max_microblock_size;
+  long n_microblocks = (min_block_size + max_microblock_size - 1) / max_microblock_size;
 
   fprintf(stderr, "  Computing undecided bits: ");
   start = utils::wclock();
   threads = new std::thread*[n_microblocks];
   for (long i = 0; i < n_microblocks; ++i) {
     long mb_beg = i * max_microblock_size;
-    long mb_end = (i + 1) * max_microblock_size;
-    threads[i] = new std::thread(compute_final_gt, length,
-        max_block_size, mb_beg, mb_end, std::ref(gt),
+    long mb_end = std::min(mb_beg + max_microblock_size, min_block_size);
+
+    threads[i] = new std::thread(compute_final_gt, text_length,
+        min_block_size, mb_beg, mb_end, std::ref(gt),
         std::ref(undecided), all_decided);
   }
 
