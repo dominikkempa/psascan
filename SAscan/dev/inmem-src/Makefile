@@ -4,10 +4,13 @@ CC = g++
 CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x
 
-all: test_file test_random bwt_test_file bwt_test_random gt_test_file gt_test_random
+all: test_file test_random bwt_test_file bwt_test_random gt_test_file gt_test_random multi_test_file
 
 test_file:
 	$(CC) $(CFLAGS) -o test_file test_file.cpp utils.cpp -fopenmp -ldivsufsort -ldivsufsort64
+
+multi_test_file:
+	$(CC) $(CFLAGS) -o multi_test_file multi_test_file.cpp utils.cpp -fopenmp -ldivsufsort -ldivsufsort64
 
 bwt_test_file:
 	$(CC) $(CFLAGS) -o bwt_test_file bwt_test_file.cpp utils.cpp -fopenmp -ldivsufsort -ldivsufsort64
@@ -28,4 +31,4 @@ clean:
 	/bin/rm -f *.o
 
 nuclear:
-	/bin/rm -f test_file test_random bwt_test_file bwt_test_random gt_test_file gt_test_random *.o
+	/bin/rm -f test_file test_random bwt_test_file bwt_test_random gt_test_file gt_test_random multi_test_file *.o
