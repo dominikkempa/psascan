@@ -58,9 +58,9 @@ long double test(unsigned char *text, long text_length, long max_threads,
       }
     }
     fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
-    free(computed_sa_temp);
     delete sa_reader;
   }
+  free(computed_sa_temp);
 
   return total_time;
 }

@@ -108,7 +108,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   }
 
   float rl_ratio = 10.L; // estimated empirically
-  int max_left_size = std::max(1, (int)floor((n_blocks * 0.575)));
+  int max_left_size = std::max(1, (int)floor(n_blocks * (2.L - (2.125L + sizeof(saidx_t)) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
   fprintf(stderr, "Max left size = %d\n", max_left_size);
   fprintf(stderr, "Peak memory usage during last merging = %.3Lfn\n",
