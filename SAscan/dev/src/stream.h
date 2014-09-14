@@ -119,7 +119,8 @@ void parallel_stream(
       gt_out->write(i > whole_suffix_rank);
       bool next_gt = (gt_in.read());
 
-      i = (block_offset_type)(count[c] + rank->rank((long)(i - (i > whole_suffix_rank)), c));
+      int delta = (i > whole_suffix_rank && c == 0);
+      i = (block_offset_type)(count[c] + rank->rank((long)i, c) - delta);
       if (c == last && next_gt) ++i;
       temp[t] = i;
       block_count[i >> bucket_size_bits]++;

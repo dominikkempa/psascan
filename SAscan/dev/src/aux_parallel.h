@@ -106,7 +106,10 @@ void replace_sa_with_bwt(T *sa, unsigned char *text, long block_beg,
   *index_0 = -1;
   for (long i = block_beg; i < block_end; ++i) {
     long sai = sa[i];
-    if (sai == 0) *index_0 = i;
+    if (sai == 0) {
+      *index_0 = i;
+      sa[i] = 0;
+    }
     else sa[i] = text[sai - 1];
   }
 }
@@ -142,7 +145,7 @@ void move_bwt_from_sa_to_dest(T *sa, long length, unsigned char *dest,
 }
 
 template<typename T>
-void bwt_from_sa_replace_text(T *SA, unsigned char *text, long length,
+long bwt_from_sa_replace_text(T *SA, unsigned char *text, long length,
     long max_threads) {
   //----------------------------------------------------------------------------
   // STEP 1: for all i replace SA[i] with B[SA[i] - 1]. All i except i0
@@ -175,8 +178,8 @@ void bwt_from_sa_replace_text(T *SA, unsigned char *text, long length,
   // STEP 2: overwrite the text with BWT which now is temporarily stored
   //         inside SA.
   //----------------------------------------------------------------------------
-  move_bwt_from_sa_to_dest(SA, i0, text, max_threads);
-  move_bwt_from_sa_to_dest(SA + i0 + 1, length - (i0 + 1), text + i0, max_threads);
+  move_bwt_from_sa_to_dest(SA, length, text, max_threads);
+  return i0;
 }
 
 #endif

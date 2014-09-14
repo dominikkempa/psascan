@@ -105,6 +105,20 @@ void rename_block(unsigned char *block, long block_beg, long block_end,
 //
 // INVARIANT: on entry to the function it holds: 5.2 * block_size <= ram_use
 //=============================================================================
+//
+//
+// Notes for the future:
+//   - this function should be called process_block and there should be
+//     exactly specified what it does: computes the partial suffix array
+//     of the given block, if requested returns the BWT (in memory)
+//     and gt_begin (on disk), again, only if requested.
+//     essentially it calles parallel inmem_sascan twice.
+//   - gt as a result is not neded when block_beg == 0, i.e., when
+//     processing the first block
+//   - BWT as a result if not needed for the last block
+//     (we will never build a rank from it to stream anything).
+//
+//==============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     unsigned char *block,
@@ -148,7 +162,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
     rename_block(block, block_beg, block_end, text_length, text_filename, tail_gt_begin_reversed);
 
 
-  std::string sa_fname = text_filename + ".partial_sa." + utils::intToStr(block_id);
+  std::string sa_fname = text_filename + ".partial_sa." + utils::intToStr(block_id); // XXX base of filename should be SA file.
   distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(sa_fname.c_str(),
       std::max((long)sizeof(block_offset_type), ram_use / 10L));
   fprintf(stderr, "  compute-bwt = %s\n", compute_bwt ? "TRUE" : "FALSE");
@@ -273,7 +287,7 @@ buffered_gap_array* compute_gap(
   // 5a. Build the rank support for BWT.
   fprintf(stderr, "  Building the rank data structure: ");
   long double building_rank_start = utils::wclock();
-  rank4n<> *rank = new rank4n<>(BWT, block_size - 1, max_threads);
+  rank4n<> *rank = new rank4n<>(BWT, block_size, max_threads);
   free(BWT);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
 
@@ -282,6 +296,7 @@ buffered_gap_array* compute_gap(
   long *count = new long[256];
   std::copy(rank->c_rank, rank->c_rank + 256, count);
   ++count[block_last_symbol];
+  --count[0];
   for (long j = 0, s = 0, t; j < 256; ++j) {
     t = count[j];
     count[j] = s;

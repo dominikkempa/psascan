@@ -109,7 +109,7 @@ distributed_file<output_type> *partial_merge(
   if (compute_bwt) {
     // Read the original block of text
     text = new unsigned char[length];
-    *BWT = new unsigned char[length - 1];
+    *BWT = new unsigned char[length];
     utils::read_block(text_filename, text_offset, length, text);
     merge_ram_use = ram_use - 2 * length; // > 0
   } else merge_ram_use = ram_use;
@@ -149,7 +149,10 @@ distributed_file<output_type> *partial_merge(
     long SA_i = sparseSA[k]->read() + k * max_block_size;
 
     output->write(SA_i);
-    if (compute_bwt && SA_i) (*BWT)[bwt_ptr++] = text[SA_i - 1];
+    if (compute_bwt) {
+      if(SA_i) (*BWT)[bwt_ptr++] = text[SA_i - 1];
+      else (*BWT)[bwt_ptr++] = 0;
+    }
   }
   long double merge_time = utils::wclock() - merge_start;
   fprintf(stderr, "Merging: 100.0%%. Time: %.2Lfs\n", merge_time);
