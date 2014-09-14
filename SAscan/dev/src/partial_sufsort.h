@@ -37,20 +37,13 @@
 
 long stream_buffer_size;
 
-template<typename output_type> void SAscan(std::string input_filename, long ram_use, long max_threads);
-template<typename output_type> distributed_file<output_type> *partial_SAscan(std::string input_filename,
-    bool compute_bwt, long ram_use, unsigned char **BWT, std::string text_filename, long text_offset,
-    long max_threads);
-
-
-
 
 template<typename saidx_t>
 void compute_initial_ranks(unsigned char *block, long block_beg,
     long block_end, long text_length, saidx_t *block_partial_sa,
     std::string text_filename, long stream_max_block_size,
     std::vector<long> &result, multifile *tail_gt_begin_reversed) {
-  fprintf(stderr, "  [PARALLEL]Computing initial ranks: ");
+  fprintf(stderr, "  Computing initial ranks: ");
   long double start = utils::wclock();
 
   long tail_length = text_length - block_end;
@@ -143,49 +136,65 @@ distributed_file<block_offset_type> *process_block(
 
   long block_id = block_beg / max_block_size;
   long block_size = block_end - block_beg;
+
   bool last_block = (block_end == text_length);
+  bool first_block = (block_beg == 0);
 
   fprintf(stderr, "  block_size = %ld (%.2LfMiB)\n", block_size, 1.L * block_size / (1 << 20));
-  fprintf(stderr, "  Compute block_gt_begin_reversed: ");
-  long double start = utils::wclock();
-  bitvector *block_gt_begin_reversed = new bitvector(block_size);
-  isa0 = compute_block_gt_begin_reversed(block, block_beg, block_end, text_length,
-      text_filename, tail_gt_begin_reversed, block_gt_begin_reversed);
-
-  std::string block_gt_begin_reversed_filename = text_filename + ".block_gt_begin_reversed." + utils::random_string_hash();
-  block_gt_begin_reversed->save(block_gt_begin_reversed_filename);
-  newtail_gt_begin_reversed->add_file(text_length - block_end, text_length - block_beg, block_gt_begin_reversed_filename);
-  delete block_gt_begin_reversed;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
 
-  // with parallel SAscan we will not do that.
+
+
+  // 1
+  //
+  //
+  if (!first_block) {
+    fprintf(stderr, "  Compute block_gt_begin_reversed: ");
+    long double start = utils::wclock();
+    bitvector *block_gt_begin_reversed = new bitvector(block_size);
+    compute_block_gt_begin_reversed(block, block_beg, block_end, text_length,
+        text_filename, tail_gt_begin_reversed, block_gt_begin_reversed);
+    std::string block_gt_begin_reversed_filename = text_filename + ".block_gt_begin_reversed." + utils::random_string_hash();
+    block_gt_begin_reversed->save(block_gt_begin_reversed_filename);
+    newtail_gt_begin_reversed->add_file(text_length - block_end, text_length - block_beg, block_gt_begin_reversed_filename);
+    delete block_gt_begin_reversed;
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  }
+
+
+
+
+
+  // 2
+  //
+  //
   if (!last_block)
     rename_block(block, block_beg, block_end, text_length, text_filename, tail_gt_begin_reversed);
 
-  std::string sa_fname = text_filename + ".partial_sa." + utils::intToStr(block_id); // XXX base of filename should be SA file.
-  distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(sa_fname.c_str(),
-      std::max((long)sizeof(block_offset_type), ram_use / 10L));
+  fprintf(stderr, "  Running sequential divsufsort: ");
+  long double sa_start = utils::wclock();
+  long *SA = (long *)malloc(block_size * sizeof(long));
+  divsufsort64(block, SA, block_size);
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
 
-  if (block_size <= MAX_32BIT_DIVSUFSORT_LENGTH) {
-    // Easy case, just use use 32-bit divsufsort.
-    fprintf(stderr, "  Computing partial SA (divsufsort): ");
-    long double sa_start = utils::wclock();
-    int *SA = new int[block_size];
-    divsufsort(block, SA, (int)block_size);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
-
-    fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
-    long double writing_sa_start = utils::wclock();
-    result->initialize_writing(4 << 20);
-    for (long i = 0; i < block_size; ++i)
-      result->write((block_offset_type)SA[i]);
-    result->finish_writing();
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
+  fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
+  long double writing_sa_start = utils::wclock();
+  std::string sa_fname = text_filename + ".partial_sa." + utils::intToStr(block_id); // base should be SA file.
+  distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(
+      sa_fname.c_str(), std::max((long)sizeof(block_offset_type), ram_use / 10L));
+  result->initialize_writing(4 << 20);
+  for (long i = 0; i < block_size; ++i) result->write((block_offset_type)SA[i]);
+  result->finish_writing();
+  fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
 
 
-    // Remap symbols of B back to original.
+
+
+  // 3
+  //
+  //
+  if (!last_block) {
     fprintf(stderr, "  Re-remapping B: ");
     long double reremap_start = utils::wclock();
     unsigned char block_last = block[block_size - 1] - 1;
@@ -193,86 +202,28 @@ distributed_file<block_offset_type> *process_block(
       if (block[j] > block_last) block[j] -= 1;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
 
+    compute_initial_ranks<long>(block, block_beg, block_end, text_length, SA, text_filename,
+        stream_max_block_size, initial_ranks, tail_gt_begin_reversed);
+
+    fprintf(stderr, "  Compute BWT: ");
+    long double bwt_start = utils::wclock();
+    isa0 = bwt_from_sa_replace_text(SA, block, block_size, max_threads);
+    *BWT = block;
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
+  } else free(block);
+  delete[] SA;
 
 
-    // at this point we have the text and partial SA -- time
-    // to compute starting positions.
-    if (block_end != text_length)
-      compute_initial_ranks<int>(block, block_beg, block_end, text_length, SA, text_filename,
-          stream_max_block_size, initial_ranks, tail_gt_begin_reversed);
 
 
+  // The three steps above will be all handled by the call to inmem SAscan.
 
-    if (!last_block) {
-      // Compute BWT
-      fprintf(stderr, "  Compute BWT: ");
-      long double bwt_start = utils::wclock();
-      bwt_from_sa_replace_text(SA, block, block_size, max_threads);
-      *BWT = block;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-    } else free(block);
-    
-    delete[] SA;
-  } else if (9L * block_size <= ram_use) {
-    // Easy case: block_size >= 2GiB but enough RAM to use divsufsort64.
-    fprintf(stderr, "  Computing partial SA (divsufsort64): ");
-    long double sa_start = utils::wclock();
-    long *SA = new long[block_size];
-    divsufsort64(block, SA, block_size);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
-    
-    fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
-    long double writing_sa_start = utils::wclock();
-    result->initialize_writing(4 << 20);
-    for (long i = 0; i < block_size; ++i)
-      result->write((block_offset_type)SA[i]);
-    result->finish_writing();
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
-    if (!last_block) {
-      // Remap symbols of B back to original.
-      fprintf(stderr, "  Re-remapping B: ");
-      long double reremap_start = utils::wclock();
-      unsigned char block_last = block[block_size - 1] - 1;
-      for (long j = 0; j < block_size; ++j)
-        if (block[j] > block_last) block[j] -= 1;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
-
-      // Compute BWT
-      fprintf(stderr, "  Compute BWT: ");
-      long double bwt_start = utils::wclock();
-      bwt_from_sa_replace_text(SA, block, block_size, max_threads); /// XXX this we also change.
-      *BWT = block;
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-    } else delete[] block;
-    
-    delete[] SA;
-  } else {
-    //-------------------------------------------------------------------------
-    // (block_size >= 2GiB and 9*block_size > ram_use) => use recursion.
-    // To save I/O from recursion we also get the BWT, which is obtained
-    // during the storage of the resulting partial SA to disk.
-    //-------------------------------------------------------------------------
-    fprintf(stderr, "  Recursively computing partial SA:\n");
-    long double rec_partial_sa_start = utils::wclock();
-
-    // Save the remapped block to temp file.
-    std::string B_fname = text_filename + ".block" + utils::intToStr(block_id);
-    utils::write_objects_to_file(block, block_size, B_fname);
-
-    // Free all memory.
-    delete[] block;
-
-    result = partial_SAscan<block_offset_type>(B_fname, !last_block, ram_use,
-        BWT, text_filename, block_beg, max_threads);
-
-    utils::file_delete(B_fname);
-    fprintf(stderr, "  Recursively computing partial SA: %.2Lf\n",
-        utils::wclock() - rec_partial_sa_start);
-  }
 
   return result;
 }
+
+
 
 template<typename block_offset_type>
 buffered_gap_array* compute_gap(
@@ -289,12 +240,9 @@ buffered_gap_array* compute_gap(
     multifile *newtail_gt_begin_reversed) {
 
   long block_size = block_end - block_beg;
-
   long tail_length = text_length - block_end;
   long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
   long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
-
-  std::vector<std::string> gt_filenames(n_threads);
 
   // 5a. Build the rank support for BWT.
   fprintf(stderr, "  Building the rank data structure: ");
@@ -317,7 +265,7 @@ buffered_gap_array* compute_gap(
 
 
   // 5b. Allocate the gap array, do the streaming and store gap to disk.
-  fprintf(stderr, "  [PARALLEL]Stream:");
+  fprintf(stderr, "  Stream:");
   long double stream_start = utils::wclock();
 
   buffered_gap_array *gap = new buffered_gap_array(block_size + 1);
@@ -339,17 +287,17 @@ buffered_gap_array* compute_gap(
   // Start workers.
   stream_info info(n_threads, tail_length);
   std::thread **streamers = new std::thread*[n_threads];
+  std::vector<std::string> gt_filenames(n_threads);
+
   for (long t = 0L; t < n_threads; ++t) {
     long stream_block_beg = block_end + t * stream_max_block_size;
     long stream_block_end = std::min(stream_block_beg + stream_max_block_size, text_length);
+
     gt_filenames[t] = text_filename + ".gt_tail." + utils::random_string_hash();
+    newtail_gt_begin_reversed->add_file(text_length - stream_block_end, text_length - stream_block_beg, gt_filenames[t]);
 
-    newtail_gt_begin_reversed->add_file(text_length - stream_block_end,
-        text_length - stream_block_beg, gt_filenames[t]);
-
-    streamers[t] = new std::thread(parallel_stream<block_offset_type>,
-        full_buffers, empty_buffers, stream_block_beg, stream_block_end,
-        initial_ranks[t], count, isa0, rank, block_last_symbol, text_filename, text_length,
+    streamers[t] = new std::thread(parallel_stream<block_offset_type>, full_buffers, empty_buffers, stream_block_beg,
+        stream_block_end, initial_ranks[t], count, isa0, rank, block_last_symbol, text_filename, text_length,
         std::ref(gt_filenames[t]), &info, t, gap->m_length, stream_buffer_size, tail_gt_begin_reversed);
   }
 
@@ -374,11 +322,11 @@ buffered_gap_array* compute_gap(
 
   long double stream_time = utils::wclock() - stream_start;
   long double speed = ((text_length - block_end) / (1024.L * 1024)) / stream_time;
-  fprintf(stderr,"\r  [PARALLEL]Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
+  fprintf(stderr,"\r  Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
       "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
       stream_time, info.m_thread_count, speed / n_threads, speed);
 
-  // 5c. Save gap to file.
+
   return gap;
 }
 
@@ -390,6 +338,7 @@ buffered_gap_array* compute_gap(
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string text_filename,
     long text_length, long max_block_size, long ram_use, long max_threads) {
+  fprintf(stderr, "sizeof(block_offset_type) = %lu\n\n", sizeof(block_offset_type));
 
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   multifile *tail_gt_begin_reversed = NULL;

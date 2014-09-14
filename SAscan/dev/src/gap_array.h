@@ -55,8 +55,8 @@ struct buffered_gap_array {
   // Store to file using v-byte encoding.
   void save_to_file(std::string fname) {
     long total_excess = m_excess_filled + m_excess_disk;
-    fprintf(stderr, "  Gap excess (inmem): %ld\n", m_excess_filled);
-    fprintf(stderr, "  Gap excess (disk): %ld\n", m_excess_disk);
+    // fprintf(stderr, "  Gap excess (inmem): %ld\n", m_excess_filled);
+    // fprintf(stderr, "  Gap excess (disk): %ld\n", m_excess_disk);
     fprintf(stderr, "  Saving gap to file: ");
     long double gap_save_start = utils::wclock();
     
