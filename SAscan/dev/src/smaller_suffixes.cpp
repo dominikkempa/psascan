@@ -40,12 +40,26 @@
 //=============================================================================
 
 #include "smaller_suffixes.h"
-#include "multifile_bitvector.h"
 
 #include <string>
 #include <vector>
 
 #include "utils.h"
+#include "multifile_bitvector.h"
+
+
+bool lcp_compare2(unsigned char *text, long text_length, pattern &pat, long pat_length, long pat_absolute_beg,
+    long supertext_length, long j, multifile_bitvector_reader &reader) {
+  long lcp = 0;
+  while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
+
+  return (
+      (lcp == pat_length) ||
+      (j + lcp < text_length && pat[lcp] < text[j + lcp]) ||
+      (j + lcp == text_length && !(reader.access(supertext_length - pat_absolute_beg - lcp)))
+  );
+}
+
 
 struct triple {
   long b, e, c;
@@ -153,81 +167,6 @@ struct GS_sets {
   unsigned char *data;
 };*/
 
-#define pattern_bufsize (2L * SMALLER_SUFFIXES_DISK_BLOCK_SIZE)
-
-struct pattern {
-  pattern(std::string filename, long pat_start) {
-    pattern_start = pat_start;
-    length = utils::file_size(filename);
-    buf = new unsigned char[pattern_bufsize];
-    origin = filled = fpos = 0L;
-    f = utils::open_file(filename, "r");
-  }
-  
-  ~pattern() {
-    std::fclose(f);
-    delete[] buf;
-  }
-
-  inline unsigned char operator[] (long i) {
-    return get_absolute(pattern_start + i);
-  }
-
-private:
-  inline unsigned char get_absolute(long i) {
-    if (i >= origin && i < origin + filled)  return buf[i - origin];
-    else {
-      // Refill buffer centered at position i.
-      long neworigin = std::max(0L, i - pattern_bufsize / 2L);
-      long toread = std::min(length - neworigin, pattern_bufsize);
-      long roffset = 0L;
-      filled = 0L;
-
-      // Save some disk I/O if possible.
-      if (i < origin && neworigin + toread > origin) {
-        long overlap = neworigin + toread - origin;
-        for (long j = 1L; j <= overlap; ++j)
-          buf[toread - j] = buf[overlap - j];
-        filled = overlap;
-        toread -= overlap;
-      } else if (i > origin + filled && neworigin < origin + filled) {
-        long overlap = origin + filled - neworigin;
-        for (long j = 0L; j < overlap; ++j)
-          buf[j] = buf[filled - overlap + j];
-        filled = overlap;
-        toread -= overlap;
-        roffset = overlap;
-      } else filled = 0L;
-
-      // Do the disk I/O.
-      long offset = neworigin + roffset - fpos;
-      if (offset && std::fseek(f, offset, SEEK_CUR)) {
-        std::perror("Error: pattern fseek1 failed.\n");
-        std::exit(EXIT_FAILURE);
-      }
-      if (std::ftell(f) != neworigin) {
-        std::perror("Error: incorrect pattern neworigin.\n");
-        std::exit(EXIT_FAILURE);
-      }
-      long r = std::fread(buf + roffset, 1, toread, f);
-      if (r != toread) {
-        std::perror("Error: pattern fread1 failed.\n");
-        std::exit(EXIT_FAILURE);
-      }
-      filled += toread;
-      fpos = std::ftell(f);
-      origin = neworigin;
-
-      return buf[i - origin];
-    }
-  }
-
-  unsigned char *buf;
-  long filled, origin, length, fpos;
-  std::FILE *f;
-  
-  long pattern_start;
-};
 
 //==============================================================================
 // Computes the number of suffixes starting inside the 'block' (which
@@ -268,4 +207,5 @@ void parallel_smaller_suffixes(unsigned char *block, long block_beg, long block_
 
   ret = count;
 }
+
 
