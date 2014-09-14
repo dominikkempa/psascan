@@ -111,11 +111,11 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
-  for (long i = 0, dbg = 0; i < text_length; ++i) {
+  for (long i = 0, dbg = 0; i < supertext_length; ++i) {
     ++dbg;
     ++compared;
     if (dbg == 10000000) {
-      fprintf(stderr, "progress: %.3Lf%%\r", (100.L * i) / text_length);
+      fprintf(stderr, "progress: %.3Lf%%\r", (100.L * i) / supertext_length);
       dbg = 0;
     }
 

@@ -29,16 +29,21 @@ void test(unsigned char *text, long text_length, long max_threads) {
   unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(int) + 1)];
   int *computed_sa = (int *)computed_sa_temp;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads, true);
+  long computed_i0;
+  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads, true,
+      false, NULL, -1, 0, 0, 0, "", NULL, &computed_i0);
 
   //----------------------------------------------------------------------------
   // STEP 3: compare answers.
   //----------------------------------------------------------------------------
   bool eq = true;
+  long correct_i0 = 0;
   for (long i = 0; i < text_length; ++i) {
     unsigned char correct_bwt = ((correct_sa[i] == 0) ? 0 : text[correct_sa[i] - 1]);
     if (computed_bwt[i] != correct_bwt) { eq = false; break; }
+    if (correct_sa[i] == 0) correct_i0 = i;
   }
+  if (computed_i0 != correct_i0) eq = false;
   
   if (!eq) {
     fprintf(stdout, "\nError:\n");

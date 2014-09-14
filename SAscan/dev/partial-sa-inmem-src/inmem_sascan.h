@@ -35,7 +35,8 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     long text_end = 0,
     long supertext_length = 0,
     std::string supertext_filename = "",
-    multifile *tail_gt_begin_reversed = NULL) {
+    multifile *tail_gt_begin_reversed = NULL,
+    long *i0 = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);
 
   long double start;
@@ -149,12 +150,13 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   print_schedule(schedule, n_blocks);
   fprintf(stderr, "\n");
 
-  long i0;
+  long i0_result;
   pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = NULL;
   if (n_blocks > 1 || compute_bwt || has_tail) {
     result = balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
-        gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin, i0, schedule,
+        gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin, i0_result, schedule,
         text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+    if (i0) *i0 = i0_result;
   }
 
   if (n_blocks > 1) {

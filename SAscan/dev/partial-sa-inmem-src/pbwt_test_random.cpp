@@ -90,18 +90,22 @@ void test(unsigned char *supertext, long supertext_length,
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
   long max_blocks = -1;
   if (utils::random_long(0, 1)) max_blocks = utils::random_long(1L, 50L);
+  long computed_i0;
   inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, true,
       false, NULL, max_blocks, text_beg, text_end, supertext_length, supertext_filename,
-      tail_gt_begin_reversed_multifile);
+      tail_gt_begin_reversed_multifile, &computed_i0);
 
 
 
   // Compare answers.
   bool eq = true;
+  long correct_i0;
   for (long i = 0; i < text_length; ++i) {
     unsigned char correct_bwt = ((correct_answer[i] == 0) ? 0 : text[correct_answer[i] - 1]);
     if (computed_bwt[i] != correct_bwt) { eq = false; break; }
+    if (correct_answer[i] == 0) correct_i0 = i;
   }
+  if (correct_i0 != computed_i0) eq = false;
 
   if (!eq) {
     fprintf(stdout, "Error:\n");
@@ -113,6 +117,8 @@ void test(unsigned char *supertext, long supertext_length,
     fprintf(stdout, "\n");
     fprintf(stdout, "\ttext_beg = %ld\n", text_beg);
     fprintf(stdout, "\ttext_end = %ld\n", text_end);
+    fprintf(stderr, "\tcorrect i0 = %ld\n", correct_i0);
+    fprintf(stderr, "\tcomputed i0 = %ld\n", computed_i0);
     fprintf(stdout, "\ttail_gt_begin_reversed_bv = ");
     for (long j = 0; j < tail_length; ++j)
       fprintf(stdout, "%ld", (long)tail_gt_begin_reversed_bv.get(j));

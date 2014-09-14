@@ -98,9 +98,10 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
+  long computed_i0;
   inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, true,
       false, NULL, -1, text_beg, text_end, supertext_length, supertext_filename,
-      tail_gt_begin_reversed_multifile);
+      tail_gt_begin_reversed_multifile, &computed_i0);
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "\nTotal time:\n");
   fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
@@ -112,11 +113,12 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
-  for (long i = 0, dbg = 0; i < text_length; ++i) {
+  long correct_i0 = -1;
+  for (long i = 0, dbg = 0; i < supertext_length; ++i) {
     ++dbg;
     ++compared;
     if (dbg == 10000000) {
-      fprintf(stderr, "progress: %.3Lf%%\r", (100.L * i) / text_length);
+      fprintf(stderr, "progress: %.3Lf%%\r", (100.L * i) / supertext_length);
       dbg = 0;
     }
 
@@ -124,12 +126,14 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
     if (text_beg <= next_correct_sa && next_correct_sa < text_end) {
       next_correct_sa -= text_beg;
       unsigned char next_correct_bwt = ((next_correct_sa == 0) ? 0 : text[next_correct_sa - 1]);
+      if (next_correct_sa == 0) correct_i0 = ptr;
       if (next_correct_bwt != computed_bwt[ptr++]) {
         eq = false;
         break;
       }
     }
   }
+  if (correct_i0 != computed_i0) eq = false;
   fprintf(stderr, "Compared %ld values", compared);
   fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
 

@@ -39,7 +39,9 @@ void test(unsigned char *text, long text_length, long max_threads,
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
   start = utils::wclock();
-  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, true, false, NULL, max_blocks);
+  long computed_i0;
+  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, true, false, NULL, max_blocks,
+      0, 0, 0, "", NULL, &computed_i0);
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "\nTotal time:\n");
   fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
@@ -50,6 +52,7 @@ void test(unsigned char *text, long text_length, long max_threads,
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
+  long correct_i0 = -1;
   for (long i = 0, dbg = 0; i < text_length; ++i) {
     ++dbg;
     ++compared;
@@ -64,7 +67,9 @@ void test(unsigned char *text, long text_length, long max_threads,
       eq = false;
       break;
     }
+    if (next_correct_sa == 0) correct_i0 = i;
   }
+  if (correct_i0 != computed_i0) eq = false;
   fprintf(stderr, "Compared %ld values", compared);
   fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
 
