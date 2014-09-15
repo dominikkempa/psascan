@@ -10,11 +10,11 @@
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
-#include "bitvector.h"
-#include "multifile_bitvector.h"
+#include "../../bitvector.h"
+#include "../../multifile_bitvector.h"
 #include "utils.h"
 #include "io_streamer.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 
 
 void compute_gt_begin_reversed(unsigned char *text, long text_length, bitvector *gt_begin_reversed) {

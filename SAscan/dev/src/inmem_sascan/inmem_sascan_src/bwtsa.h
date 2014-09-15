@@ -1,7 +1,7 @@
 #ifndef __INMEM_SASCAN_BWTSA_H_INCLUDED
 #define __INMEM_SASCAN_BWTSA_H_INCLUDED
 
-#include "../uint40.h"
+#include "../../uint40.h"
 
 namespace inmem_sascan_private {
 

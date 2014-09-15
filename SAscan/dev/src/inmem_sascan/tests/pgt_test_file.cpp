@@ -8,11 +8,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "bitvector.h"
-#include "multifile_bitvector.h"
+#include "../../bitvector.h"
+#include "../../multifile_bitvector.h"
 #include "utils.h"
 #include "io_streamer.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 #include "divsufsort_template.h"
 
 template<typename T>

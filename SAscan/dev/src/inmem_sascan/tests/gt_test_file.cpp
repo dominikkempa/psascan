@@ -5,11 +5,11 @@
 #include <unistd.h>
 
 #include "utils.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 #include "divsufsort_template.h"
 #include "uint40.h"
 #include "io_streamer.h"
-#include "bitvector.h"
+#include "../../bitvector.h"
 #include "io_streamer.h"
 
 template<typename T>

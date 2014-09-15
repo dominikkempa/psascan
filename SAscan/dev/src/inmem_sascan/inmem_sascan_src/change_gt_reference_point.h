@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <thread>
 
-#include "../bitvector.h"
+#include "../../bitvector.h"
 #include "srank_aux.h"
 
 namespace inmem_sascan_private {

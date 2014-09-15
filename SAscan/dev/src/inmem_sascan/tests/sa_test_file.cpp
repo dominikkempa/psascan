@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 #include "utils.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 #include "divsufsort_template.h"
 #include "uint40.h"
 #include "io_streamer.h"
@@ -37,16 +37,12 @@ void test(unsigned char *text, long text_length, long max_threads,
   fprintf(stderr, "Running inmem sascan\n\n");
   unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
-  unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  long computed_i0;
-  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, true, false, NULL, max_blocks,
-      0, 0, 0, "", NULL, &computed_i0);
+  inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, false, NULL, max_blocks);
 
   fprintf(stderr, "\nComparing:\n");
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
-  long correct_i0 = -1;
   for (long i = 0, dbg = 0; i < text_length; ++i) {
     ++dbg;
     ++compared;
@@ -56,14 +52,11 @@ void test(unsigned char *text, long text_length, long max_threads,
     }
 
     long next_correct_sa = sa_reader->read();
-    unsigned char next_correct_bwt = ((next_correct_sa == 0) ? 0 : text[next_correct_sa - 1]);
-    if (next_correct_bwt != computed_bwt[i]) {
+    if (next_correct_sa != (long)computed_sa[i]) {
       eq = false;
       break;
     }
-    if (next_correct_sa == 0) correct_i0 = i;
   }
-  if (correct_i0 != computed_i0) eq = false;
   fprintf(stderr, "Compared %ld values", compared);
   fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
 
@@ -72,7 +65,7 @@ void test(unsigned char *text, long text_length, long max_threads,
 }
 
 
-void test_file(const char *filename) {
+void test_file(const char *filename, long max_threads, long max_blocks) {
   fprintf(stderr, "Input filename: %s\n", filename);
   fprintf(stderr, "Reading text: ");
   long length;
@@ -80,17 +73,13 @@ void test_file(const char *filename) {
   utils::read_objects_from_file(text, length, filename);
   fprintf(stderr, "DONE\n");
 
-  // test<uint40>(text, length, 24, 8, filename);
-  // test<uint40>(text, length, 24, 12, filename);
-  test<uint40>(text, length, 24, 16, filename);
-  // test<uint40>(text, length, 24, 24, filename);
-  // test<uint40>(text, length, 24, 32, filename);
+  test<int>(text, length, max_threads, max_blocks, filename);
 
   delete[] text;
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
+  if (argc != 4) {
     fprintf(stderr, "Usage: %s <file>\n", argv[0]);
     std::exit(EXIT_FAILURE);
   }
@@ -100,5 +89,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, " %s", argv[i]);
   fprintf(stderr, "\n");
 
-  test_file(argv[1]);
+  long max_threads = std::atol(argv[2]);
+  long max_blocks = std::atol(argv[3]);
+
+  test_file(argv[1], max_threads, max_blocks);
 }

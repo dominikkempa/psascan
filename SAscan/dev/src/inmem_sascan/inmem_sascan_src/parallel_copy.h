@@ -5,7 +5,7 @@
 #include <thread>
 
 #include "bwtsa.h"
-#include "../uint40.h"
+#include "../../uint40.h"
 
 namespace inmem_sascan_private {
 

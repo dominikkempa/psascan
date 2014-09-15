@@ -1,9 +1,9 @@
 #ifndef __INMEM_SASCAN_MAIN_HEADER
 #define __INMEM_SASCAN_MAIN_HEADER
 
-#include "inmem_sascan/inmem_sascan.h"
-#include "bitvector.h"
-#include "multifile_bitvector.h"
+#include "inmem_sascan_src/inmem_sascan.h"
+#include "../bitvector.h"
+#include "../multifile_bitvector.h"
 
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,

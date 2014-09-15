@@ -10,22 +10,12 @@
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
-#include "bitvector.h"
-#include "multifile_bitvector.h"
+#include "../../bitvector.h"
+#include "../../multifile_bitvector.h"
 #include "utils.h"
 #include "io_streamer.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 
-
-void compute_gt_begin_for_text(unsigned char *supertext, long supertext_length, long text_beg, long text_end, bitvector *text_gt_begin) {
-  for (long i = text_beg + 1; i <= text_end; ++i) {
-    long lcp = 0;
-    while (i + lcp < supertext_length && supertext[i + lcp] == supertext[text_beg + lcp]) ++lcp;
-    
-    if (i + lcp < supertext_length && supertext[i + lcp] > supertext[text_beg + lcp])
-      text_gt_begin->set(i - text_beg - 1);
-  }
-}
 
 void compute_gt_begin_reversed(unsigned char *text, long text_length, bitvector *gt_begin_reversed) {
   long i = 1, el = 0;
@@ -43,10 +33,17 @@ template<typename saidx_t, unsigned pagesize_log>
 void test(unsigned char *supertext, long supertext_length,
     long text_beg, long text_end, long max_threads) {
 
-  long text_length = text_end - text_beg;
-  bitvector *text_gt_begin_correct = new bitvector(text_length, max_threads);
-  compute_gt_begin_for_text(supertext, supertext_length, text_beg, text_end, text_gt_begin_correct);
+  // Sort supertext using divsufsort.
+  long *supertext_sa = (long *)malloc(supertext_length * sizeof(long));
+  divsufsort64(supertext, supertext_sa, supertext_length);
 
+  // Separate the ordering of the suffixes of text (correct answer).
+  long text_length = text_end - text_beg;
+  long *correct_answer = (long *)malloc(text_length * sizeof(long));
+  long ptr = 0;
+  for (long i = 0; i < supertext_length; ++i)
+    if (text_beg <= supertext_sa[i] && supertext_sa[i] < text_end)
+      correct_answer[ptr++] = supertext_sa[i] - text_beg;
 
   // Compute tail_gt_begin_reversed.
   unsigned char *tail = supertext + text_end;
@@ -56,7 +53,7 @@ void test(unsigned char *supertext, long supertext_length,
 
   // Store tail_gt_begin_reversed on disk as a multifile bitvector.
   multifile *tail_gt_begin_reversed_multifile = new multifile();
-  long ptr = 0;
+  ptr = 0;
   while (ptr < tail_length) {
     long left = tail_length - ptr;
     long chunk = utils::random_long(1L, left);
@@ -89,12 +86,12 @@ void test(unsigned char *supertext, long supertext_length,
   // Run the tested algorithm.
   unsigned char *text = supertext + text_beg;
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
-  bitvector *text_gt_begin_computed = new bitvector(text_length, max_threads);
-  long max_blocks = -1;
-  if (utils::random_long(0, 1)) max_blocks = utils::random_long(1, 50L);
-  bool compute_bwt = (bool)utils::random_long(0, 1);
+  saidx_t *computed_sa = (saidx_t *)bwtsa;
+  long max_blocks = -1; // -1 is setting max_blocks := max_threads
+  if (utils::random_long(0, 1)) max_blocks = utils::random_long(1L, 50L);
+  bool compute_bwt = (bool)utils::random_long(0L, 1L);
   inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, compute_bwt,
-      true, text_gt_begin_computed, max_blocks, text_beg, text_end, supertext_length, supertext_filename,
+      false, NULL, max_blocks, text_beg, text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile);
 
 
@@ -102,13 +99,11 @@ void test(unsigned char *supertext, long supertext_length,
   // Compare answers.
   bool eq = true;
   for (long i = 0; i < text_length; ++i)
-    if (text_gt_begin_correct->get(i) != text_gt_begin_computed->get(i)) { eq = false; break; }
-
+    if ((long)computed_sa[i] != correct_answer[i]) eq = false;
   if (!eq) {
     fprintf(stdout, "Error:\n");
     fprintf(stdout, "\tsupertext_length = %ld\n", supertext_length);
     fprintf(stdout, "\tmax threads = %ld\n", max_threads);
-    fprintf(stderr, "\tmax blocks = %ld\n", max_blocks);
     fprintf(stdout, "\tsupertext = ");
     for (long j = 0; j < supertext_length; ++j)
       fprintf(stdout, "%c", supertext[j]);
@@ -119,13 +114,17 @@ void test(unsigned char *supertext, long supertext_length,
     for (long j = 0; j < tail_length; ++j)
       fprintf(stdout, "%ld", (long)tail_gt_begin_reversed_bv.get(j));
     fprintf(stdout, "\n");
-    fprintf(stdout, "\tcorrect text_gt_begin: ");
-    for (long i = 0; i < text_length; ++i)
-      fprintf(stdout, "%ld", (long)text_gt_begin_correct->get(i));
+    fprintf(stdout, "\tsupertext sa = ");
+    for (long j = 0; j < supertext_length; ++j)
+      fprintf(stdout, "%ld ", (long)supertext_sa[j]);
     fprintf(stdout, "\n");
-        fprintf(stdout, "\tcomputed text_gt_begin: ");
-    for (long i = 0; i < text_length; ++i)
-      fprintf(stdout, "%ld", (long)text_gt_begin_computed->get(i));
+    fprintf(stdout, "\tcorrect answer = ");
+    for (long j = 0; j < text_length; ++j)
+      fprintf(stdout, "%ld ", (long)correct_answer[j]);
+    fprintf(stdout, "\n");
+    fprintf(stdout, "\tcomputed answer = ");
+    for (long j = 0; j < text_length; ++j)
+      fprintf(stdout, "%ld ", (long)computed_sa[j]);
     fprintf(stdout, "\n");
     std::fflush(stdout);
 
@@ -133,10 +132,12 @@ void test(unsigned char *supertext, long supertext_length,
   }
 
 
-  free(bwtsa);
+
+
   delete tail_gt_begin_reversed_multifile; // also deletes files
-  delete text_gt_begin_correct;
-  delete text_gt_begin_computed;  
+  free(bwtsa);
+  free(correct_answer);
+  free(supertext_sa);
 }
 
 

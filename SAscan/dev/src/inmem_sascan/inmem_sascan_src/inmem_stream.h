@@ -15,7 +15,7 @@
 #include <future>
 #include <algorithm>
 
-#include "../bitvector.h"
+#include "../../bitvector.h"
 #include "utils.h"
 #include "rank.h"
 #include "buffer.h"

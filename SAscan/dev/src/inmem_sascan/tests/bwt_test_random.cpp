@@ -9,7 +9,7 @@
 #include "divsufsort.h"
 #include "divsufsort64.h"
 #include "utils.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 
 
 template<unsigned pagesize_log>
@@ -28,12 +28,24 @@ void test(unsigned char *text, long text_length, long max_threads) {
   //    text[block_beg + i..) > text[block_end..).
   unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(int) + 1)];
   int *computed_sa = (int *)computed_sa_temp;
-  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads);
+  unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
+  long computed_i0;
+  inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads, true,
+      false, NULL, -1, 0, 0, 0, "", NULL, &computed_i0);
 
   //----------------------------------------------------------------------------
   // STEP 3: compare answers.
   //----------------------------------------------------------------------------
-  if (!std::equal(correct_sa, correct_sa + text_length, computed_sa)) {
+  bool eq = true;
+  long correct_i0 = 0;
+  for (long i = 0; i < text_length; ++i) {
+    unsigned char correct_bwt = ((correct_sa[i] == 0) ? 0 : text[correct_sa[i] - 1]);
+    if (computed_bwt[i] != correct_bwt) { eq = false; break; }
+    if (correct_sa[i] == 0) correct_i0 = i;
+  }
+  if (computed_i0 != correct_i0) eq = false;
+  
+  if (!eq) {
     fprintf(stdout, "\nError:\n");
     fprintf(stdout, "\tlength = %ld\n", text_length);
     if (text_length <= 1000) {
@@ -43,13 +55,13 @@ void test(unsigned char *text, long text_length, long max_threads) {
       fprintf(stdout, "\n");
     }
     fprintf(stdout, "\tmax threads = %ld\n", max_threads);
-    fprintf(stdout, "\tcorrect sa: ");
+    fprintf(stdout, "\tcorrect bwt: ");
     for (long i = 0; i < text_length; ++i)
-      fprintf(stdout, "%d ", correct_sa[i]);
+      fprintf(stdout, "%c", ((correct_sa[i] == 0) ? 0 : text[correct_sa[i] - 1]));
     fprintf(stdout, "\n");
-    fprintf(stdout, "\tcomputed sa: ");
+    fprintf(stdout, "\tcomputed bwt: ");
     for (long i = 0; i < text_length; ++i)
-      fprintf(stdout, "%d ", computed_sa[i]);
+      fprintf(stdout, "%c", computed_bwt[i]);
     fprintf(stdout, "\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);

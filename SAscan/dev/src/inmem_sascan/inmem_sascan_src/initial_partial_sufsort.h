@@ -5,12 +5,12 @@
 #include <thread>
 
 #include "divsufsort_template.h"
-#include "../bitvector.h"
+#include "../../bitvector.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
 #include "parallel_expand.h"
 #include "parallel_copy.h"
-#include "../multifile_bitvector.h"
+#include "../../multifile_bitvector.h"
 
 
 namespace inmem_sascan_private {

@@ -1,9 +1,9 @@
 #ifndef __INMEM_SASCAN_INMEM_SMALLER_SUFFIXES_H_INCLUDED
 #define __INMEM_SASCAN_INMEM_SMALLER_SUFFIXES_H_INCLUDED
 
-#include "../bitvector.h"
+#include "../../bitvector.h"
 #include "pagearray.h"
-#include "../multifile_bitvector.h"
+#include "../../multifile_bitvector.h"
 
 namespace inmem_sascan_private {
 

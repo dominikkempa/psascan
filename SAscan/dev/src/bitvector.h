@@ -6,6 +6,7 @@
 #include <cstdlib>
 
 #include "utils.h"
+#include "io_streamer.h"
 
 struct bitvector {
   bitvector(std::string filename) {
@@ -36,6 +37,13 @@ struct bitvector {
 
   void save(std::string filename) const {
     utils::write_objects_to_file<unsigned char>(m_data, m_alloc_bytes, filename);
+  }
+
+  void save_reversed(std::string filename, long length) const {
+    bit_stream_writer *writer = new bit_stream_writer(filename);
+    for (long i = length - 1; i >= 0; --i)
+      writer->write(get(i));
+    delete writer;
   }
 
   ~bitvector() {

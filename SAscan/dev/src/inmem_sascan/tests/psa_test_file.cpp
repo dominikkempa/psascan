@@ -10,11 +10,11 @@
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
-#include "bitvector.h"
-#include "multifile_bitvector.h"
+#include "../../bitvector.h"
+#include "../../multifile_bitvector.h"
 #include "utils.h"
 #include "io_streamer.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 #include "divsufsort_template.h"
 
 
@@ -97,18 +97,15 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   fprintf(stderr, "Running inmem sascan\n\n");
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
-  unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  long computed_i0;
-  inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, true,
+  inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, false,
       false, NULL, -1, text_beg, text_end, supertext_length, supertext_filename,
-      tail_gt_begin_reversed_multifile, &computed_i0);
+      tail_gt_begin_reversed_multifile);
 
   ptr = 0;
   fprintf(stderr, "\nComparing:\n");
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
-  long correct_i0 = -1;
   for (long i = 0, dbg = 0; i < supertext_length; ++i) {
     ++dbg;
     ++compared;
@@ -119,16 +116,12 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
 
     long next_correct_sa = sa_reader->read();
     if (text_beg <= next_correct_sa && next_correct_sa < text_end) {
-      next_correct_sa -= text_beg;
-      unsigned char next_correct_bwt = ((next_correct_sa == 0) ? 0 : text[next_correct_sa - 1]);
-      if (next_correct_sa == 0) correct_i0 = ptr;
-      if (next_correct_bwt != computed_bwt[ptr++]) {
+      if (next_correct_sa - text_beg != (long)computed_sa[ptr++]) {
         eq = false;
         break;
       }
     }
   }
-  if (correct_i0 != computed_i0) eq = false;
   fprintf(stderr, "Compared %ld values", compared);
   fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
 
@@ -148,6 +141,6 @@ int main(int argc, char **argv) {
   }
 
   long min_text_length = atol(argv[2]) << 20;
-  test<uint40, 12>(argv[1], min_text_length, 24);
+  test<uint40/*int*/, 12>(argv[1], min_text_length, 24);
 }
 

@@ -7,8 +7,8 @@
 #include <fcntl.h>
 
 #include "utils.h"
-#include "inmem_sascan.h"
-#include "bitvector.h"
+#include "../inmem_sascan.h"
+#include "../../bitvector.h"
 
 template<typename T>
 void next(unsigned char *text, T length, T &s, T &p, T &r) {

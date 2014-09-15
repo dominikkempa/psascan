@@ -34,7 +34,7 @@
 #include "stream_info.h"
 #include "aux_parallel.h"
 #include "multifile_bitvector.h"
-//#include "inmem_sascan.h"
+#include "inmem_sascan/inmem_sascan.h"
 
 
 
@@ -98,24 +98,7 @@ void rename_block(unsigned char *block, long block_beg, long block_end,
 
 
 //=============================================================================
-// Compute partial SA of block[0..block_size) and store on disk.
-// If block_id != n_block also compute the BWT of block.
-//
-// INVARIANT: on entry to the function it holds: 5.2 * block_size <= ram_use
-//=============================================================================
-//
-//
-// Notes for the future:
-//   - this function should be called process_block and there should be
-//     exactly specified what it does: computes the partial suffix array
-//     of the given block, if requested returns the BWT (in memory)
-//     and gt_begin (on disk), again, only if requested.
-//     essentially it calles parallel inmem_sascan twice.
-//   - gt as a result is not neded when block_beg == 0, i.e., when
-//     processing the first block
-//   - BWT as a result if not needed for the last block
-//     (we will never build a rank from it to stream anything).
-//
+// Note: on entry to the function it holds: 5.2 * block_size <= ram_use
 //==============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> *process_block(
@@ -144,8 +127,9 @@ distributed_file<block_offset_type> *process_block(
 
 
 
-#if 0
-  fprintf(stderr, "******************** Running inmem SAscan *********************\n");
+
+
+  fprintf(stderr, "\n******************** Running inmem SAscan *********************\n");
   unsigned char *sabwt = (unsigned char *)malloc(block_size * (sizeof(block_offset_type) + 1));
   block_offset_type *partial_sa = (block_offset_type *)sabwt;
   unsigned char *bwt = (unsigned char *)(partial_sa + block_size);
@@ -154,41 +138,17 @@ distributed_file<block_offset_type> *process_block(
   inmem_sascan<block_offset_type>(block, block_size, sabwt, max_threads, !last_block,
       !first_block, block_gt_begin, -1, block_beg, block_end, text_length, text_filename,
       tail_gt_begin_reversed, &isa0);
-  fprintf(stderr, "***************************************************************\n");
+  fprintf(stderr, "***************************************************************\n\n");
 
-#else
-
-  // 1
-  //
-  //
   if (!first_block) {
-    fprintf(stderr, "  Compute block_gt_begin_reversed: ");
-    long double start = utils::wclock();
-    bitvector *block_gt_begin_reversed = new bitvector(block_size, -1);
-    compute_block_gt_begin_reversed(block, block_beg, block_end, text_length,
-        text_filename, tail_gt_begin_reversed, block_gt_begin_reversed);
+    fprintf(stderr, "  Saving block gt_begin to file: ");
+    long double block_gt_begin_save_start = utils::wclock();
     std::string block_gt_begin_reversed_filename = text_filename + ".block_gt_begin_reversed." + utils::random_string_hash();
-    block_gt_begin_reversed->save(block_gt_begin_reversed_filename);
+    block_gt_begin->save_reversed(block_gt_begin_reversed_filename, block_size);
     newtail_gt_begin_reversed->add_file(text_length - block_end, text_length - block_beg, block_gt_begin_reversed_filename);
-    delete block_gt_begin_reversed;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    delete block_gt_begin;
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - block_gt_begin_save_start);
   }
-
-
-
-
-
-  // 2
-  //
-  //
-  if (!last_block)
-    rename_block(block, block_beg, block_end, text_length, text_filename, tail_gt_begin_reversed);
-
-  fprintf(stderr, "  Running sequential divsufsort: ");
-  long double sa_start = utils::wclock();
-  long *SA = (long *)malloc(block_size * sizeof(long));
-  divsufsort64(block, SA, block_size);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - sa_start);
 
   fprintf(stderr, "  Writing partial SA to disk (using %lu-byte ints): ", sizeof(block_offset_type));
   long double writing_sa_start = utils::wclock();
@@ -196,38 +156,23 @@ distributed_file<block_offset_type> *process_block(
   distributed_file<block_offset_type> *result = new distributed_file<block_offset_type>(
       sa_fname.c_str(), std::max((long)sizeof(block_offset_type), ram_use / 10L));
   result->initialize_writing(4 << 20);
-  for (long i = 0; i < block_size; ++i) result->write((block_offset_type)SA[i]);
+  for (long i = 0; i < block_size; ++i)
+    result->write(partial_sa[i]);
   result->finish_writing();
   fprintf(stderr, "%.2Lf\n", utils::wclock() - writing_sa_start);
 
-
-
-
-
-  // 3
-  //
-  //
   if (!last_block) {
-    fprintf(stderr, "  Re-remapping B: ");
-    long double reremap_start = utils::wclock();
-    unsigned char block_last = block[block_size - 1] - 1;
+    compute_initial_ranks<block_offset_type>(block, block_beg, block_end, text_length, partial_sa,
+        text_filename, stream_max_block_size, initial_ranks, tail_gt_begin_reversed);
+    *BWT = (unsigned char *)malloc(block_size);
     for (long j = 0; j < block_size; ++j)
-      if (block[j] > block_last) block[j] -= 1;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - reremap_start);
+      (*BWT)[j] = bwt[j]; // XXX avoid this copying somehow
+  }
 
-    compute_initial_ranks<long>(block, block_beg, block_end, text_length, SA, text_filename,
-        stream_max_block_size, initial_ranks, tail_gt_begin_reversed);
+  free(block);
+  free(sabwt);
 
-    fprintf(stderr, "  Compute BWT: ");
-    long double bwt_start = utils::wclock();
-    isa0 = bwt_from_sa_replace_text(SA, block, block_size, max_threads);
-    *BWT = block;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
-  } else free(block);
-
-  delete[] SA;
   return result;
-#endif
 }
 
 

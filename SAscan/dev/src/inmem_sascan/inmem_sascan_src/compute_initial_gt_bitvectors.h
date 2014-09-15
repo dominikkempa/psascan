@@ -5,9 +5,9 @@
 #include <algorithm>
 #include <thread>
 
-#include "../bitvector.h"
+#include "../../bitvector.h"
 #include "srank_aux.h"
-#include "../multifile_bitvector.h"
+#include "../../multifile_bitvector.h"
 #include "disk_pattern.h"
 
 namespace inmem_sascan_private {

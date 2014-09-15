@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 #include "utils.h"
-#include "inmem_sascan.h"
+#include "../inmem_sascan.h"
 #include "divsufsort_template.h"
 #include "uint40.h"
 #include "io_streamer.h"

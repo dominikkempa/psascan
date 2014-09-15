@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "../bitvector.h"
+#include "../../bitvector.h"
 #include "inmem_gap_array.h"
 #include "inmem_compute_gap.h"
 #include "inmem_bwt_from_sa.h"
@@ -11,7 +11,7 @@
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "skewed-merge.h"
-#include "../multifile_bitvector.h"
+#include "../../multifile_bitvector.h"
 
 namespace inmem_sascan_private {
 
