@@ -118,17 +118,11 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
 
   // Run the tested algorithm.
   fprintf(stderr, "Running inmem sascan\n\n");
-  start = utils::wclock();
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   bitvector *text_gt_begin_computed = new bitvector(text_length, max_threads);
   inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, false, // try also true here, to see if it works for both.
       true, text_gt_begin_computed, -1, text_beg, text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile);
-  long double total_time = utils::wclock() - start;
-  fprintf(stderr, "\nTotal time:\n");
-  fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
-  fprintf(stderr, "\trelative: %.4Lfs/MiB\n", total_time / ((long double)text_length / (1 << 20)));
-  fprintf(stderr, "Speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_time);
 
 
   // Compute correct answer.

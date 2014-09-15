@@ -41,10 +41,6 @@ long double test(unsigned char *text, long text_length, long max_threads,
   start = utils::wclock();
   inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, false, NULL, max_blocks);
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "\nTotal time:\n");
-  fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
-  fprintf(stderr, "\trelative: %.4Lfs/MiB\n", total_time / ((long double)text_length / (1 << 20)));
-  fprintf(stderr, "Speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_time);
 
   if (compare) {
     fprintf(stderr, "\nComparing:\n");

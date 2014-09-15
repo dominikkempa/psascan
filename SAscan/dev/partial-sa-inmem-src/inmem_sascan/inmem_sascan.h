@@ -39,8 +39,9 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     multifile *tail_gt_begin_reversed = NULL,
     long *i0 = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);
-
+  long double absolute_start = utils::wclock();
   long double start;
+
   if (max_blocks == -1)
     max_blocks = max_threads;
 
@@ -140,7 +141,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
 
   float rl_ratio = 10.L; // estimated empirically
-  int max_left_size = std::max(1, (int)floor((n_blocks * 0.575)));
+  int max_left_size = std::max(1, (int)floor(n_blocks * (2.L - (2.125L + sizeof(saidx_t)) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
   fprintf(stderr, "Max left size = %d\n", max_left_size);
   fprintf(stderr, "Peak memory usage during last merging = %.3Lfn\n",
@@ -200,6 +201,12 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     free(bwt);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
+
+  long double total_sascan_time = utils::wclock() - absolute_start;
+  fprintf(stderr, "\nTotal time:\n");
+  fprintf(stderr, "\tabsolute: %.2Lf\n", total_sascan_time);
+  fprintf(stderr, "\trelative: %.4Lfs/MiB\n", total_sascan_time / ((long double)text_length / (1 << 20)));
+  fprintf(stderr, "Speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_sascan_time);
 }
 
 }  // namespace inmem_sascan

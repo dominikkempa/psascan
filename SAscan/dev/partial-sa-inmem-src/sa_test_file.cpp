@@ -37,13 +37,7 @@ void test(unsigned char *text, long text_length, long max_threads,
   fprintf(stderr, "Running inmem sascan\n\n");
   unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
-  start = utils::wclock();
   inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, false, NULL, max_blocks);
-  long double total_time = utils::wclock() - start;
-  fprintf(stderr, "\nTotal time:\n");
-  fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
-  fprintf(stderr, "\trelative: %.4Lfs/MiB\n", total_time / ((long double)text_length / (1 << 20)));
-  fprintf(stderr, "Speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_time);
 
   fprintf(stderr, "\nComparing:\n");
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
@@ -79,7 +73,7 @@ void test_file(const char *filename, long max_threads, long max_blocks) {
   utils::read_objects_from_file(text, length, filename);
   fprintf(stderr, "DONE\n");
 
-  test<uint40>(text, length, max_threads, max_blocks, filename);
+  test<int>(text, length, max_threads, max_blocks, filename);
 
   delete[] text;
 }
