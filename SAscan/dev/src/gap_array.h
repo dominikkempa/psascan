@@ -11,7 +11,7 @@
 #include "io_streamer.h"
 
 struct buffered_gap_array {
-  buffered_gap_array(long n) {
+  buffered_gap_array(long n, unsigned char *count) {
     if (n <= 0L) {
       fprintf(stderr, "Error: attempting to construct empty gap array.\n");
       std::exit(EXIT_FAILURE);
@@ -19,7 +19,8 @@ struct buffered_gap_array {
 
     m_length = n;
 
-    m_count = new unsigned char[m_length];
+    // m_count = new unsigned char[m_length];
+    m_count = count;
     std::fill(m_count, m_count + m_length, 0);
 
     m_excess = new long[k_excess_limit];
@@ -45,7 +46,7 @@ struct buffered_gap_array {
   std::mutex m_gap_writing_mutex;
 
   ~buffered_gap_array() {
-    delete[] m_count;
+    // delete[] m_count;
     delete[] m_excess;
 
     if (utils::file_exists(m_storage_filename))

@@ -21,23 +21,23 @@ public:
   { reset(no_of_blocks, right_left_ratio, max_left_size); }
 
   int left_size(int n) {
-    assert(n < split.size());
+    assert(n < (long)split.size());
     return split[n];
   }
   int right_size(int n) {
-    assert(n < split.size());
+    assert(n < (long)split.size());
     return n - split[n];
   }
   float cost(int n) {
-    assert(n < split.size());
+    assert(n < (long)split.size());
     return (left_cost[n] + rl_ratio * right_cost[n]) / n;
   }
   float n_left_merges(int n) {
-    assert(n < split.size());
+    assert(n < (long)split.size());
     return left_cost[n] / (1.0*n);
   }
   float n_right_merges(int n) {
-    assert(n < split.size());
+    assert(n < (long)split.size());
     return right_cost[n] / (1.0*n);
   }
 
