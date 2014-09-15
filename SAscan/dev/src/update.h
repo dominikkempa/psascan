@@ -151,7 +151,7 @@ private:
 template<typename block_offset_type>
 void gap_updater(buffer_poll<block_offset_type> *full_buffers,
     buffer_poll<block_offset_type> *empty_buffers,
-    buffered_gap_array *gap) {
+    buffered_gap_array *gap, long n_increasers) {
 
   gap_parallel_updater<block_offset_type> *updater =
     new gap_parallel_updater<block_offset_type>(gap, n_increasers);

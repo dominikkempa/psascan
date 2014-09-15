@@ -34,8 +34,8 @@
 #include "stream_info.h"
 #include "aux_parallel.h"
 #include "multifile_bitvector.h"
+//#include "inmem_sascan.h"
 
-long stream_buffer_size;
 
 
 template<typename saidx_t>
@@ -77,7 +77,7 @@ void rename_block(unsigned char *block, long block_beg, long block_end,
   //----------------------------------------------------------------------------
   fprintf(stderr, "  Compute block_gt_end: ");
   long double start = utils::wclock();
-  bitvector *block_gt_end = new bitvector(block_size);
+  bitvector *block_gt_end = new bitvector(block_size, -1);
   compute_block_gt_end(block, block_beg, block_end, text_length, text_filename, tail_gt_begin_reversed, block_gt_end);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
@@ -144,6 +144,19 @@ distributed_file<block_offset_type> *process_block(
 
 
 
+#if 0
+  fprintf(stderr, "******************** Running inmem SAscan *********************\n");
+  unsigned char *sabwt = (unsigned char *)malloc(block_size * (sizeof(block_offset_type) + 1));
+  block_offset_type *partial_sa = (block_offset_type *)sabwt;
+  unsigned char *bwt = (unsigned char *)(partial_sa + block_size);
+  bitvector *block_gt_begin = NULL;
+  if (!first_block) block_gt_begin = new bitvector(block_size, max_threads);
+  inmem_sascan<block_offset_type>(block, block_size, sabwt, max_threads, !last_block,
+      !first_block, block_gt_begin, -1, block_beg, block_end, text_length, text_filename,
+      tail_gt_begin_reversed, &isa0);
+  fprintf(stderr, "***************************************************************\n");
+
+#else
 
   // 1
   //
@@ -151,7 +164,7 @@ distributed_file<block_offset_type> *process_block(
   if (!first_block) {
     fprintf(stderr, "  Compute block_gt_begin_reversed: ");
     long double start = utils::wclock();
-    bitvector *block_gt_begin_reversed = new bitvector(block_size);
+    bitvector *block_gt_begin_reversed = new bitvector(block_size, -1);
     compute_block_gt_begin_reversed(block, block_beg, block_end, text_length,
         text_filename, tail_gt_begin_reversed, block_gt_begin_reversed);
     std::string block_gt_begin_reversed_filename = text_filename + ".block_gt_begin_reversed." + utils::random_string_hash();
@@ -211,16 +224,10 @@ distributed_file<block_offset_type> *process_block(
     *BWT = block;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
   } else free(block);
+
   delete[] SA;
-
-
-
-
-  // The three steps above will be all handled by the call to inmem SAscan.
-
-
-
   return result;
+#endif
 }
 
 
@@ -237,7 +244,8 @@ buffered_gap_array* compute_gap(
     unsigned char block_last_symbol,
     long isa0,
     multifile *tail_gt_begin_reversed,
-    multifile *newtail_gt_begin_reversed) {
+    multifile *newtail_gt_begin_reversed,
+    long stream_buffer_size) {
 
   long block_size = block_end - block_beg;
   long tail_length = text_length - block_end;
@@ -274,7 +282,7 @@ buffered_gap_array* compute_gap(
   long n_stream_buffers = 2 * max_threads;
   buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[n_stream_buffers];
   for (long i = 0L; i < n_stream_buffers; ++i)
-    buffers[i] = new buffer<block_offset_type>(stream_buffer_size);
+    buffers[i] = new buffer<block_offset_type>(stream_buffer_size, max_threads);
 
   // Create poll of empty and full buffers.
   buffer_poll<block_offset_type> *empty_buffers = new buffer_poll<block_offset_type>();
@@ -298,12 +306,12 @@ buffered_gap_array* compute_gap(
 
     streamers[t] = new std::thread(parallel_stream<block_offset_type>, full_buffers, empty_buffers, stream_block_beg,
         stream_block_end, initial_ranks[t], count, isa0, rank, block_last_symbol, text_filename, text_length,
-        std::ref(gt_filenames[t]), &info, t, gap->m_length, stream_buffer_size, tail_gt_begin_reversed);
+        std::ref(gt_filenames[t]), &info, t, gap->m_length, stream_buffer_size, tail_gt_begin_reversed, max_threads);
   }
 
   // Start updaters.
   std::thread *updater = new std::thread(gap_updater<block_offset_type>,
-        full_buffers, empty_buffers, gap);
+        full_buffers, empty_buffers, gap, max_threads);
 
   // Wait for all threads to finish.
   for (long i = 0L; i < n_threads; ++i) streamers[i]->join();
@@ -337,7 +345,7 @@ buffered_gap_array* compute_gap(
 //=============================================================================
 template<typename block_offset_type>
 distributed_file<block_offset_type> **partial_sufsort(std::string text_filename,
-    long text_length, long max_block_size, long ram_use, long max_threads) {
+    long text_length, long max_block_size, long ram_use, long max_threads, long stream_buffer_size) {
   fprintf(stderr, "sizeof(block_offset_type) = %lu\n\n", sizeof(block_offset_type));
 
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -374,7 +382,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string text_filename,
     if (block_end != text_length) {
       buffered_gap_array *gap = compute_gap<block_offset_type>(BWT, block_beg, block_end,
           text_length, text_filename, initial_ranks, max_threads, block_last_symbol, isa0,
-          tail_gt_begin_reversed, newtail_gt_begin_reversed);
+          tail_gt_begin_reversed, newtail_gt_begin_reversed, stream_buffer_size);
       gap->save_to_file(text_filename + ".gap." + utils::intToStr(block_id));
       delete gap;
     }

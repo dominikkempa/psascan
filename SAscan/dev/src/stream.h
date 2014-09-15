@@ -43,7 +43,8 @@ void parallel_stream(
     int thread_id,
     long gap_range_size,
     long stream_buf_size,
-    multifile *tail_gt_begin) {
+    multifile *tail_gt_begin,
+    long n_increasers) {
 
   static const int max_buckets = 4092;
   int *block_id_to_sblock_id = new int[max_buckets];

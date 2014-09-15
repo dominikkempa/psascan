@@ -8,11 +8,9 @@
 #include <condition_variable>
 #include <mutex>
 
-const int n_increasers = 24;
-
 template<typename T>
 struct buffer {  
-  buffer(long size_bytes)
+  buffer(long size_bytes, long n_increasers)
       : m_filled(0L),
         m_size(size_bytes / sizeof(T)) {
     m_content = new T[m_size];

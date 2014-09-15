@@ -12,12 +12,8 @@ struct bitvector {
     utils::read_objects_from_file<unsigned char>(m_data, m_alloc_bytes, filename);
   }
 
-  bitvector(long length) : m_alloc_bytes((length + 7L) / 8L) {
-    if (length <= 0L) {
-      fprintf(stderr, "Error: attempint to construct empty bitvector.\n");
-      std::exit(EXIT_FAILURE);
-    }
-
+  bitvector(long length, long) {
+    m_alloc_bytes = (length + 7) / 8;
     m_data = (unsigned char *)calloc(m_alloc_bytes, sizeof(unsigned char));
   }
 
