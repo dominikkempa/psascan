@@ -1,14 +1,16 @@
-#ifndef __COMPUTE_INITIAL_GT_BITVECTORS_H
-#define __COMPUTE_INITIAL_GT_BITVECTORS_H
+#ifndef __INMEM_SASCAN_COMPUTE_INITIAL_GT_BITVECTORS_H
+#define __INMEM_SASCAN_COMPUTE_INITIAL_GT_BITVECTORS_H
 
 #include <cstring>
 #include <algorithm>
 #include <thread>
 
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "srank_aux.h"
-#include "multifile_bitvector.h"
+#include "../multifile_bitvector.h"
 #include "disk_pattern.h"
+
+namespace inmem_sascan_private {
 
 
 //==============================================================================
@@ -227,6 +229,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 }
 
+
+}  // namespace inmem_sascan
 
 
 #endif  // __COMPUTE_INITIAL_GT_BITVECTORS_H

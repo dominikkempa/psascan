@@ -1,5 +1,5 @@
-#ifndef __BUFFER_H_INCLUDED
-#define __BUFFER_H_INCLUDED
+#ifndef __INMEM_SASCAN_BUFFER_H_INCLUDED
+#define __INMEM_SASCAN_BUFFER_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -7,6 +7,8 @@
 #include <queue>
 #include <condition_variable>
 #include <mutex>
+
+namespace inmem_sascan_private {
 
 template<typename T>
 struct buffer {  
@@ -77,5 +79,7 @@ private:
 
   std::queue<buffer<T>* > m_queue;
 };
+
+}  // namespace inmemsascan
 
 #endif

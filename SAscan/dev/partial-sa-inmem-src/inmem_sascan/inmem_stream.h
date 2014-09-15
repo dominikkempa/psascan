@@ -1,6 +1,6 @@
 // Parallel backward search.
-#ifndef __STREAM_H_INCLUDED
-#define __STREAM_H_INCLUDED
+#ifndef __INMEM_SASCAN_STREAM_H_INCLUDED
+#define __INMEM_SASCAN_STREAM_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -15,12 +15,13 @@
 #include <future>
 #include <algorithm>
 
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "utils.h"
 #include "rank.h"
 #include "buffer.h"
 #include "inmem_update.h"
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // The main streaming function.
@@ -229,5 +230,6 @@ void inmem_parallel_stream(
   delete[] bucket_lbound;
 }
 
+}  // namespace inmem_sascan
 
 #endif  // __STREAM_H_INCLUDED

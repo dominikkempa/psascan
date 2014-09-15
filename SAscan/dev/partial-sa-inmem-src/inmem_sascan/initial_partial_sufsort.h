@@ -1,17 +1,19 @@
-#ifndef __INITIAL_PARTIAL_SUFSORT_H
-#define __INITIAL_PARTIAL_SUFSORT_H
+#ifndef __INMEM_SASCAN_INITIAL_PARTIAL_SUFSORT_H
+#define __INMEM_SASCAN_INITIAL_PARTIAL_SUFSORT_H
 
 #include <algorithm>
 #include <thread>
 
 #include "divsufsort_template.h"
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
 #include "parallel_expand.h"
 #include "parallel_copy.h"
-#include "multifile_bitvector.h"
+#include "../multifile_bitvector.h"
 
+
+namespace inmem_sascan_private {
 
 
 //==============================================================================
@@ -238,7 +240,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
 }
 
 
-
+}  // namespace inmem_sascan
 
 
 #endif  // __INITIAL_PARTIAL_SUFSORT_H

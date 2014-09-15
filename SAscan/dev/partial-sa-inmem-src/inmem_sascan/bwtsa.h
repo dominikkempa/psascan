@@ -1,7 +1,10 @@
-#ifndef __BWTSA_H_INCLUDED
-#define __BWTSA_H_INCLUDED
+#ifndef __INMEM_SASCAN_BWTSA_H_INCLUDED
+#define __INMEM_SASCAN_BWTSA_H_INCLUDED
 
-#include "uint40.h"
+#include "../uint40.h"
+
+namespace inmem_sascan_private {
+
 
 template<typename sa_type>
 struct bwtsa_t {
@@ -28,5 +31,8 @@ struct bwtsa_t {
   }
 
 } __attribute__((packed));
+
+
+}  // namespace inmem_sascan
 
 #endif  // __BWTSA_H_INCLUDED

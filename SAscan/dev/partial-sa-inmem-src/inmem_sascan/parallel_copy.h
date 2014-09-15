@@ -1,11 +1,13 @@
-#ifndef __PARALLEL_COPY_H_INCLUDED
-#define __PARALLEL_COPY_H_INCLUDED
+#ifndef __INMEM_SASCAN_PARALLEL_COPY_H_INCLUDED
+#define __INMEM_SASCAN_PARALLEL_COPY_H_INCLUDED
 
 #include <algorithm>
 #include <thread>
 
 #include "bwtsa.h"
-#include "uint40.h"
+#include "../uint40.h"
+
+namespace inmem_sascan_private {
 
 template<typename T, typename S>
 void parallel_copy_aux(T *src, S *dest, long length) {
@@ -92,5 +94,6 @@ void parallel_copy(bwtsa_t<int> *src, unsigned char *dest, long length, long max
 }
 
 
+}  // namespace inmem_sascan
 
 #endif  // __PARALLEL_SHRINK_H_INCLUDED

@@ -1,9 +1,9 @@
-#ifndef __BALANCED_MERGE_H
-#define __BALANCED_MERGE_H
+#ifndef __INMEM_SASCAN_BALANCED_MERGE_H
+#define __INMEM_SASCAN_BALANCED_MERGE_H
 
 #include <vector>
 
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "inmem_gap_array.h"
 #include "inmem_compute_gap.h"
 #include "inmem_bwt_from_sa.h"
@@ -11,8 +11,9 @@
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "skewed-merge.h"
-#include "multifile_bitvector.h"
+#include "../multifile_bitvector.h"
 
+namespace inmem_sascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
 pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
@@ -146,4 +147,6 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   return result;
 }
 
-#endif  // __BALANCED_MERGE_H
+}  // namespace inmem_sascan
+
+#endif  // __INMEM_SASCAN_BALANCED_MERGE_H

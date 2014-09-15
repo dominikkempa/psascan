@@ -8,13 +8,24 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "divsufsort.h"
-#include "divsufsort64.h"
 #include "bitvector.h"
 #include "multifile_bitvector.h"
 #include "utils.h"
 #include "io_streamer.h"
 #include "inmem_sascan.h"
+#include "divsufsort_template.h"
+
+template<typename T>
+void next(unsigned char *text, T length, T &s, T &p, T &r) {
+  if (length == 1) { s = 0; p = 1; r = 0; return; }
+  T i = length - 1;
+  while (i < length) {
+    unsigned char a = text[s + r], b = text[i];
+    if (a > b) { p = i - s + 1; r = 0; }
+    else if (a < b) { i -= r; s = i; p = 1; r = 0; }
+    else { ++r; if (r == p) r = 0; } ++i;
+  }
+}
 
 void compute_gt_begin_for_text(unsigned char *supertext, long supertext_length, long text_beg, long text_end, bitvector *text_gt_begin) {
   for (long i = text_beg + 1; i <= text_end; ++i) {

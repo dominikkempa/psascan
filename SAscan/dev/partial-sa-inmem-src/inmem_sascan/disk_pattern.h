@@ -1,11 +1,13 @@
-#ifndef __DISK_PATTERN_H_INCLUDED
-#define __DISK_PATTERN_H_INCLUDED
+#ifndef __INMEM_SASCAN_DISK_PATTERN_H_INCLUDED
+#define __INMEM_SASCAN_DISK_PATTERN_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
 #include <algorithm>
 
 #include "utils.h"
+
+namespace inmem_sascan_private {
 
 //=============================================================================
 // A class pattern implements I/O-efficient random access to pattern (which is
@@ -111,5 +113,7 @@ private:
   
   long pattern_start;
 };
+
+}  // namespace inmem_sascan
 
 #endif  // __DISK_PATTERN_H_INCLUDED

@@ -1,8 +1,10 @@
-#ifndef __PARALLEL_EXPAND_H_INCLUDED
-#define __PARALLEL_EXPAND_H_INCLUDED
+#ifndef __INMEM_SASCAN_PARALLEL_EXPAND_H_INCLUDED
+#define __INMEM_SASCAN_PARALLEL_EXPAND_H_INCLUDED
 
 #include <algorithm>
 #include <thread>
+
+namespace inmem_sascan_private {
 
 
 template<typename T, typename S>
@@ -64,6 +66,8 @@ S *parallel_expand(T *tab, long length, long max_threads) {
 
   return result;
 }
+
+}  // namespace inmem_sascan
 
 
 #endif  // __PARALLEL_SHRINK_H_INCLUDED

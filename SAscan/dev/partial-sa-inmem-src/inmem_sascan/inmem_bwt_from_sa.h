@@ -12,14 +12,16 @@
 //    parallelized.
 //==============================================================================
 
-#ifndef __INMEM_BWT_FROM_SA_H_INCLUDED
-#define __INMEM_BWT_FROM_SA_H_INCLUDED
+#ifndef __INMEM_SASCAN_INMEM_BWT_FROM_SA_H_INCLUDED
+#define __INMEM_SASCAN_INMEM_BWT_FROM_SA_H_INCLUDED
 
 #include <algorithm>
 #include <thread>
 
 #include "utils.h"
 #include "bwtsa.h"
+
+namespace inmem_sascan_private {
 
 
 template<typename saidx_t>
@@ -59,6 +61,8 @@ void bwt_from_sa_into_dest(unsigned char *text, long length,
     if (index_0[i] != -1) result = index_0[i];
   delete[] index_0;
 }
+
+}  // namespace inmem_sascan
 
 
 #endif  // __INMEM_BWT_FROM_SA_INCLUDED

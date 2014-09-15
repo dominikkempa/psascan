@@ -1,6 +1,6 @@
 // Various types of streamers.
-#ifndef __IO_STREAMER_H_INCLUDED
-#define __IO_STREAMER_H_INCLUDED
+#ifndef __INMEM_SASCAN_IO_STREAMER_H_INCLUDED
+#define __INMEM_SASCAN_IO_STREAMER_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -8,6 +8,8 @@
 #include <string>
 
 #include "utils.h"
+
+namespace inmem_sascan_private {
 
 
 /********************************* usage ***************************************
@@ -324,5 +326,7 @@ void write_objects_to_file(T *tab, long length, std::string fname) {
 }
 
 } // namespace stream
+
+}  // namespace inmem_sascan
 
 #endif // __IO_STREAMER_H_INCLUDED

@@ -1,5 +1,5 @@
-#ifndef __INMEM_UPDATE_H_INCLUDED
-#define __INMEM_UPDATE_H_INCLUDED
+#ifndef __INMEM_SASCAN_INMEM_UPDATE_H_INCLUDED
+#define __INMEM_SASCAN_INMEM_UPDATE_H_INCLUDED
 
 #include <thread>
 #include <mutex>
@@ -11,6 +11,7 @@
 #include "buffer.h"
 #include "inmem_gap_array.h"
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // This object creates a given number of threads that will perform gap array
@@ -185,5 +186,7 @@ void inmem_gap_updater(buffer_poll<block_offset_type> *full_buffers,
 
   delete updater;
 }
+
+}  // namespace inmem_sascan
 
 #endif // __INMEM_UPDATE_H_INCLUDED

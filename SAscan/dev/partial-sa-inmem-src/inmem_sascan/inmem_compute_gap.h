@@ -66,10 +66,10 @@
 //    For CPUs with Hyper Threading, the number should be 2 * #cores.
 //==============================================================================
 
-#ifndef __INMEM_COMPUTE_GAP_H_INCLUDED
-#define __INMEM_COMPUTE_GAP_H_INCLUDED
+#ifndef __INMEM_SASCAN_INMEM_COMPUTE_GAP_H_INCLUDED
+#define __INMEM_SASCAN_INMEM_COMPUTE_GAP_H_INCLUDED
 
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "rank.h"
 #include "buffer.h"
 #include "inmem_gap_array.h"
@@ -79,8 +79,9 @@
 #include "inmem_bwt_from_sa.h"
 #include "pagearray.h"
 #include "bwtsa.h"
-#include "multifile_bitvector.h"
+#include "../multifile_bitvector.h"
 
+namespace inmem_sascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
@@ -246,5 +247,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   if (cleaning_time > 0.1L)
     fprintf(stderr, "    Cleaning: %.2Lf\n", cleaning_time);
 }
+
+}  // namespace inmem_sascan
                  
-#endif  // __INMEM_COMPUTE_GAP_H_INCLUDED
+#endif  // __INMEM_SASCAN_INMEM_COMPUTE_GAP_H_INCLUDED

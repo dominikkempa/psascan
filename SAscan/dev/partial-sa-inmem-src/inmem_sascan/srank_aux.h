@@ -1,6 +1,8 @@
-#ifndef __SRANK_AUX_H
-#define __SRANK_AUX_H
+#ifndef __INMEM_SASCAN_SRANK_AUX_H
+#define __INMEM_SASCAN_SRANK_AUX_H
 
+
+namespace inmem_sascan_private {
 
 //==============================================================================
 // Compute ms-decomposition of text[0..length) from ms-decomposition of
@@ -17,6 +19,8 @@ void next(unsigned char *text, T length, T &s, T &p, T &r) {
     else { ++r; if (r == p) r = 0; } ++i;
   }
 }
+
+}  // namespace inmem_sascan
 
 
 #endif  // __SRANK_AUX_H

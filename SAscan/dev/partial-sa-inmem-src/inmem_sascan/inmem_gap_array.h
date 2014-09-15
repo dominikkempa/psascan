@@ -1,5 +1,5 @@
-#ifndef __INMEM_GAP_ARRAY_H_INCLUDED
-#define __INMEM_GAP_ARRAY_H_INCLUDED
+#ifndef __INMEM_SASCAN_INMEM_GAP_ARRAY_H_INCLUDED
+#define __INMEM_SASCAN_INMEM_GAP_ARRAY_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -10,6 +10,7 @@
 #include <stack>
 #include <thread>
 
+namespace inmem_sascan_private {
 
 struct inmem_gap_array {
   unsigned char *m_count;
@@ -173,5 +174,7 @@ struct inmem_gap_array {
     return result;
   }
 };
+
+}  // namespace inmem_sascan
 
 #endif // __INMEM_GAP_ARRAY_H_INCLUDED

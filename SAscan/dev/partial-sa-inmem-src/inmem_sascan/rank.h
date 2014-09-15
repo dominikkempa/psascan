@@ -30,8 +30,8 @@
 //
 //==============================================================================
 
-#ifndef __RANK4N_H_INCLUDED
-#define __RANK4N_H_INCLUDED
+#ifndef __INMEM_SASCAN_RANK4N_H_INCLUDED
+#define __INMEM_SASCAN_RANK4N_H_INCLUDED
 
 #include <algorithm>
 #include <vector>
@@ -40,6 +40,8 @@
 #include "utils.h"
 #include "bwtsa.h"
 #include "pagearray.h"
+
+namespace inmem_sascan_private {
 
 
 template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 20, unsigned k_sigma_log = 8>
@@ -811,5 +813,6 @@ template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, un
   const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sblock_size_mask = (1 << k_sblock_size_log) - 1;
 
+}  // namespace inmem_sascan
 
 #endif // __RANK4N_H_INCLUDED

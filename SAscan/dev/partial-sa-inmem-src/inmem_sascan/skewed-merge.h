@@ -1,10 +1,12 @@
-#ifndef __SKEWED_MERGE_H_INCLUDED
-#define __SKEWED_MERGE_H_INCLUDED
+#ifndef __INMEM_SASCAN_SKEWED_MERGE_H_INCLUDED
+#define __INMEM_SASCAN_SKEWED_MERGE_H_INCLUDED
 
 #include <iostream>
 #include <vector>
 #include <cassert>
 #include <cstdlib>
+
+namespace inmem_sascan_private {
 
 class MergeSchedule {
 private:
@@ -92,5 +94,7 @@ void print_schedule(MergeSchedule & sched, int n) {
   std::string intend = "\t";
   print_schedule(sched, n, intend);
 }
+
+}  // namespace inemm_sascan
 
 #endif  // __SKEWED_MERGE_H_INCLUDED

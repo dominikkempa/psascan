@@ -1,5 +1,5 @@
-#ifndef __PAGEARRAY_H_INCLUDED
-#define __PAGEARRAY_H_INCLUDED
+#ifndef __INMEM_SASCAN_PAGEARRAY_H_INCLUDED
+#define __INMEM_SASCAN_PAGEARRAY_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <thread>
 #include <mutex>
+
+namespace inmem_sascan_private {
 
 
 //==============================================================================
@@ -170,6 +172,8 @@ struct pagearray {
     m_pageindex = NULL;
   }
 };
+
+}  // namespace inmem_sascan
 
 
 #endif  // __PAGEARRAY_H_INCLUDED

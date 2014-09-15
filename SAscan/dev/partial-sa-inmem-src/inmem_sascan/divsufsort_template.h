@@ -1,11 +1,13 @@
-#ifndef __DIVSUFSORT_TEMPLATE_H
-#define __DIVSUFSORT_TEMPLATE_H
+#ifndef __INMEM_SASCAN_DIVSUFSORT_TEMPLATE_H
+#define __INMEM_SASCAN_DIVSUFSORT_TEMPLATE_H
 
 #include <cstdio>
 #include <cstdlib>
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
+
+namespace inmem_sascan_private {
 
 
 template<typename T>
@@ -24,5 +26,7 @@ template<>
 void run_divsufsort(unsigned char *text, long *sa, long length) {
   divsufsort64(text, sa, length);
 }
+
+}  // namespace inmem_sascan
 
 #endif  // __DIVSUFSORT_TEMPLATE_H

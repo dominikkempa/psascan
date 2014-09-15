@@ -7,6 +7,7 @@
 
 #include "utils.h"
 
+
 struct bitvector {
   bitvector(long length, long) {
     m_alloc_bytes = (length + 7) / 8;

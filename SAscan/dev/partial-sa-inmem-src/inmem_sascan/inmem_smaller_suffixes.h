@@ -1,10 +1,11 @@
-#ifndef __INMEM_SMALLER_SUFFIXES_H_INCLUDED
-#define __INMEM_SMALLER_SUFFIXES_H_INCLUDED
+#ifndef __INMEM_SASCAN_INMEM_SMALLER_SUFFIXES_H_INCLUDED
+#define __INMEM_SASCAN_INMEM_SMALLER_SUFFIXES_H_INCLUDED
 
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "pagearray.h"
-#include "multifile_bitvector.h"
+#include "../multifile_bitvector.h"
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // Return true iff text[i..length) < text[j..length). To speed up the
@@ -88,5 +89,7 @@ void inmem_smaller_suffixes(unsigned char *text, long text_length,
     ret = right;
   }
 }
+
+}  // namespace inmem_sascan
 
 #endif // __INMEM_SMALLER_SUFFIXES_H_INCLUDED

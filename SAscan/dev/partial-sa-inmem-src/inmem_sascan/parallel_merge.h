@@ -1,5 +1,5 @@
-#ifndef __PARALLEL_MERGE_H_INCLUDED
-#define __PARALLEL_MERGE_H_INCLUDED
+#ifndef __INMEM_SASCAN_PARALLEL_MERGE_H_INCLUDED
+#define __INMEM_SASCAN_PARALLEL_MERGE_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -12,6 +12,8 @@
 
 #include "pagearray.h"
 #include "inmem_gap_array.h"
+
+namespace inmem_sascan_private {
 
 
 //==============================================================================
@@ -238,6 +240,8 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
 
   return result;
 }
+
+}  // namespace inmem_sascan
 
 
 #endif  // __PARALLEL_MERGE_H_INCLUDED

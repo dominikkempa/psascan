@@ -1,13 +1,14 @@
-#ifndef __CHANGE_GT_REFERENCE_POINT_H
-#define __CHANGE_GT_REFERENCE_POINT_H
+#ifndef __INMEM_SASCAN_CHANGE_GT_REFERENCE_POINT_H
+#define __INMEM_SASCAN_CHANGE_GT_REFERENCE_POINT_H
 
 #include <cstring>
 #include <algorithm>
 #include <thread>
 
-#include "bitvector.h"
+#include "../bitvector.h"
 #include "srank_aux.h"
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // Compute range [microblock_beg..microblock_end) of bits in the output
@@ -107,5 +108,7 @@ void gt_end_to_gt_begin(unsigned char *text, long text_length,
   for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
 }
+
+}  // namespace inmem_sascan
 
 #endif  // __CHANGE_GT_REFERENCE_POINT_H
