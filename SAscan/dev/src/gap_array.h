@@ -99,7 +99,7 @@ struct buffered_gap_array {
   unsigned char *m_count;
   long m_length;
 
-  static const int k_excess_limit = (1 << 19);
+  static const int k_excess_limit = (1 << /*19*/25);
   long *m_excess, m_excess_filled;
 
   std::string m_storage_filename;
