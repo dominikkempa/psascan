@@ -193,8 +193,8 @@ void parallel_smaller_suffixes(unsigned char *block, long block_beg, long block_
 // Return true iff text[i..) (but we always stop the comparison at text_length)
 // is smaller than pat[0..pat_length).
 
-bool lcp_compare2(unsigned char *text, long text_length, pattern &pat, long pat_length, long pat_absolute_beg,
-    long supertext_length, long j, multifile_bitvector_reader &reader);
+bool lcp_compare2(unsigned char *text, long text_length, long text_absolute_end, pattern &pat, long pat_length, long pat_absolute_beg,
+    long supertext_length, long j, std::string supertext_filename);
 
 template<typename saidx_t>
 void parallel_smaller_suffixes2(
@@ -205,8 +205,7 @@ void parallel_smaller_suffixes2(
     saidx_t *block_partial_sa,
     std::string text_filename,
     long suf_start,
-    long &ret,
-    multifile *tail_gt_begin_reversed) {
+    long &ret) {
 
   long block_size = block_end - block_beg;
   long pat_length = text_length - suf_start;
@@ -217,7 +216,6 @@ void parallel_smaller_suffixes2(
   }
 
   pattern pat(text_filename, suf_start);
-  multifile_bitvector_reader reader(tail_gt_begin_reversed);
 
   long left = -1L;
   long right = block_size;
@@ -225,7 +223,7 @@ void parallel_smaller_suffixes2(
   while (left + 1 != right) {
     long mid = (left + right) / 2;
 
-    if (lcp_compare2(block, block_size, pat, pat_length, suf_start, text_length, block_partial_sa[mid], reader))
+    if (lcp_compare2(block, block_size, block_end, pat, pat_length, suf_start, text_length, block_partial_sa[mid], text_filename))
       right = mid;
     else left = mid;
   }

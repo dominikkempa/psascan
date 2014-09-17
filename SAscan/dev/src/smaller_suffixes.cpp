@@ -41,25 +41,35 @@
 
 #include "smaller_suffixes.h"
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
 #include "utils.h"
 #include "multifile_bitvector.h"
+#include "disk_pattern.h"
 
+// supertext[i..] < supertext[j..] ?
+bool smaller_suffix_em(long i, long j, long supertext_length, std::string supertext_filename) {
+  pattern pat_i(supertext_filename, i);
+  pattern pat_j(supertext_filename, j);
 
-bool lcp_compare2(unsigned char *text, long text_length, pattern &pat, long pat_length, long pat_absolute_beg,
-    long supertext_length, long j, multifile_bitvector_reader &reader) {
+  long lcp = 0;
+  while (i + lcp < supertext_length && j + lcp < supertext_length && pat_i[lcp] == pat_j[lcp]) ++lcp;
+  return (j + lcp < supertext_length && (i + lcp == supertext_length || pat_i[lcp] < pat_j[lcp]));
+}
+
+bool lcp_compare2(unsigned char *text, long text_length, long text_absolute_end, pattern &pat, long pat_length, long pat_absolute_beg,
+    long supertext_length, long j, std::string supertext_filename) {
   long lcp = 0;
   while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
 
   return (
       (lcp == pat_length) ||
       (j + lcp < text_length && pat[lcp] < text[j + lcp]) ||
-      (j + lcp == text_length && !(reader.access(supertext_length - pat_absolute_beg - lcp)))
+      (j + lcp == text_length && smaller_suffix_em(pat_absolute_beg + lcp, text_absolute_end, supertext_length, supertext_filename))
   );
 }
-
 
 struct triple {
   long b, e, c;

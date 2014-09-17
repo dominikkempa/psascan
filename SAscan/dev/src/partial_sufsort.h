@@ -41,7 +41,7 @@
 template<typename saidx_t>
 void compute_initial_ranks(unsigned char *block, long block_beg,
     long block_end, long text_length, saidx_t *block_partial_sa,
-    std::string text_filename, std::vector<long> &result, multifile *tail_gt_begin_reversed,
+    std::string text_filename, std::vector<long> &result,
     long max_threads, long tail_begin, long tail_end) {
   fprintf(stderr, "  Computing initial ranks: ");
   long double start = utils::wclock();
@@ -58,7 +58,7 @@ void compute_initial_ranks(unsigned char *block, long block_beg,
 
     threads[t] = new std::thread(parallel_smaller_suffixes2<saidx_t>, block, block_beg, block_end, 
         text_length, block_partial_sa,
-        text_filename, stream_block_end, std::ref(result[t]), tail_gt_begin_reversed);
+        text_filename, stream_block_end, std::ref(result[t]));
   }
 
   for (int t = 0; t < n_threads; ++t) threads[t]->join();
@@ -264,7 +264,7 @@ distributed_file<block_offset_type> *process_block(
 
       std::vector<long> initial_ranks;
       compute_initial_ranks<block_offset_type>(block, block_beg, block_end, text_length, partial_sa,
-          text_filename, initial_ranks, tail_gt_begin_reversed, max_threads, tail_beg, tail_end);
+          text_filename, initial_ranks, max_threads, tail_beg, tail_end);
 
       unsigned char *temp = (unsigned char *)malloc(block_size + 1);
       buffered_gap_array *temp_gap = new buffered_gap_array(block_size + 1, temp);
