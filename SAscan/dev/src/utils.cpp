@@ -15,6 +15,15 @@
 
 namespace utils {
 
+void execute(std::string cmd) {
+  int system_ret = system(cmd.c_str());
+  if (system_ret) {
+    fprintf(stderr, "Error: executing command [%s] returned %d.\n",
+              cmd.c_str(), system_ret);
+    std::exit(EXIT_FAILURE);
+  }
+}
+
 /****************************** MEASURING TIME ********************************/
 long double wclock() {
   timeval tim;

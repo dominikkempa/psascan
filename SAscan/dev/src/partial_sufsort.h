@@ -37,6 +37,22 @@
 #include "inmem_sascan/inmem_sascan.h"
 
 
+//------------------------------------------------------------------------------
+// For this to work you need to run sascan e.g. as follows:
+//
+//   $ nohup sudo -b numactl -i 0-1 ./sascan /data01/sac-corpus/wiki.6G -m 20000
+//
+//------------------------------------------------------------------------------
+void drop_cache() {
+  long double start = utils::wclock();
+  fprintf(stderr, "  Clearing cache: ");
+  fprintf(stderr, "Before:\n");
+  utils::execute("free -m");
+  utils::execute("echo 3 | tee /proc/sys/vm/drop_caches");
+  fprintf(stderr, "After:\n");
+  utils::execute("free -m");
+  fprintf(stderr, "Clearing time: %.2Lf\n", utils::wclock() - start);
+}
 
 template<typename saidx_t>
 void compute_initial_ranks(unsigned char *block, long block_beg,
@@ -321,6 +337,8 @@ distributed_file<block_offset_type> *process_block(
 
     free(right_block_sabwt);
     free(right_block);
+
+    drop_cache();
   }
 
 
@@ -412,6 +430,8 @@ distributed_file<block_offset_type> *process_block(
       utils::write_objects_to_file(left_block_bwt_ptr, left_block_size, left_block_bwt_filename);
       fprintf(stderr, "%.2Lf\n", utils::wclock() - left_block_bwt_save_start);
     }
+
+    drop_cache();
 
     // 5. Build the rank over bwt of left block.
     fprintf(stderr, "  Building the rank data structure for left block: ");
@@ -533,6 +553,7 @@ distributed_file<block_offset_type> *process_block(
       fprintf(stderr, "\n");
       fprintf(stderr, "block_i0 = %ld\n", block_i0);*/
 
+      drop_cache();
 
       fprintf(stderr, "  Building rank for the block: ");
       long double whole_block_rank_build_start = utils::wclock();
@@ -542,7 +563,6 @@ distributed_file<block_offset_type> *process_block(
       free(block_bwt);
       unsigned char *block_gap_count = (unsigned char *)malloc(block_size + 1);
       buffered_gap_array *block_gap = new buffered_gap_array(block_size + 1, block_gap_count);
-
 
 //      fprintf(stderr, "about to stream the tail [%ld..%ld), block_last_symbol = %ld (%c), block_i0 = %ld\n",
 //          block_tail_beg, block_tail_end, (long)block_last_symbol, block_last_symbol, block_i0);
@@ -589,6 +609,8 @@ distributed_file<block_offset_type> *process_block(
       delete[] left_block_gap_sorted_excess;
     delete left_block_gap;
 
+    drop_cache();
+
     return block_psa;
   } else {
     free(left_block);
@@ -617,6 +639,8 @@ distributed_file<block_offset_type> *process_block(
       fprintf(stderr, "\n");
       delete tmp_reader;
     }*/
+
+    drop_cache();
 
 
     return block_psa;
