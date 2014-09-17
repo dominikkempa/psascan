@@ -43,14 +43,14 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
   fprintf(stderr, "RAM budget = %ld (%.1LfMiB)\n", ram_use, 1.L * ram_use / (1L << 20));
   fprintf(stderr, "RAM budget (excluding threads) = %ld (%.1LfMiB)\n",
       ram_use_excluding_threads, 1.L * ram_use_excluding_threads / (1L << 20));
-  long max_block_size = ram_use_excluding_threads / 5.2L;
-  if (max_block_size > MAX_32BIT_DIVSUFSORT_LENGTH) {
-    long cur_n_block = (length + max_block_size - 1) / max_block_size;
-    long block_size_2GiB = MAX_32BIT_DIVSUFSORT_LENGTH;
-    long tmp_n_block = (length + block_size_2GiB - 1) / block_size_2GiB;
-    if (tmp_n_block == cur_n_block)
-      max_block_size = block_size_2GiB;
-  }
+  long max_block_size = std::max(2L, (long)(ram_use_excluding_threads / 5.2L));
+//  if (max_block_size > MAX_32BIT_DIVSUFSORT_LENGTH) {
+//    long cur_n_block = (length + max_block_size - 1) / max_block_size;
+//    long block_size_2GiB = MAX_32BIT_DIVSUFSORT_LENGTH;
+//    long tmp_n_block = (length + block_size_2GiB - 1) / block_size_2GiB;
+//    if (tmp_n_block == cur_n_block)
+//      max_block_size = block_size_2GiB;
+//  }
 
   fprintf(stderr, "Max block size = %ld (%.1LfMiB)\n\n", max_block_size, 1.L * max_block_size / (1L << 20));
   fprintf(stderr, "Parallel settings:\n");

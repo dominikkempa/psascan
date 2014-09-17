@@ -28,17 +28,21 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
   for (long tc = 0, dbg = 0; tc < testcases; ++tc, ++dbg) {
     // Print progress information.
-    if (dbg == 10) {
+//    if (dbg == 10) {
       printf("TEST, testcases = %ld, max_n = %ld, max_sigma = %ld: "
           "%ld (%.0Lf%%)\r", testcases, max_length, max_sigma,
           tc, (tc * 100.L) / testcases);
       std::fflush(stdout);
       dbg = 0;
-    }
+//    }
 
     // Generate string.
     long length = utils::random_long(1, max_length);
     long sigma = utils::random_long(1, max_sigma);
+
+//    text[0] = 0;
+//    strcpy((char *)text, "ddbacaccac");
+//    long length = 10;
 
     long max_threads = utils::random_long(1, 10);
     long n_stream_buffers = 2 * max_threads;
@@ -60,6 +64,10 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
     text[length] = 0;
     std::string filename = "/tmp/in" + utils::random_string_hash();
+
+
+  //  fprintf(stderr, "\ntext = %s\n", text);
+
     utils::write_objects_to_file<unsigned char>(text, length, filename);
 
     // debug //
@@ -115,26 +123,26 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(500, 10,       5);
-  test_random(500, 10,      20);
-  test_random(500, 10,     128);
-  test_random(500, 10,     254);
-  test_random(500, 100,      5);
-  test_random(500, 100,     20);
-  test_random(500, 100,    128);
-  test_random(500, 100,    254);
+  test_random(1000, 10,       5);
+  test_random(1000, 10,      20);
+  test_random(1000, 10,     128);
+  test_random(1000, 10,     255);
+  test_random(200, 100,      5);
+  test_random(200, 100,     20);
+  test_random(200, 100,    128);
+  test_random(200, 100,    255);
   test_random(50, 1000,      5);
   test_random(50, 1000,     20);
   test_random(50, 1000,    128);
-  test_random(50, 1000,    254);
+  test_random(50, 1000,    255);
   test_random(50, 10000,     5);
   test_random(50, 10000,    20);
   test_random(50, 10000,   128);
-  test_random(50, 10000,   254);
-  test_random(5, 100000,     5);
-  test_random(5, 100000,    20);
-  test_random(5, 100000,   128);
-  test_random(5, 100000,   254);
+  test_random(50, 10000,   255);
+  test_random(10, 100000,     5);
+  test_random(10, 100000,    20);
+  test_random(10, 100000,   128);
+  test_random(10, 100000,   255);
   std::fflush(stdout);
 }
 
