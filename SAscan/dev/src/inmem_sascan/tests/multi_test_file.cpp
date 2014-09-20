@@ -54,10 +54,10 @@ long double test(unsigned char *text, long text_length, long max_threads,
       }
     }
     fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
-    free(computed_sa_temp);
     delete sa_reader;
   }
 
+  free(computed_sa_temp);
   return total_time;
 }
 
@@ -76,10 +76,11 @@ void test_file(const char *filename, long max_threads, long max_blocks, long run
   std::sort(times.begin(), times.end());
 
   long double mode_time = times[runs / 2];
-  fprintf(stderr, "SUMMARY (mode of %ld): filename = %s, sizeof(saidx_t) = %ld, time = %.2Lf (%.4Lfs/MiB), speed = %.2LfMiB/s\n",
+  fprintf(stderr, "SUMMARY (mode of %ld): filename = %s, sizeof(saidx_t) = %ld, max_threads = %ld, time = %.2Lf (%.4Lfs/MiB), speed = %.2LfMiB/s\n",
       runs,
       filename,
       (long)sizeof(saidx_t),
+      max_threads,
       mode_time,
       mode_time / ((long double)text_length / (1 << 20)),
       ((long double)text_length / (1 << 20)) / mode_time);
