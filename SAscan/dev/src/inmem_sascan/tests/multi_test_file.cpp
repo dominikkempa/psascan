@@ -53,7 +53,8 @@ long double test(unsigned char *text, long text_length, long max_threads,
         break;
       }
     }
-    fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
+    fprintf(stderr, "\nResult: %s\n", eq ? "\033[22;32mPASSED\033[0m" : "\033[22;31mFAILED\033[0m");
+    if (!eq) std::exit(EXIT_FAILURE);
     delete sa_reader;
   }
 
@@ -103,7 +104,7 @@ int main(int argc, char **argv) {
   long max_blocks = std::atol(argv[2]);
 
   for (long i = 3; i < argc; ++i) {
-    test_file<uint40>(argv[i], max_threads, max_blocks, 3);
-    test_file<int>(argv[i], max_threads, max_blocks, 3);
+    test_file<uint40>(argv[i], max_threads, max_blocks, 1);
+    test_file<int>(argv[i], max_threads, max_blocks, 1);
   }
 }

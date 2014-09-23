@@ -156,7 +156,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = NULL;
   if (n_blocks > 1 || compute_bwt || has_tail) {
     result = balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
-        gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin, i0_result, schedule,
+        gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin, compute_bwt, i0_result, schedule,
         text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
     if (i0) *i0 = i0_result;
   }
