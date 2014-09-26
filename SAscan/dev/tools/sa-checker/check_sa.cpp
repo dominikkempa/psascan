@@ -35,6 +35,8 @@ int main(int argc, char **argv) {
     if (!compare(text, length, prev.ull(), cur.ull())) {
       ok = false;
       ++wrong_suffixes;
+      fprintf(stderr, "Error.\n");
+      std::exit(EXIT_FAILURE);
     }
     prev = cur;
   }
