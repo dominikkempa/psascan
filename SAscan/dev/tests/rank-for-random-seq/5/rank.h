@@ -109,9 +109,11 @@ class rank4n {
       m_freq_trunk = (unsigned *)malloc(n_cblocks * k_cblock_size * sizeof(unsigned));
       std::fill(m_cblock_type, m_cblock_type + (n_cblocks + 7) / 8, 0);
 
+
       unsigned long *rare_trunk_size = new unsigned long[n_cblocks];
       bool *cblock_type = new bool[n_cblocks];
-      std::fill(cblock_type, cblock_type + n_cblocks, 0);
+      std::fill(cblock_type, cblock_type + n_cblocks, false);
+      std::fill(rare_trunk_size, rare_trunk_size + n_cblocks, 0UL);
 #ifdef PRINT_TIMES
       fprintf(stderr, "%.3Lf\n", utils::wclock() - start);
 
@@ -160,6 +162,7 @@ class rank4n {
         // Compute the pointer to rare trunk and update total rare trunk size.
         unsigned long this_cblock_rare_trunk_size = rare_trunk_size[cblock_id];
         m_cblock_header[cblock_id] |= (rare_trunk_total_size << 16);
+
         rare_trunk_total_size += this_cblock_rare_trunk_size;
 
         // 3
