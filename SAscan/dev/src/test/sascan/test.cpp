@@ -13,9 +13,9 @@
 
 #include "divsufsort64.h"
 
-#include "../uint40.h"
-#include "../utils.h"
-#include "../sascan.h"
+#include "../../uint40.h"
+#include "../../utils.h"
+#include "../../sascan.h"
 
 // Test many string chosen according to given paranters.
 void test_random(long testcases, long max_length, long max_sigma) {
