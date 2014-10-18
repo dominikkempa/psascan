@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <errno.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -12,6 +13,26 @@
 #include "utils.h"
 
 namespace utils {
+
+std::string absolute_path(std::string fname) {
+  char path[1 << 18];
+  bool created = false;
+
+  if (!file_exists(fname)) {
+    // We need to create the file, since realpath fails on non-existing files.
+    std::fclose(open_file(fname, "w"));
+    created = true;
+  }
+  if (!realpath(fname.c_str(), path)) {
+    fprintf(stderr, "Error: realpath failed for %s\n", fname.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (created)
+    file_delete(fname);
+
+  return std::string(path);
+}
 
 /******************************* SYSTEM CALLS *********************************/
 void execute(std::string cmd) {

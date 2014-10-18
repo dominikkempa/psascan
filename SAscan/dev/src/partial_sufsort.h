@@ -236,7 +236,7 @@ distributed_file<block_offset_type> **partial_sufsort(std::string filename, long
       // 5a. Build the rank support for BWT.
       fprintf(stderr, "  Building the rank data structure: ");
       long double building_rank_start = utils::wclock();
-      context_rank_4n *rank = new context_rank_4n(BWT, block_size - 1);
+      rank4n<> *rank = new rank4n<>(BWT, block_size - 1);
       delete[] BWT;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - building_rank_start);
 

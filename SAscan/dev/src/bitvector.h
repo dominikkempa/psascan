@@ -1,4 +1,3 @@
-// Simple bitvector class.
 #ifndef __BITVECTOR_H_INCLUDED
 #define __BITVECTOR_H_INCLUDED
 
@@ -7,14 +6,15 @@
 
 #include "utils.h"
 
+
 struct bitvector {
   bitvector(std::string filename) {
     utils::read_objects_from_file<unsigned char>(m_data, m_alloc_bytes, filename);
   }
 
-  bitvector(long length) : m_alloc_bytes((length + 7L) / 8L) {
-    if (length <= 0L) {
-      fprintf(stderr, "Error: attempint to construct empty bitvector.\n");
+  bitvector(long length) : m_alloc_bytes((length + 7) / 8) {
+    if (length <= 0) {
+      fprintf(stderr, "Error: constructing a bitvector of length 0.\n");
       std::exit(EXIT_FAILURE);
     }
 
