@@ -12,6 +12,8 @@
 #include <algorithm>
 
 #include "bitvector.h"
+#include "multifile_bitvector.h"
+#include "disk_pattern.h"
 
 
 //==============================================================================
@@ -29,99 +31,48 @@ void next(unsigned char *text, long length, long &s, long &p, long &r) {
 }
 
 
-void compute_gt_eof_bv(unsigned char *A, long A_length,
-                       unsigned char *B, long B_length,
-                       bitvector *gt_head_bv, bitvector *gt_eof_bv) {
-  long i = 0, el = 0, s = 0, p = 0, r = 0;
-  long i_max = 0, el_max = 0, s_max = 0, p_max = 0, r_max = 0;
 
-  while (i < B_length) {
-    while (i + el < B_length && el < A_length && B[i + el] == A[el])
-      next(A, ++el, s, p, r);
+void compute_sm_end(unsigned char *block, long block_beg, long block_end,
+    long text_length, std::string text_filename,
+    multifile *tail_gt_begin_reversed, bitvector *block_sm_end) {
+  long block_size = block_end - block_beg;
 
-    if (el == A_length ||
-        (i + el == B_length && !gt_head_bv->get(A_length - 1 - el)) ||
-        (i + el < B_length && B[i + el] > A[el]))
-      gt_eof_bv->set(i);
+  multifile_bitvector_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);
+  pattern pat(text_filename, block_end);
+  long pat_length = text_length - block_end;
 
-    long j = i_max;
-    if (el > el_max) {
-      std::swap(el, el_max);
-      std::swap(s, s_max);
-      std::swap(p, p_max);
-      std::swap(r, r_max);
-      i_max = i;
-    }
+  long i = 0, el = 0;
+  while (i < block_size) {
+    while (i + el < block_size && el < pat_length && block[i + el] == pat[el])
+      ++el;
 
-    if (p && 3 * p <= el && !memcmp(A, A + p, s)) {
-      for (long k = 1; k < p; ++k)
-        if (gt_eof_bv->get(j + k)) gt_eof_bv->set(i + k);
-      i += p; el -= p;
-    } else {
-      long h = (el / 3) + 1;
-      for (long k = 1; k < h; ++k)
-        if (gt_eof_bv->get(j + k)) gt_eof_bv->set(i + k);
-      i += h; el = 0; s = 0; p = 0;
-    }
+    if ((i + el < block_size && el < pat_length && block[i + el] < pat[el]) ||
+        (i + el == block_size && tail_gt_begin_reversed_reader.access(pat_length - el)))
+      block_sm_end->set(i);
+
+    el = 0;
+    ++i;
   }
 }
 
+
 //==============================================================================
-// Compute bitmap bv[0..length) such that bv[i] == 1 iff
-// text[i..length) > text[0..length).
-//
-// Returns the number of suffixes i st. text[i..length) < text[0..length).
+// Given we are gt_end for the block -> very well defined and all.
+// We want to compute gt_begin from it, and to do it in-place we want to
+// have gt_begin reversed in fact.
 //==============================================================================
-long compute_new_gt_head_bv(unsigned char *T, long n,
-    bitvector *new_gt_head_bv) {
-
-  long whole_suffix_rank = n - 1;
-  long i = 1, el = 0, s = 0, p = 0, r = 0;
-  long i_max = 0, el_max = 0, s_max = 0, p_max = 0, r_max = 0;
-  while (i < n) {
-    while (i + el < n && el < n && T[i + el] == T[el]) next(T, ++el, s, p, r);
-    if (i + el < n && (el == n || T[i + el] > T[el])) {
-      // Fill output right-to-left to avoid reversing.
-      new_gt_head_bv->set(n - 1 - i);
-      --whole_suffix_rank;
+void transform_sm_end_into_gt_begin_reversed(
+    unsigned char *text, long length, bitvector *bv) {
+  long i = 1, el = 0;
+  while (i < length) {
+    while (i + el < length && text[i + el] == text[el]) ++el;
+    if (i + el < length) {
+      if (text[i + el] > text[el]) bv->set(length - i);
+      else bv->reset(length - i);
     }
-
-    long j = i_max;
-    if (el > el_max) {
-      std::swap(el, el_max);
-      std::swap(s, s_max);
-      std::swap(p, p_max);
-      std::swap(r, r_max);
-      i_max = i;
-    }
-
-    if (p && 3 * p <= el && !memcmp(T, T + p, s)) {
-      for (long k = 1; k < p; ++k) {
-        if (new_gt_head_bv->get(n - 1 - (j + k))) {
-          new_gt_head_bv->set(n - 1 - (i + k));
-          --whole_suffix_rank;
-        }
-      }
-
-      i += p;
-      el -= p;
-    } else {
-      long h = (el / 3) + 1;
-      for (long k = 1; k < h; ++k) {
-        if (new_gt_head_bv->get(n - 1 - (j + k))) {
-          new_gt_head_bv->set(n - 1 - (i + k));
-          --whole_suffix_rank;
-        }
-      }
-
-      i += h;
-      el = 0;
-      s = 0;
-      p = 0;
-    }
+    ++i;
+    el = 0;
   }
-
-  return whole_suffix_rank;
 }
 
 #endif // __SRANK_H_INCLUDED

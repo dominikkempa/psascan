@@ -36,18 +36,18 @@ void test_random(long testcases, long max_length, long max_sigma) {
     }
 
     // Generate string.
-    long length = utils::random_long(1, max_length);
+    /*long length = utils::random_long(1, max_length);
     long sigma = utils::random_long(1, max_sigma);
     long ram_use = 0;
     do ram_use = utils::random_long(5L, 5L * length);
     while (4L * ram_use < length);
     if (max_sigma <= 26) utils::fill_random_letters(text, length, sigma);
-    else utils::fill_random_string(text, length, sigma);
+    else utils::fill_random_string(text, length, sigma);*/
 
     // debug //
-    // long length = strlen("aaaaaaaaa");
-    // strcat((char *)text, "aaaaaaaaa");
-    // long ram_use = 39;
+    long length = strlen("dbaaac");
+    strcat((char *)text, "dbaaac");
+    long ram_use = 6;
     ///////////
 
     text[length] = 0;
@@ -60,7 +60,8 @@ void test_random(long testcases, long max_length, long max_sigma) {
     ///////////
 
     // Run the test on generated string.
-    SAscan(filename, ram_use);
+    std::string output_filename = filename + ".sa5";
+    SAscan(filename, output_filename, ram_use);
     
     // Compare the result to correct SA.
     divsufsort64(text, SA, length); // recall that SAscan computes the SA of *reversed* text.
@@ -71,7 +72,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
     for (long i = 0; i < length; ++i)
       if ((unsigned long)SA[i] != computed_SA[i].ull()) { eq = false; break; }
     if (!eq) {
-    printf("\n\033[22;31mFAILED\033[0m\n");
+      printf("\n\033[22;31mFAILED\033[0m\n");
       if (length < 10000) {
         printf("  text = %s\n", text);
         printf("  computed SA: ");
@@ -107,26 +108,26 @@ int main(int, char **) {
 
   printf("Testing SAscan.\n");
   std::fflush(stdout);
-  test_random(500, 10,      5);
-  test_random(500, 10,     20);
-  test_random(500, 10,    128);
-  test_random(500, 10,    254);
-  test_random(500, 100,      5);
-  test_random(500, 100,     20);
-  test_random(500, 100,    128);
-  test_random(500, 100,    254);
-  test_random(50, 1000,      5);
-  test_random(50, 1000,     20);
-  test_random(50, 1000,    128);
-  test_random(50, 1000,    254);
-  test_random(50, 10000,     5);
-  test_random(50, 10000,    20);
-  test_random(50, 10000,   128);
-  test_random(50, 10000,   254);
-  test_random(5, 100000,     5);
-  test_random(5, 100000,    20);
-  test_random(5, 100000,   128);
-  test_random(5, 100000,   254);
+  test_random(1000, 10,      5);
+  test_random(1000, 10,     20);
+  test_random(1000, 10,    128);
+  test_random(1000, 10,    255);
+  test_random(1000, 100,      5);
+  test_random(1000, 100,     20);
+  test_random(1000, 100,    128);
+  test_random(1000, 100,    255);
+  test_random(200, 1000,      5);
+  test_random(200, 1000,     20);
+  test_random(200, 1000,    128);
+  test_random(200, 1000,    255);
+  test_random(200, 10000,     5);
+  test_random(200, 10000,    20);
+  test_random(200, 10000,   128);
+  test_random(200, 10000,   255);
+  test_random(100, 100000,     5);
+  test_random(100, 100000,    20);
+  test_random(100, 100000,   128);
+  test_random(100, 100000,   255);
   std::fflush(stdout);
 }
 

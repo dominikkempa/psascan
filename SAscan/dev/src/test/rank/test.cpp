@@ -105,20 +105,20 @@ int main(int, char **) {
   std::srand(std::time(0) + getpid());
 
   // Run tests.
-  test_random(1000,   10,      5,    10000);
-  test_random(1000,   10,      20,   10000);
-  test_random(1000,   10,      128,  10000);
-  test_random(1000,   10,      256,  10000);
-  test_random(1000,   1000,    5,    1000);
-  test_random(1000,   1000,    20,   1000);
-  test_random(1000,   1000,    128,  1000);
-  test_random(1000,   1000,    256,  1000);
-  test_random(1000,   100000,  5,    10000);
-  test_random(1000,   100000,  20,   10000);
-  test_random(1000,   100000,  128,  10000);
-  test_random(1000,   100000,  256,  10000);
-  test_random(1000,   1000000, 5,    100000);
-  test_random(1000,   1000000, 20,   100000);
-  test_random(1000,   1000000, 128,  100000);
-  test_random(1000,   1000000, 256,  100000);
+  test_random(1000,   10,      5,    100000);
+  test_random(1000,   10,      20,   100000);
+  test_random(1000,   10,      128,  100000);
+  test_random(1000,   10,      256,  100000);
+  test_random(1000,   1000,    5,    10000);
+  test_random(1000,   1000,    20,   10000);
+  test_random(1000,   1000,    128,  10000);
+  test_random(1000,   1000,    256,  10000);
+  test_random(1000,   100000,  5,    100000);
+  test_random(1000,   100000,  20,   100000);
+  test_random(1000,   100000,  128,  100000);
+  test_random(1000,   100000,  256,  100000);
+  test_random(1000,   1000000, 5,    1000000);
+  test_random(1000,   1000000, 20,   1000000);
+  test_random(1000,   1000000, 128,  1000000);
+  test_random(1000,   1000000, 256,  1000000);
 }

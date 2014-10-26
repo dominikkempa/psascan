@@ -10,7 +10,7 @@
 #include "stream.h"
 
 struct buffered_gap_array {
-  buffered_gap_array(long n) {
+  buffered_gap_array(long n, std::string storage_fname = std::string("")) {
     if (n <= 0L) {
       fprintf(stderr, "Error: attempting to construct empty gap array.\n");
       std::exit(EXIT_FAILURE);
@@ -20,15 +20,17 @@ struct buffered_gap_array {
     m_count = new unsigned char[m_length];
     std::fill(m_count, m_count + m_length, 0);
 
-    m_buf = new long[k_buf_limit]; // 4MiB
+    m_buf = new long[k_buf_limit];
     m_buf_filled = 0;
 
-    m_excess = new long[k_excess_limit]; // 4MiB
+    m_excess = new long[k_excess_limit];
     m_excess_filled = 0;
     m_total_excess = 0L;
 
     // File used to store excess values.
-    storage_filename = "excess." + utils::random_string_hash();
+    storage_filename = storage_fname;
+    if (!storage_filename.length())
+      storage_filename = "excess." + utils::random_string_hash();
   }
 
   inline void flush() {
@@ -68,9 +70,7 @@ struct buffered_gap_array {
   
   // Store to file using v-byte encoding.
   void save_to_file(std::string fname) {
-    fprintf(stderr, "  Gap excess (inmem): %d\n", m_excess_filled);
-    fprintf(stderr, "  Gap excess (disk): %ld\n", m_total_excess - m_excess_filled);
-    fprintf(stderr, "  Saving gap to file: ");
+    fprintf(stderr, "  Write gap to disk: ");
     long double gap_save_start = utils::wclock();
     flush();
 

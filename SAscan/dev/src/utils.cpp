@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include <errno.h>
 #include <stdint.h>
@@ -83,9 +84,10 @@ bool file_exists(std::string fname) {
 }
 
 void file_delete(std::string fname) {
-  execute("rm " + fname);
-  if (file_exists(fname)) {
-    fprintf(stderr, "Error: Cannot delete %s.\n", fname.c_str());
+  int res = std::remove(fname.c_str());
+  if (res) {
+    fprintf(stderr, "Failed to delete %s: %s\n",
+        fname.c_str(), strerror(errno));
     std::exit(EXIT_FAILURE);
   }
 }

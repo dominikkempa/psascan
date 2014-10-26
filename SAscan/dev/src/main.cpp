@@ -14,7 +14,8 @@ void usage(int status) {
 "Construct the suffix array for text stored in FILE.\n"
 "\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
-"  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n",
+"  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n"
+"  -o, --output=OUTFILE    specify output file (default: FILE.sa5)\n",
     program_name);
 
   std::exit(status);
@@ -25,14 +26,16 @@ int main(int argc, char **argv) {
 
   static struct option long_options[] = {
     {"mem",    required_argument, NULL, 'm'},
+    {"output", required_argument, NULL, 'o'},
     {NULL, 0, NULL, 0}
   };
 
   long ram_use = 3072L << 20;
+  std::string out_fname("");
 
   // Parse command-line options.
   int c;
-  while ((c = getopt_long(argc, argv, "m:", long_options, NULL)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:o:", long_options, NULL)) != -1) {
     switch(c) {
       case 'm':
         ram_use = std::atol(optarg) << 20;
@@ -40,6 +43,9 @@ int main(int argc, char **argv) {
           fprintf(stderr, "Error: invalid RAM limit (%ld)\n\n", ram_use);
           usage(EXIT_FAILURE);
         }
+        break;
+      case 'o':
+        out_fname = std::string(optarg);
         break;
       default:
         usage(EXIT_FAILURE);
@@ -58,6 +64,10 @@ int main(int argc, char **argv) {
     "Only the first will be processed.\n");
   }
 
+  // Set default output filename (if not provided).
+  if (out_fname.empty())
+    out_fname = text_fname + ".sa5";
+
   // Check if input exists.
   if (!utils::file_exists(text_fname)) {
     fprintf(stderr, "Error: input file (%s) does not exist\n\n",
@@ -65,6 +75,27 @@ int main(int argc, char **argv) {
     usage(EXIT_FAILURE);
   }
 
-  text_fname = utils::absolute_path(text_fname);
-  SAscan(text_fname, ram_use);
+  if (utils::file_exists(out_fname)) {
+    // Output file exists -- should we proceed?
+    char *line = NULL;
+    size_t buflen = 0;
+    long len = 0L;
+
+    do {
+      printf("Output file (%s) exists. Overwrite? [y/n]: ",
+          out_fname.c_str());
+      if ((len = getline(&line, &buflen, stdin)) == -1) {
+        fprintf(stderr, "\nError: failed to read answer\n\n");
+        usage(EXIT_FAILURE);
+      }
+    } while (len != 2 || (line[0] != 'y' && line[0] != 'n'));
+
+    if (line[0] == 'n') {
+      free(line);
+      std::exit(EXIT_FAILURE);
+    }
+    free(line);
+  }
+
+  SAscan(text_fname, out_fname, ram_use);
 }
