@@ -67,60 +67,73 @@ struct buffered_gap_array {
     if (utils::file_exists(storage_filename))
       utils::file_delete(storage_filename);
   }
-  
-  // Store to file using v-byte encoding.
-  void save_to_file(std::string fname) {
-    fprintf(stderr, "  Write gap to disk: ");
-    long double gap_save_start = utils::wclock();
+
+  void initialize_sequential_access() {
     flush();
 
-    // Gather all excess values together,
-    // including ones stored on disk (if any).
-    long *sorted_excess = new long[m_total_excess];
-    std::copy(m_excess, m_excess + m_excess_filled, sorted_excess);
+    m_sorted_excess = new long[m_total_excess];
+    std::copy(m_excess, m_excess + m_excess_filled, m_sorted_excess);
     if (m_total_excess != m_excess_filled) {
-      long *dest = sorted_excess + m_excess_filled;
+      long *dest = m_sorted_excess + m_excess_filled;
       long toread = m_total_excess - m_excess_filled;
       utils::read_n_objects_from_file(dest, toread, storage_filename.c_str());
     }
 
     // Sort the excess values.
-    std::sort(sorted_excess, sorted_excess + m_total_excess);
+    std::sort(m_sorted_excess, m_sorted_excess + m_total_excess);
+    m_excess_ptr = 0;
+    m_current_pos = 0;
+  }
 
-    // Write gap values to file.
+  inline long read() {
+    long c = 0;
+    while (m_excess_ptr < m_total_excess && m_sorted_excess[m_excess_ptr] == m_current_pos)
+      ++m_excess_ptr, ++c;
+    long result = c * 256L + m_count[m_current_pos];
+
+    ++m_current_pos;
+    if (m_current_pos == m_length)
+      delete[] m_sorted_excess;
+
+    return result;
+  }
+  
+  // Write to given file using v-byte encoding.
+  void save_to_file(std::string fname) {
+    fprintf(stderr, "  Write gap to disk: ");
+    long double gap_save_start = utils::wclock();
+    initialize_sequential_access();
     stream_writer<unsigned char> *writer = new stream_writer<unsigned char>(fname);
-    for (long j = 0, pos = 0; j < m_length; ++j) {
-      long c = 0;
-      while (pos < m_total_excess && sorted_excess[pos] == j)
-        ++pos, ++c;
-
-      long gap_j = m_count[j] + (c << 8);
-      while (gap_j > 127) {
-        writer->write((gap_j & 0x7f) | 0x80);
-        gap_j >>= 7;
+    for (long j = 0; j < m_length; ++j) {
+      long gap_value = read();
+      while (gap_value > 127) {
+        writer->write((gap_value & 0x7f) | 0x80);
+        gap_value >>= 7;
       }
-
-      writer->write(gap_j);
+      writer->write(gap_value);
     }
     delete writer;
     fprintf(stderr, "%.2Lf\n", utils::wclock() - gap_save_start);
   }
 
   unsigned char *m_count;
-
   long m_length;
 
   static const int k_excess_limit = (1 << 19);
-  long *m_excess;
-  int m_excess_filled;
-  long m_total_excess;
-  
   static const int k_buf_limit = (1 << 19);
-  long *m_buf;
-  int m_buf_filled;
 
+  int m_excess_filled;
+  int m_buf_filled;
+  long *m_excess;
+  long *m_buf;
+  long m_total_excess;
 
   std::string storage_filename;
+
+  // Used for sequential access to gap.
+  long *m_sorted_excess;
+  long m_excess_ptr;
+  long m_current_pos;
 };
 
 #endif // __GAP_ARRAY_H_INCLUDED
