@@ -28,7 +28,7 @@ void write_objects_to_file(T *tab, long length, std::string fname) {
   std::FILE *f = open_file(fname, "w");
   size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
   if ((long)fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
+    fprintf(stderr, "\nError: fwrite in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
@@ -40,7 +40,7 @@ template<typename T>
 void add_objects_to_file(T *tab, long length, std::FILE *f) {
   size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
   if ((long)fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite in line %s of %s returned %lu\n",
+    fprintf(stderr, "\nError: fwrite in line %s of %s returned %lu\n",
         STR(__LINE__), STR(__FILE__), fwrite_ret);
     std::exit(EXIT_FAILURE);
   }
@@ -60,7 +60,7 @@ template<typename T>
 void read_objects_from_file(T* tab, long length, std::FILE *f) {
   size_t fread_ret = fread(tab, sizeof(T), length, f);
   if ((long)fread_ret != length) {
-    fprintf(stderr, "Error: fread in line %s of %s returned %ld\n",
+    fprintf(stderr, "\nError: fread in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fread_ret);
     std::exit(EXIT_FAILURE);
   }

@@ -18,7 +18,7 @@ namespace utils {
 void execute(std::string cmd) {
   int system_ret = system(cmd.c_str());
   if (system_ret) {
-    fprintf(stderr, "Error: executing command [%s] returned %d.\n",
+    fprintf(stderr, "\nError: executing command [%s] returned %d.\n",
               cmd.c_str(), system_ret);
     std::exit(EXIT_FAILURE);
   }
@@ -81,7 +81,7 @@ std::string absolute_path(std::string fname) {
     created = true;
   }
   if (!realpath(fname.c_str(), path)) {
-    fprintf(stderr, "Error: realpath failed for %s\n", fname.c_str());
+    fprintf(stderr, "\nError: realpath failed for %s\n", fname.c_str());
     std::exit(EXIT_FAILURE);
   }
 

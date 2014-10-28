@@ -50,7 +50,7 @@ struct buffer_poll {
 
   buffer<T> *get() {
     if (m_queue.empty()) {
-      fprintf(stderr, "Error: requesting a buffer from empty poll!\n");
+      fprintf(stderr, "\nError: requesting a buffer from empty poll!\n");
       std::exit(EXIT_FAILURE);
     }
 

@@ -414,35 +414,16 @@ distributed_file<block_offset_type> *process_block(
     block_psa->initialize_writing(4 << 20);
     right_block_psa->initialize_reading(4 << 20);
 
-    long left_block_gap_sorted_excess_size = left_block_gap->m_excess_filled + left_block_gap->m_excess_disk;
-    long *left_block_gap_sorted_excess = NULL;
-    if (left_block_gap_sorted_excess_size > 0) {
-      left_block_gap_sorted_excess = new long[left_block_gap_sorted_excess_size];
-      long left_block_gap_sorted_excess_filled = left_block_gap->m_excess_filled;
-      std::copy(left_block_gap->m_excess, left_block_gap->m_excess + left_block_gap->m_excess_filled, left_block_gap_sorted_excess);
-      if (left_block_gap->m_excess_disk > 0) {
-        long *dest = left_block_gap_sorted_excess + left_block_gap_sorted_excess_filled;
-        long toread = left_block_gap->m_excess_disk;
-        utils::read_n_objects_from_file(dest, toread, left_block_gap->m_storage_filename.c_str());
-      }
-
-      std::sort(left_block_gap_sorted_excess, left_block_gap_sorted_excess + left_block_gap_sorted_excess_size);
-    }
-    long left_block_gap_ptr = 0;
+    left_block_gap->start_sequential_access();
     for (long i = 0; i <= left_block_size; ++i) {
-      long gap_i = left_block_gap->m_count[i];
-      while (left_block_gap_ptr < left_block_gap_sorted_excess_size && left_block_gap_sorted_excess[left_block_gap_ptr] == i) {
-        gap_i += 256;
-        ++left_block_gap_ptr;
-      }
+      long gap_i = left_block_gap->get_next();
 
       for (long j = 0; j < gap_i; ++j) {
         long next_value = left_block_size + right_block_psa->read();
         block_psa->write(next_value);
       }
-      if (i < left_block_size) {
+      if (i < left_block_size)
         block_psa->write(left_block_psa_ptr[i]);
-      }
     }
     right_block_psa->finish_reading();
     block_psa->finish_writing();
@@ -459,16 +440,11 @@ distributed_file<block_offset_type> *process_block(
       stream_reader<unsigned char> *left_block_bwt_reader  = new stream_reader<unsigned char> (left_block_bwt_filename);
       stream_reader<unsigned char> *right_block_bwt_reader = new stream_reader<unsigned char>(right_block_bwt_filename);
 
-      left_block_gap_ptr = 0;
+      left_block_gap->start_sequential_access();
       long block_i0 = 0;
       long right_block_extracted = 0;
-
       for (long i = 0; i <= left_block_size; ++i) {
-        long gap_i = left_block_gap->m_count[i];
-        while (left_block_gap_ptr < left_block_gap_sorted_excess_size && left_block_gap_sorted_excess[left_block_gap_ptr] == i) {
-          gap_i += 256;
-          ++left_block_gap_ptr;
-        }
+        long gap_i = left_block_gap->get_next();
 
         for (long j = 0; j < gap_i; ++j)  {
           long ccc = right_block_bwt_reader->read();
@@ -479,6 +455,7 @@ distributed_file<block_offset_type> *process_block(
         if (i == left_block_i0) block_i0 = block_bwt_filled;
         if (i < left_block_size) block_bwt[block_bwt_filled++] = left_block_bwt_reader->read();
       }
+      left_block_gap->stop_sequential_access();
       delete left_block_bwt_reader;
       delete right_block_bwt_reader;
       utils::file_delete(left_block_bwt_filename);
@@ -509,10 +486,11 @@ distributed_file<block_offset_type> *process_block(
       block_gap->save_to_file(text_filename + ".gap." + utils::intToStr(block_id));
       delete block_gap;
       free(block_gap_count);
-    } else free(left_block_sabwt);
+    } else {
+      free(left_block_sabwt);
+      left_block_gap->stop_sequential_access(); // XXX we delete it right away, can we skip that?
+    }
 
-    if (left_block_gap_sorted_excess_size)
-      delete[] left_block_gap_sorted_excess;
     delete left_block_gap;
 
     drop_cache();

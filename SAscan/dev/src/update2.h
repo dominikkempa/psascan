@@ -78,7 +78,7 @@ void parallel_increase(block_offset_type *temp, buffered_gap_array *gap,
 template<typename block_offset_type>
 void update_gap(buffer<block_offset_type> *b, buffered_gap_array *gap, block_offset_type *temp, long *oracle) {
   if (b->m_filled == 0) {
-    fprintf(stderr, "Error: trying to do update on empty buffer\n");
+    fprintf(stderr, "\nError: trying to do update on empty buffer\n");
     std::exit(EXIT_FAILURE);
   }
 

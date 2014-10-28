@@ -85,16 +85,16 @@ private:
       // Do the disk I/O.
       long offset = neworigin + roffset - fpos;
       if (offset && std::fseek(f, offset, SEEK_CUR)) {
-        std::perror("Error: pattern fseek1 failed.\n");
+        std::perror("\nError: pattern fseek1 failed.\n");
         std::exit(EXIT_FAILURE);
       }
       if (std::ftell(f) != neworigin) {
-        std::perror("Error: incorrect pattern neworigin.\n");
+        std::perror("\nError: incorrect pattern neworigin.\n");
         std::exit(EXIT_FAILURE);
       }
       long r = std::fread(buf + roffset, 1, toread, f);
       if (r != toread) {
-        std::perror("Error: pattern fread1 failed.\n");
+        std::perror("\nError: pattern fread1 failed.\n");
         std::exit(EXIT_FAILURE);
       }
       filled += toread;

@@ -55,8 +55,6 @@ static inline void radixsort8msb_copy2(T *begin, T *end, size_t depth) {
 template <typename Iterator, typename Compare>
 static inline void radixsort8msb_nocopy2(Iterator begin, Iterator end, size_t depth, Compare& cmp)
 {
-    typedef typename Iterator::value_type value_type;
-
     if (end - begin < 128) {
         std::sort(begin, end, cmp);
         return;

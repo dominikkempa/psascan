@@ -43,7 +43,7 @@ struct distributed_file {
       m_state(STATE_INIT),
       m_elems_per_file(maxsize / sizeof(data_type)) {
     if (!m_elems_per_file) {
-      fprintf(stderr, "Error: maxsize = %ld is too small to hold elems "
+      fprintf(stderr, "\nError: maxsize = %ld is too small to hold elems "
           "of size %lu\n", maxsize, sizeof(data_type));
       std::exit(EXIT_FAILURE);
     }
@@ -51,7 +51,7 @@ struct distributed_file {
 
   void initialize_writing(long bufsize = 4 << 20) { // 4MiB default bufsize
     if (m_state != STATE_INIT) {
-      fprintf(stderr, "Error: initializing writing while in state %s\n",
+      fprintf(stderr, "\nError: initializing writing while in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -59,7 +59,7 @@ struct distributed_file {
 
     m_bufelems = (bufsize + sizeof(data_type) - 1) / sizeof(data_type);
     if (m_bufelems == 0) {
-      fprintf(stderr, "Error: bufsize = %ld is too small to hold elems "
+      fprintf(stderr, "\nError: bufsize = %ld is too small to hold elems "
           "of size %lu\n", bufsize, sizeof(data_type));
       std::exit(EXIT_FAILURE);
     }
@@ -75,7 +75,7 @@ struct distributed_file {
 
   void write(data_type x) {
     if (m_state != STATE_WRITING) {
-      fprintf(stderr, "Error: attempting a single write in state %s\n",
+      fprintf(stderr, "\nError: attempting a single write in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -94,7 +94,7 @@ struct distributed_file {
 
   void write(data_type *begin, data_type *end) {
     if (m_state != STATE_WRITING) {
-      fprintf(stderr, "Error: attempting a block write in state %s\n",
+      fprintf(stderr, "\nError: attempting a block write in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -125,12 +125,12 @@ struct distributed_file {
 
   void finish_writing() {
     if (m_state != STATE_WRITING) {
-      fprintf(stderr, "Error: finishing writing when in state %s\n",
+      fprintf(stderr, "\nError: finishing writing when in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
     if (m_cur_file_written == 0) {
-      fprintf(stderr, "Error: nothing was ever written to %s\n",
+      fprintf(stderr, "\nError: nothing was ever written to %s\n",
           m_filename.c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -144,7 +144,7 @@ struct distributed_file {
 
   void initialize_reading(long bufsize = 4 << 20) { // 4MiB default bufsize
     if (m_state != STATE_WRITTEN) {
-      fprintf(stderr, "Error: initializing reading in state %s\n",
+      fprintf(stderr, "\nError: initializing reading in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -152,7 +152,7 @@ struct distributed_file {
 
     m_bufelems = (bufsize + sizeof(data_type) - 1) / sizeof(data_type);
     if (m_bufelems == 0) {
-      fprintf(stderr, "Error: bufsize %ld is too small to hold elems "
+      fprintf(stderr, "\nError: bufsize %ld is too small to hold elems "
           "of size %lu\n", bufsize, sizeof(data_type));
       std::exit(EXIT_FAILURE);
     }
@@ -165,7 +165,7 @@ struct distributed_file {
 
   inline data_type read() {
     if (m_state != STATE_READING) {
-      fprintf(stderr, "Error: reading in state %s\n",
+      fprintf(stderr, "\nError: reading in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -179,13 +179,13 @@ struct distributed_file {
 
   void finish_reading() {
     if (m_state != STATE_READING) {
-      fprintf(stderr, "Error: finishing reading in state %s\n",
+      fprintf(stderr, "\nError: finishing reading in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
 
     if (m_total_bufread != m_total_read || m_total_read != m_total_written) {
-      fprintf(stderr, "Error: not all elems were read from "
+      fprintf(stderr, "\nError: not all elems were read from "
           "distributed file %s\n", m_filename.c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -209,27 +209,23 @@ private:
 
   void close_and_destroy_cur_file() {
     if (m_state != STATE_READING) {
-      fprintf(stderr, "Error: destroying a file in state %s\n",
+      fprintf(stderr, "\nError: destroying a file in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
 
     if (!m_file) {
-      fprintf(stderr, "Error: deleting a NULL file\n");
+      fprintf(stderr, "\nError: deleting a NULL file\n");
       std::exit(EXIT_FAILURE);
     }
     std::fclose(m_file);
     std::string cur_fname = m_filename + ".part" + utils::intToStr(m_cur_file);
     utils::file_delete(cur_fname);
-
-    // debug //
-    // fprintf(stderr, "closing and deleting file %s\n", cur_fname.c_str());
-    ///////////
   }
 
   void flush() {
     if (m_state != STATE_WRITING) {
-      fprintf(stderr, "Error: flushing in state %s\n",
+      fprintf(stderr, "\nError: flushing in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -242,12 +238,12 @@ private:
 
   void refill() {
     if (m_total_bufread == m_total_written) {
-      fprintf(stderr, "Error: trying to read past the end of file\n");
+      fprintf(stderr, "\nError: trying to read past the end of file\n");
       std::exit(EXIT_FAILURE);
     }
 
     if (m_state != STATE_READING) {
-      fprintf(stderr, "Error: refilling in state %s\n",
+      fprintf(stderr, "\nError: refilling in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
@@ -263,7 +259,7 @@ private:
     m_filled = std::min(file_left, m_bufelems);
     size_t r = std::fread(m_buf, sizeof(data_type), m_filled, m_file);
     if ((long)r != m_filled) {
-      fprintf(stderr, "Error: fread failed during refill()\n");
+      fprintf(stderr, "\nError: fread failed during refill()\n");
       std::exit(EXIT_FAILURE);
     }
 
@@ -275,36 +271,24 @@ private:
 
   void open_next_file() {
     if (m_state != STATE_READING) {
-      fprintf(stderr, "Error: opening a new file in state %s\n",
+      fprintf(stderr, "\nError: opening a new file in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
 
     ++m_cur_file;
     m_file = utils::open_file(m_filename + ".part" + utils::intToStr(m_cur_file), "r");
-    
-    // debug //
-    // fprintf(stderr, "opening file %s to reading\n",
-    //   (m_filename + ".part" + utils::intToStr(m_cur_file)).c_str());
-    ///////////
-
     m_cur_file_read = 0;
   }
 
   void make_new_file() {
     if (m_state != STATE_WRITING) {
-      fprintf(stderr, "Error: making new file in state %s\n",
+      fprintf(stderr, "\nError: making new file in state %s\n",
           state_string().c_str());
       std::exit(EXIT_FAILURE);
     }
 
     m_file = utils::open_file(m_filename + ".part" + utils::intToStr(m_files_cnt), "w");
-
-    // debug //
-    // fprintf(stderr, "opening file %s to writing\n",
-    //  (m_filename + ".part" + utils::intToStr(m_files_cnt)).c_str());
-    ///////////
-
     ++m_files_cnt;
     m_cur_file_written = 0;
   }

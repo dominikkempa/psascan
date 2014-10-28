@@ -55,7 +55,7 @@ struct gap_parallel_updater {
 
         // Check if values wrapped-around.
         if (gap->m_count[x] == 0) {
-          gap->m_excess_mutex.lock();
+          gap->m_excess_mutex.lock();  // XXX could that lead to some slowdown?
           gap->add_excess(x);
           gap->m_excess_mutex.unlock();
         }

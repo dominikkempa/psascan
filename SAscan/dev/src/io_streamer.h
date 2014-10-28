@@ -221,7 +221,7 @@ struct bit_stream_writer {
     f = utils::open_file(filename, "w");
     buf = new unsigned char[bufsize];
     if (!buf) {
-      fprintf(stderr, "Error: allocation error in bit_stream_writer\n");
+      fprintf(stderr, "\nError: allocation error in bit_stream_writer\n");
       std::exit(EXIT_FAILURE);
     }
     std::fill(buf, buf + bufsize, 0);
@@ -309,7 +309,7 @@ void write_objects_to_file(T *tab, long length, std::string fname) {
     std::FILE *f = utils::open_file(fname, "w");
     size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
     if ((long)fwrite_ret != length) {
-      fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
+      fprintf(stderr, "\nError: fwrite in line %s of %s returned %ld\n",
           STR(__LINE__), STR(__FILE__), fwrite_ret);
       std::exit(EXIT_FAILURE);
     }
