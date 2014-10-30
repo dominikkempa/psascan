@@ -12,8 +12,7 @@
 // Merge partial suffix arrays into final suffix array (stored in normal file).
 // INVARIANT: 5.2 * length <= ram_use.
 template<typename block_offset_type>
-void merge(std::string input_filename,
-           std::string out_filename,
+void merge(std::string output_filename,
            long length,
            long max_block_size,
            long ram_use,
@@ -26,12 +25,12 @@ void merge(std::string input_filename,
   fprintf(stderr, "\nBuffer size for merging: %ld\n", buffer_size);
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(uint40));
 
-  stream_writer<uint40> *output = new stream_writer<uint40>(out_filename, sizeof(uint40) * buffer_size);
+  stream_writer<uint40> *output = new stream_writer<uint40>(output_filename, sizeof(uint40) * buffer_size);
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
     sparseSA[i]->initialize_reading(sizeof(block_offset_type) * buffer_size);
     if (i + 1 != n_block)
-      gap[i] = new vbyte_stream_reader(input_filename + ".gap." + utils::intToStr(i), buffer_size);
+      gap[i] = new vbyte_stream_reader(output_filename + ".gap." + utils::intToStr(i), buffer_size);
   }
 
   long *gap_head = new long[n_block];
@@ -79,7 +78,7 @@ void merge(std::string input_filename,
   
   for (int i = 0; i < n_block; ++i)
     if (i + 1 != n_block)
-      utils::file_delete(input_filename + ".gap." + utils::intToStr(i));
+      utils::file_delete(output_filename + ".gap." + utils::intToStr(i));
 }
 
 

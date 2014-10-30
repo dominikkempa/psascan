@@ -25,8 +25,8 @@
 // delete f;
 // ----------------------------------------------------------------------------
 
-#ifndef __DISTRIBUTED_FILE_INCLUDED
-#define __DISTRIBUTED_FILE_INCLUDED
+#ifndef __DISTRIBUTED_FILE_H_INCLUDED
+#define __DISTRIBUTED_FILE_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -34,22 +34,34 @@
 
 #include "utils.h"
 
-template<typename data_type>
+template<typename value_type>
 struct distributed_file {
   // maxsize is the maximal size of a single file (in bytes).
-  distributed_file(const char *filename, long maxsize)
-    : m_filename(filename),
-      m_maxsize(maxsize),
+  distributed_file(std::string filename_base, long maxsize)
+    : m_maxsize(maxsize),
       m_state(STATE_INIT),
-      m_elems_per_file(maxsize / sizeof(data_type)) {
+      m_elems_per_file(maxsize / sizeof(value_type)) {
     if (!m_elems_per_file) {
       fprintf(stderr, "\nError: maxsize = %ld is too small to hold elems "
-          "of size %lu\n", maxsize, sizeof(data_type));
+          "of size %lu\n", maxsize, sizeof(value_type));
       std::exit(EXIT_FAILURE);
     }
+    m_filename = filename_base + ".distrfile." + utils::random_string_hash();
   }
 
-  void initialize_writing(long bufsize = 4 << 20) { // 4MiB default bufsize
+  distributed_file(std::string filename_base, long maxsize,
+      value_type *begin, value_type *end, long bufsize = (4 << 20))
+    : m_maxsize(maxsize),
+      m_state(STATE_INIT),
+      m_elems_per_file(maxsize / sizeof(value_type)) {
+    m_filename = filename_base + ".distrfile." + utils::random_string_hash();
+    initialize_writing(bufsize);
+    for (value_type *it = begin; it != end; ++it)
+      write(*it);
+    finish_writing();
+  }
+
+  void initialize_writing(long bufsize = (4 << 20)) {
     if (m_state != STATE_INIT) {
       fprintf(stderr, "\nError: initializing writing while in state %s\n",
           state_string().c_str());
@@ -57,15 +69,15 @@ struct distributed_file {
     }
     m_state = STATE_WRITING;
 
-    m_bufelems = (bufsize + sizeof(data_type) - 1) / sizeof(data_type);
+    m_bufelems = (bufsize + sizeof(value_type) - 1) / sizeof(value_type);
     if (m_bufelems == 0) {
       fprintf(stderr, "\nError: bufsize = %ld is too small to hold elems "
-          "of size %lu\n", bufsize, sizeof(data_type));
+          "of size %lu\n", bufsize, sizeof(value_type));
       std::exit(EXIT_FAILURE);
     }
     m_bufelems = std::min(m_bufelems, m_elems_per_file); // shrink buffer
 
-    m_buf = new data_type[m_bufelems];
+    m_buf = new value_type[m_bufelems];
     m_filled = 0;
 
     m_total_written = 0;
@@ -73,7 +85,7 @@ struct distributed_file {
     make_new_file();
   }
 
-  void write(data_type x) {
+  void write(value_type x) {
     if (m_state != STATE_WRITING) {
       fprintf(stderr, "\nError: attempting a single write in state %s\n",
           state_string().c_str());
@@ -92,7 +104,7 @@ struct distributed_file {
     ++m_total_written;
   }
 
-  void write(data_type *begin, data_type *end) {
+  void write(value_type *begin, value_type *end) {
     if (m_state != STATE_WRITING) {
       fprintf(stderr, "\nError: attempting a block write in state %s\n",
           state_string().c_str());
@@ -150,20 +162,20 @@ struct distributed_file {
     }
     m_state = STATE_READING;
 
-    m_bufelems = (bufsize + sizeof(data_type) - 1) / sizeof(data_type);
+    m_bufelems = (bufsize + sizeof(value_type) - 1) / sizeof(value_type);
     if (m_bufelems == 0) {
       fprintf(stderr, "\nError: bufsize %ld is too small to hold elems "
-          "of size %lu\n", bufsize, sizeof(data_type));
+          "of size %lu\n", bufsize, sizeof(value_type));
       std::exit(EXIT_FAILURE);
     }
-    m_buf = new data_type[m_bufelems];
+    m_buf = new value_type[m_bufelems];
 
     m_total_bufread = m_total_read = 0;
     m_cur_file = -1;
     refill();
   }
 
-  inline data_type read() {
+  inline value_type read() {
     if (m_state != STATE_READING) {
       fprintf(stderr, "\nError: reading in state %s\n",
           state_string().c_str());
@@ -257,7 +269,7 @@ private:
     long file_left = std::min(m_total_written - m_total_bufread,
         m_elems_per_file - m_cur_file_read);
     m_filled = std::min(file_left, m_bufelems);
-    size_t r = std::fread(m_buf, sizeof(data_type), m_filled, m_file);
+    size_t r = std::fread(m_buf, sizeof(value_type), m_filled, m_file);
     if ((long)r != m_filled) {
       fprintf(stderr, "\nError: fread failed during refill()\n");
       std::exit(EXIT_FAILURE);
@@ -303,7 +315,7 @@ private:
          STATE_READ     // after finish_reading, waiting for death
   } m_state;
 
-  data_type *m_buf;
+  value_type *m_buf;
   long m_bufelems; // maximal number of elemens in a buffer
   long m_filled; // number of elems in a buffer (in reading / writing mode)
   long m_bufpos; // number of elems read from the buffer (in reading mode)
@@ -320,5 +332,4 @@ private:
   std::FILE *m_file;
 };
 
-#endif // __DISTRIBUTED_FILE_INCLUDED
-
+#endif // __DISTRIBUTED_FILE_H_INCLUDED

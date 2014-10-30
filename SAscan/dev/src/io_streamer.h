@@ -32,11 +32,10 @@ struct stream_reader {
   }
 
   inline T read() {
-    T ret = m_buffer[m_pos++];
     if (m_pos == m_filled)
       refill();
 
-    return ret;
+    return m_buffer[m_pos++];
   }
 
   inline bool empty() {

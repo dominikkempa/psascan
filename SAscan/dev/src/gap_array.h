@@ -102,21 +102,30 @@ struct buffered_gap_array {
   
   // Write to a given file using v-byte encoding.
   void save_to_file(std::string fname) {
-    fprintf(stderr, "  Saving gap to file: ");
-    long double gap_save_start = utils::wclock();
+    fprintf(stderr, "    Write gap to file: ");
+    long double gap_write_start = utils::wclock();
+    long bytes_written = 0L;
+
     start_sequential_access();
     stream_writer<unsigned char> *writer = new stream_writer<unsigned char>(fname);
+
     for (long j = 0; j < m_length; ++j) {
       long val = get_next();
       while (val > 127) {
         writer->write((val & 0x7f) | 0x80);
         val >>= 7;
+        ++bytes_written;
       }
       writer->write(val);
     }
-    delete writer;
+
+    bytes_written += m_length;
     stop_sequential_access();
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - gap_save_start);
+    delete writer;
+
+    long double gap_write_time = utils::wclock() - gap_write_start;
+    long double io_speed = (bytes_written / (1024.L * 1024)) / gap_write_time;
+    fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", gap_write_time, io_speed);
   }
 
   static const int k_excess_limit = (1 << 25); // XXX: isn't that too big?
