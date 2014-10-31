@@ -1,3 +1,6 @@
+// XXX fir the interface issue of inmem_sascan
+// XXX check if inmem_sascan can compute gt_begin reversed
+
 #ifndef __PARTIAL_SUFSORT_H_INCLUDED
 #define __PARTIAL_SUFSORT_H_INCLUDED
 
@@ -259,7 +262,9 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     long double right_block_read_start = utils::wclock();
     utils::read_block(text_filename, right_block_beg, right_block_size, right_block);
     block_last_symbol = right_block[right_block_size - 1];
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - right_block_read_start);
+    long double right_block_read_time = utils::wclock() - right_block_read_start;
+    long double right_block_read_io = (right_block_size / (1024.L * 1024)) / right_block_read_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_block_read_time, right_block_read_io);
  
     // 1.b
     //
@@ -313,19 +318,23 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     //
     // Write the partial SA of the right half-block to disk.
     fprintf(stderr, "    Write partial SA to disk: ");
-    long double right_block_psa_save_start = utils::wclock();
+    long double right_psa_save_start = utils::wclock();
     right_block_psa = new distributed_file<block_offset_type>(output_filename,
         100L << 20, right_block_partial_sa_ptr, right_block_partial_sa_ptr + right_block_size);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - right_block_psa_save_start);
+    long double right_psa_save_time = utils::wclock() - right_psa_save_start;
+    long double right_psa_save_io = ((right_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / right_psa_save_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_psa_save_time, right_psa_save_io);
 
     // 1.e
     //
     // Write the BWT of the right half-block on disk.
     if (!last_block) {
       fprintf(stderr, "    Write BWT to disk: ");
-      long double right_block_bwt_save_start = utils::wclock();
+      long double right_bwt_save_start = utils::wclock();
       utils::write_objects_to_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - right_block_bwt_save_start);
+      long double right_bwt_save_time = utils::wclock() - right_bwt_save_start;
+      long double right_bwt_save_io = (right_block_size / (1024.L * 1024)) / right_bwt_save_time;
+      fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_bwt_save_time, right_bwt_save_io);
     }
     free(right_block_sabwt);
 
@@ -333,12 +342,14 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     //
     // Write gt_begin of the right half-block to disk.
     fprintf(stderr, "    Write gt_begin to disk: ");
-    long double right_block_gt_begin_save_start = utils::wclock();
+    long double right_gt_begin_save_start = utils::wclock();
     right_block_gt_begin_bv->save_reversed(right_block_gt_begin_rev_fname, right_block_size);
     right_block_gt_begin_rev = new multifile();
     right_block_gt_begin_rev->add_file(text_length - right_block_end, text_length - right_block_beg, right_block_gt_begin_rev_fname);
     delete right_block_gt_begin_bv;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - right_block_gt_begin_save_start);
+    long double right_gt_begin_save_time = utils::wclock() - right_gt_begin_save_start;
+    long double right_gt_begin_save_io = (right_block_size / (8.L * (1 << 20))) / right_gt_begin_save_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_gt_begin_save_time, right_gt_begin_save_io);
   }
 
 
@@ -355,11 +366,13 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   //
   // Read the left half-block from disk.
   fprintf(stderr, "    Read: ");
-  long double left_block_reading_start = utils::wclock();
+  long double left_block_read_start = utils::wclock();
   unsigned char *left_block = (unsigned char *)malloc(left_block_size);
   utils::read_block(text_filename, left_block_beg, left_block_size, left_block);
   unsigned char left_block_last = left_block[left_block_size - 1];
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - left_block_reading_start);
+  long double left_block_read_time = utils::wclock() - left_block_read_start;
+  long double left_block_read_io = (left_block_size / (1024.L * 1024)) / left_block_read_time;
+  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_block_read_time, left_block_read_io);
 
   // 2.b
   //
@@ -419,12 +432,14 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   // It is only needed if the block is not the first block of the text.
   if (!first_block) {
     fprintf(stderr, "    Write gt_begin to disk: ");
-    long double left_block_gt_begin_save_start = utils::wclock();
+    long double left_gt_begin_save_start = utils::wclock();
     std::string left_block_gt_begin_rev_fname = output_filename + "." + utils::random_string_hash();
     left_block_gt_beg_bv->save_reversed(left_block_gt_begin_rev_fname, left_block_size);
     newtail_gt_begin_rev->add_file(text_length - left_block_end, text_length - left_block_beg, left_block_gt_begin_rev_fname);
     delete left_block_gt_beg_bv;
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - left_block_gt_begin_save_start);
+    long double left_gt_begin_save_time = utils::wclock() - left_gt_begin_save_start;
+    long double left_gt_begin_save_io = (left_block_size / (8.L * (1 << 20))) / left_gt_begin_save_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_gt_begin_save_time, left_gt_begin_save_io);
   }
 
   // 2.e
@@ -432,9 +447,11 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   // Write the BWT of the left half-block to disk.
   if (!last_block) {
     fprintf(stderr, "    Write BWT to disk: ");
-    long double left_block_bwt_save_start = utils::wclock();
+    long double left_bwt_save_start = utils::wclock();
     utils::write_objects_to_file(left_block_bwt_ptr, left_block_size, left_block_pbwt_fname);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - left_block_bwt_save_start);
+    long double left_bwt_save_time = utils::wclock() - left_bwt_save_start;
+    long double left_bwt_save_io = (left_block_size / (1024.L * 1024)) / left_bwt_save_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_bwt_save_time, left_bwt_save_io);
   }
 
 
@@ -462,11 +479,13 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     //
     // Write the partial SA of the left half-block to disk (as a distributed file).
     fprintf(stderr, "    Write to disk: ");
-    long double block_partial_sa_writing_start = utils::wclock();
+    long double block_psa_write_start = utils::wclock();
     block_psa = new distributed_file<block_offset_type>(output_filename,
         std::max((long)sizeof(block_offset_type), ram_use / 10L),
         left_block_psa_ptr, left_block_psa_ptr + left_block_size);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - block_partial_sa_writing_start);
+    long double block_psa_write_time = utils::wclock() - block_psa_write_start;
+    long double block_psa_write_io = ((block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / block_psa_write_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", block_psa_write_time, block_psa_write_io);
     free(left_block_sabwt);
 
     return block_psa;
@@ -489,7 +508,9 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     fprintf(stderr, "    Construct rank for left half-block: ");
     long double left_block_rank_build_start = utils::wclock();
     rank4n<> *left_block_rank = new rank4n<>(left_block_bwt_ptr, left_block_size, max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - left_block_rank_build_start);
+    long double left_block_rank_build_time = utils::wclock() - left_block_rank_build_start;
+    long double left_block_rank_build_speed = (left_block_size / (1024.L * 1024)) / left_block_rank_build_time;
+    fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
 
     // 3.c
     //
@@ -536,7 +557,7 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     long double sa_merge_time = utils::wclock() - sa_merge_start;
     long double sa_merge_io_speed = (((right_block_size + block_size)
           * sizeof(block_offset_type)) / (1024.L * 1024)) / sa_merge_time;
-    fprintf(stderr, "%.2Lf (io: %.2LfMiB/s)\n", utils::wclock() - sa_merge_start,
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", utils::wclock() - sa_merge_start,
         sa_merge_io_speed);
   }
 
@@ -639,7 +660,7 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   delete right_block_bwt_reader;
   free(left_block_sabwt);
 
-  fprintf(stderr, "%.2Lf (io: %.2LfMiB/s)\n", utils::wclock() - bwt_merge_start, io_speed);
+  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", utils::wclock() - bwt_merge_start, io_speed);
 
 
   //----------------------------------------------------------------------------
