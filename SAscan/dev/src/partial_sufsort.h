@@ -40,6 +40,7 @@
 #include "aux_parallel.h"
 #include "multifile_bitvector.h"
 #include "inmem_sascan/inmem_sascan.h"
+#include "half_block_info.h"
 
 
 template<typename saidx_t>
@@ -187,10 +188,11 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
 //   should save some I/O.
 //==============================================================================
 template<typename block_offset_type>
-distributed_file<block_offset_type> *process_block(long block_beg, long block_end,
+void process_block(long block_beg, long block_end,
     long max_block_size, long text_length, long ram_use, long max_threads,
     long stream_buffer_size, std::string text_filename, std::string output_filename,
-    multifile *newtail_gt_begin_rev, multifile *tail_gt_begin_rev) {
+    multifile *newtail_gt_begin_rev, multifile *tail_gt_begin_rev,
+    std::vector<half_block_info<block_offset_type> > &hblock_info) {
 
   long block_id = block_beg / max_block_size;
   long block_size = block_end - block_beg;
@@ -229,8 +231,6 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   std::string right_block_pbwt_fname = output_filename + "." + utils::random_string_hash();
   std::string left_block_pbwt_fname = output_filename + "." + utils::random_string_hash();
   std::string right_block_gt_begin_rev_fname = output_filename + "." + utils::random_string_hash();
-
-  distributed_file<block_offset_type> *block_psa;
 
 
   //----------------------------------------------------------------------------
@@ -472,6 +472,10 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   fprintf(stderr, "  Compute partial SA of block:\n");
   buffered_gap_array *left_block_gap = NULL;
 
+  half_block_info<block_offset_type> info;
+  info.beg = block_beg;
+  info.end = block_end;
+
   if (right_block_size == 0) {  // STEP 3, case I
     free(left_block);
 
@@ -480,7 +484,7 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     // Write the partial SA of the left half-block to disk (as a distributed file).
     fprintf(stderr, "    Write to disk: ");
     long double block_psa_write_start = utils::wclock();
-    block_psa = new distributed_file<block_offset_type>(output_filename,
+    info.psa = new distributed_file<block_offset_type>(output_filename,
         std::max((long)sizeof(block_offset_type), ram_use / 10L),
         left_block_psa_ptr, left_block_psa_ptr + left_block_size);
     long double block_psa_write_time = utils::wclock() - block_psa_write_start;
@@ -488,7 +492,8 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", block_psa_write_time, block_psa_write_io);
     free(left_block_sabwt);
 
-    return block_psa;
+    hblock_info.push_back(info);
+    return;
   } else {  // STEP 3, case II
     // 3.a
     //
@@ -534,25 +539,25 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     long double sa_merge_start = utils::wclock();
 
     std::string sa_fname = output_filename + ".partial_sa." + utils::intToStr(block_id);
-    block_psa = new distributed_file<block_offset_type>(output_filename,
+    info.psa = new distributed_file<block_offset_type>(output_filename,
         std::max((long)sizeof(block_offset_type), ram_use / 10L));
-    block_psa->initialize_writing(4 << 20);
+    info.psa->initialize_writing(4 << 20);
     right_block_psa->initialize_reading(4 << 20);
     left_block_gap->start_sequential_access();
 
     long gap_value = left_block_gap->get_next();
     for (long i = 0; i < left_block_size; ++i) {
       for (long j = 0; j < gap_value; ++j)
-        block_psa->write(left_block_size + right_block_psa->read());
-      block_psa->write(left_block_psa_ptr[i]);
+        info.psa->write(left_block_size + right_block_psa->read());
+      info.psa->write(left_block_psa_ptr[i]);
       gap_value = left_block_gap->get_next();
     }
     for (long j = 0; j < gap_value; ++j)
-      block_psa->write(left_block_size + right_block_psa->read());
+      info.psa->write(left_block_size + right_block_psa->read());
 
     right_block_psa->finish_reading();
     delete right_block_psa;
-    block_psa->finish_writing();
+    info.psa->finish_writing();
 
     long double sa_merge_time = utils::wclock() - sa_merge_start;
     long double sa_merge_io_speed = (((right_block_size + block_size)
@@ -571,7 +576,8 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
     free(left_block_sabwt);
     delete left_block_gap;
 
-    return block_psa;
+    hblock_info.push_back(info);
+    return;
   }
 
 
@@ -700,16 +706,15 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
   //
   // Save the gap of the block to disk as a regular file.
   // RAM: block_gap_array, block_gap.
-  block_gap->save_to_file(output_filename + ".gap." + utils::intToStr(block_id));
+  info.gap_filename = output_filename + ".gap." + utils::intToStr(block_id);
+  block_gap->save_to_file(info.gap_filename);
+  hblock_info.push_back(info);
 
   // 5.d
   //
   // Clean up.
   delete block_gap;
   free(block_gap_array);
-
-
-  return block_psa;
 }
 
 
@@ -718,29 +723,29 @@ distributed_file<block_offset_type> *process_block(long block_beg, long block_en
 // Return the array of handlers to distributed files as a result.
 //=============================================================================
 template<typename block_offset_type>
-distributed_file<block_offset_type> **partial_sufsort(std::string text_filename, std::string output_filename,
+std::vector<half_block_info<block_offset_type> > partial_sufsort(std::string text_filename, std::string output_filename,
     long text_length, long max_block_size, long ram_use, long max_threads, long stream_buffer_size) {
   fprintf(stderr, "sizeof(block_offset_type) = %lu\n\n", sizeof(block_offset_type));
 
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   multifile *tail_gt_begin_reversed = NULL;
-  distributed_file<block_offset_type> **distrib_files = new distributed_file<block_offset_type>*[n_blocks];
 
+  std::vector<half_block_info<block_offset_type> > hblock_info;
   for (long block_id = n_blocks - 1; block_id >= 0; --block_id) {
     long block_beg = max_block_size * block_id;
     long block_end = std::min(block_beg + max_block_size, text_length);
     fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n", n_blocks - block_id, n_blocks, block_beg, block_end);
 
     multifile *newtail_gt_begin_reversed = new multifile();
-    distrib_files[block_id] = process_block<block_offset_type>(block_beg, block_end, max_block_size, text_length, ram_use,
-        max_threads, stream_buffer_size, text_filename, output_filename, newtail_gt_begin_reversed, tail_gt_begin_reversed);
+    process_block<block_offset_type>(block_beg, block_end, max_block_size, text_length, ram_use, max_threads,
+        stream_buffer_size, text_filename, output_filename, newtail_gt_begin_reversed, tail_gt_begin_reversed, hblock_info);
 
     delete tail_gt_begin_reversed;
     tail_gt_begin_reversed = newtail_gt_begin_reversed;
   }
 
   delete tail_gt_begin_reversed;
-  return distrib_files;
+  return hblock_info;
 }
 
 #endif // __PARTIAL_SUFSORT_H_INCLUDED

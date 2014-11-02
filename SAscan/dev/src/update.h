@@ -78,6 +78,7 @@ struct gap_parallel_updater {
           // to slow on this string, so I postpone the tests, until the
           // computation of strating positions is fixed (for such repetitive
           // artificial inputs).
+          // XXX consider implementing this improvement also in the in-mem SAscan
           excess_buffer[excess_buffer_filled] = x;
           excess_buffer_filled++;
           if (excess_buffer_filled == excess_buffer_size) {

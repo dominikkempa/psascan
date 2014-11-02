@@ -4,12 +4,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 #include <algorithm>
 
 #include "partial_sufsort.h"
 #include "merge.h"
 #include "utils.h"
 #include "uint40.h"
+#include "half_block_info.h"
 
 
 void SAscan(std::string input_filename, std::string output_filename, long ram_use, long max_threads,
@@ -51,13 +53,13 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
 
   long double start = utils::wclock();
   if (max_block_size < (1L << 31)) {  // XXX (1L << 32)?
-    distributed_file<int> **sparseSA = partial_sufsort<int>(input_filename, output_filename,
-        length, max_block_size, ram_use, max_threads, stream_buffer_size);
-    merge<int>(output_filename, length, max_block_size, ram_use, sparseSA);
+    std::vector<half_block_info<int> > hblock_info = partial_sufsort<int>(input_filename,
+        output_filename, length, max_block_size, ram_use, max_threads, stream_buffer_size);
+    merge<int>(output_filename, ram_use, hblock_info);
   } else {
-    distributed_file<uint40> **sparseSA = partial_sufsort<uint40>(input_filename, output_filename,
-        length, max_block_size, ram_use, max_threads, stream_buffer_size);
-    merge<uint40>(output_filename, length, max_block_size, ram_use, sparseSA);
+    std::vector<half_block_info<uint40> > hblock_info = partial_sufsort<uint40>(input_filename,
+        output_filename, length, max_block_size, ram_use, max_threads, stream_buffer_size);
+    merge<uint40>(output_filename, ram_use, hblock_info);
   }
   long double total_time = utils::wclock() - start;
 

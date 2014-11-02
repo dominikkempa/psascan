@@ -2,23 +2,27 @@
 #define __MERGE_H_INCLUDED
 
 #include <string>
+#include <vector>
 #include <algorithm>
 
 #include "utils.h"
 #include "io_streamer.h"
 #include "uint40.h"
 #include "distributed_file.h"
+#include "half_block_info.h"
 
-// Merge partial suffix arrays into final suffix array (stored in normal file).
+
+// Merge partial suffix arrays into final suffix array.
 // INVARIANT: 5.2 * length <= ram_use.
 template<typename block_offset_type>
-void merge(std::string output_filename,
-           long length,
-           long max_block_size,
-           long ram_use,
-           distributed_file<block_offset_type> **sparseSA) {
+void merge(std::string output_filename, long ram_use, std::vector<half_block_info<block_offset_type> > &hblock_info) {
+  long n_block = (long)hblock_info.size();
+  long length = 0;
 
-  long n_block = (length + max_block_size - 1) / max_block_size;
+  std::sort(hblock_info.begin(), hblock_info.end());
+  for (size_t j = 0; j < hblock_info.size(); ++j)
+    length += hblock_info[j].end - hblock_info[j].beg;
+
   long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
   long buffer_size = (ram_use + pieces - 1) / pieces;
 
@@ -28,9 +32,9 @@ void merge(std::string output_filename,
   stream_writer<uint40> *output = new stream_writer<uint40>(output_filename, sizeof(uint40) * buffer_size);
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
-    sparseSA[i]->initialize_reading(sizeof(block_offset_type) * buffer_size);
+    hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);
     if (i + 1 != n_block)
-      gap[i] = new vbyte_stream_reader(output_filename + ".gap." + utils::intToStr(i), buffer_size);
+      gap[i] = new vbyte_stream_reader(hblock_info[i].gap_filename, buffer_size);
   }
 
   long *gap_head = new long[n_block];
@@ -54,10 +58,12 @@ void merge(std::string output_filename,
       dbg = 0;
     }
 
+    // XXX can the method for finding k be too slow with many blocks?
+    // What are other, practically faster, options.
     long k = 0;
     while (gap_head[k]) --gap_head[k++];
     if (k != n_block - 1) gap_head[k] = gap[k]->read();
-    long SA_i = sparseSA[k]->read() + k * max_block_size;
+    long SA_i = hblock_info[k].psa->read() + hblock_info[k].beg;
     output->write(SA_i);
   }
   long double merge_time = utils::wclock() - merge_start;
@@ -66,19 +72,17 @@ void merge(std::string output_filename,
   // Clean up.
   delete output;
   for (long i = 0; i < n_block; ++i) {
-    sparseSA[i]->finish_reading();
-    delete sparseSA[i];
+    hblock_info[i].psa->finish_reading();
+    delete hblock_info[i].psa;
     if (i + 1 != n_block)
       delete gap[i];
   }
 
-  delete[] sparseSA;
   delete[] gap;
   delete[] gap_head;
   
-  for (int i = 0; i < n_block; ++i)
-    if (i + 1 != n_block)
-      utils::file_delete(output_filename + ".gap." + utils::intToStr(i));
+  for (int i = 0; i + 1 < n_block; ++i)
+    utils::file_delete(hblock_info[i].gap_filename);
 }
 
 
