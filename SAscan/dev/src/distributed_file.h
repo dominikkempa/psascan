@@ -54,6 +54,11 @@ struct distributed_file {
     : m_maxsize(maxsize),
       m_state(STATE_INIT),
       m_elems_per_file(maxsize / sizeof(value_type)) {
+    if (!m_elems_per_file) {
+      fprintf(stderr, "\nError: maxsize = %ld is too small to hold elems "
+          "of size %lu\n", maxsize, sizeof(value_type));
+      std::exit(EXIT_FAILURE);
+    }
     m_filename = filename_base + ".distrfile." + utils::random_string_hash();
     initialize_writing(bufsize);
     for (value_type *it = begin; it != end; ++it)

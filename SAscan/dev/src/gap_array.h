@@ -12,15 +12,14 @@
 #include "io_streamer.h"
 
 struct buffered_gap_array {
-  buffered_gap_array(long n, unsigned char *count,
-      std::string storage_fname = std::string("")) {
-    if (n <= 0L) {
+  buffered_gap_array(long length, std::string storage_fname = std::string("")) {
+    if (length <= 0L) {
       fprintf(stderr, "\nError: attempting to construct empty gap array.\n");
       std::exit(EXIT_FAILURE);
     }
 
-    m_length = n;
-    m_count = count;
+    m_length = length;
+    m_count = (unsigned char *)malloc(m_length);  // XXX calloc?
     std::fill(m_count, m_count + m_length, 0);
 
     m_excess = new long[k_excess_limit];
@@ -28,7 +27,7 @@ struct buffered_gap_array {
     // File used to store excess values.
     m_storage_filename = storage_fname;
     if (!m_storage_filename.length())
-      m_storage_filename = "excess." + utils::random_string_hash();
+      m_storage_filename = ".excess." + utils::random_string_hash();
 
     m_excess_filled = 0L;
     m_excess_disk = 0L;
@@ -95,6 +94,7 @@ struct buffered_gap_array {
       std::exit(EXIT_FAILURE);
     }
 
+    free(m_count);
     delete[] m_excess;
     if (utils::file_exists(m_storage_filename))
       utils::file_delete(m_storage_filename);
@@ -128,7 +128,7 @@ struct buffered_gap_array {
     fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", gap_write_time, io_speed);
   }
 
-  static const int k_excess_limit = (1 << 25); // XXX: isn't that too big?
+  static const int k_excess_limit = (1 << 25); // XXX: isn't that too big? that surely causes the problems with swapping.
 
   unsigned char *m_count;
   long m_length;

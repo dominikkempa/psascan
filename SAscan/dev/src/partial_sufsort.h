@@ -1,4 +1,4 @@
-// XXX fir the interface issue of inmem_sascan
+// XXX fix the interface issue of inmem_sascan
 // XXX check if inmem_sascan can compute gt_begin reversed
 
 #ifndef __PARTIAL_SUFSORT_H_INCLUDED
@@ -189,12 +189,11 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
 //==============================================================================
 template<typename block_offset_type>
 void process_block(long block_beg, long block_end,
-    long max_block_size, long text_length, long ram_use, long max_threads,
-    long stream_buffer_size, std::string text_filename, std::string output_filename,
+    long text_length, long ram_use, long max_threads, long stream_buffer_size,
+    std::string text_filename, std::string output_filename,
     multifile *newtail_gt_begin_rev, multifile *tail_gt_begin_rev,
     std::vector<half_block_info<block_offset_type> > &hblock_info) {
 
-  long block_id = block_beg / max_block_size;
   long block_size = block_end - block_beg;
 
   if (block_end != text_length && block_size <= 1) {
@@ -229,8 +228,17 @@ void process_block(long block_beg, long block_end,
   long left_block_i0 = 0;
 
   std::string right_block_pbwt_fname = output_filename + "." + utils::random_string_hash();
-  std::string left_block_pbwt_fname = output_filename + "." + utils::random_string_hash();
   std::string right_block_gt_begin_rev_fname = output_filename + "." + utils::random_string_hash();
+
+  half_block_info<block_offset_type> info_left;
+  half_block_info<block_offset_type> info_right;
+
+  info_left.beg = left_block_beg;
+  info_left.end = left_block_end;
+  if (right_block_size > 0) {
+    info_right.beg = right_block_beg;
+    info_right.end = right_block_end;
+  }
 
 
   //----------------------------------------------------------------------------
@@ -248,7 +256,6 @@ void process_block(long block_beg, long block_end,
   // NOTE: The right half-block can be empty ONLY if the block under
   // consideration is the last block of text.
   //----------------------------------------------------------------------------
-  distributed_file<block_offset_type> *right_block_psa = NULL;
   multifile *right_block_gt_begin_rev = NULL;
 
   if (right_block_size > 0) {
@@ -272,8 +279,8 @@ void process_block(long block_beg, long block_end,
 
     // Allocate suffix array, bwt and gt_begin.
     unsigned char *right_block_sabwt = (unsigned char *)malloc(right_block_size * (sizeof(block_offset_type) + 1));
-    block_offset_type *right_block_partial_sa_ptr = (block_offset_type *)right_block_sabwt;
-    unsigned char *right_block_bwt = (unsigned char *)(right_block_partial_sa_ptr + right_block_size);
+    block_offset_type *right_block_psa_ptr = (block_offset_type *)right_block_sabwt;
+    unsigned char *right_block_bwt = (unsigned char *)(right_block_psa_ptr + right_block_size);
     bitvector *right_block_gt_begin_bv = new bitvector(right_block_size, max_threads);
     fprintf(stderr, "    Internal memory sufsort: ");
     long double right_block_sascan_start = utils::wclock();
@@ -309,7 +316,7 @@ void process_block(long block_beg, long block_end,
       fprintf(stderr, "    Compute initial tail ranks (part 1): ");
       long double initial_ranks_first_term_start = utils::wclock();
       compute_initial_ranks<block_offset_type>(right_block, right_block_beg, right_block_end, text_length,
-          right_block_partial_sa_ptr, text_filename, block_initial_ranks, max_threads, block_tail_beg, block_tail_end);
+          right_block_psa_ptr, text_filename, block_initial_ranks, max_threads, block_tail_beg, block_tail_end);
       fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_first_term_start);
     }
     free(right_block);
@@ -319,8 +326,9 @@ void process_block(long block_beg, long block_end,
     // Write the partial SA of the right half-block to disk.
     fprintf(stderr, "    Write partial SA to disk: ");
     long double right_psa_save_start = utils::wclock();
-    right_block_psa = new distributed_file<block_offset_type>(output_filename,
-        100L << 20, right_block_partial_sa_ptr, right_block_partial_sa_ptr + right_block_size);
+    long right_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 10L);
+    info_right.psa = new distributed_file<block_offset_type>(output_filename,
+        right_psa_max_part_length, right_block_psa_ptr, right_block_psa_ptr + right_block_size);
     long double right_psa_save_time = utils::wclock() - right_psa_save_start;
     long double right_psa_save_io = ((right_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / right_psa_save_time;
     fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_psa_save_time, right_psa_save_io);
@@ -427,6 +435,31 @@ void process_block(long block_beg, long block_end,
 
   // 2.d
   //
+  // Write the partial SA of the left half-block to disk.
+  fprintf(stderr, "    Write partial SA to disk: ");
+  long double left_psa_save_start = utils::wclock();
+  long left_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 10L);
+  info_left.psa = new distributed_file<block_offset_type>(output_filename,
+      left_psa_max_part_length, left_block_psa_ptr, left_block_psa_ptr + left_block_size);
+  long double left_psa_save_time = utils::wclock() - left_psa_save_start;
+  long double left_psa_save_io = ((left_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / left_psa_save_time;
+  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_psa_save_time, left_psa_save_io);
+
+  // 2.e
+  //
+  // Write the BWT of the left half-block to disk.
+  unsigned char *left_block_bwt = NULL;
+  if (right_block_size > 0) {
+    // XXX when I fix the in-memory SAscan, this step will be obsolete.
+    fprintf(stderr, "    Copy left BWT to separate array: ");
+    long double left_bwt_copy_start = utils::wclock();
+    left_block_bwt = (unsigned char *)malloc(left_block_size);
+    std::copy(left_block_bwt_ptr, left_block_bwt_ptr + left_block_size, left_block_bwt);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - left_bwt_copy_start);
+  }
+
+  // 2.f
+  //
   // Write gt_begin of the left half-block to disk.
   // Note that gt_begin of the block is the part of the output of this function.
   // It is only needed if the block is not the first block of the text.
@@ -440,18 +473,6 @@ void process_block(long block_beg, long block_end,
     long double left_gt_begin_save_time = utils::wclock() - left_gt_begin_save_start;
     long double left_gt_begin_save_io = (left_block_size / (8.L * (1 << 20))) / left_gt_begin_save_time;
     fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_gt_begin_save_time, left_gt_begin_save_io);
-  }
-
-  // 2.e
-  //
-  // Write the BWT of the left half-block to disk.
-  if (!last_block) {
-    fprintf(stderr, "    Write BWT to disk: ");
-    long double left_bwt_save_start = utils::wclock();
-    utils::write_objects_to_file(left_block_bwt_ptr, left_block_size, left_block_pbwt_fname);
-    long double left_bwt_save_time = utils::wclock() - left_bwt_save_start;
-    long double left_bwt_save_io = (left_block_size / (1024.L * 1024)) / left_bwt_save_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_bwt_save_time, left_bwt_save_io);
   }
 
 
@@ -469,42 +490,33 @@ void process_block(long block_beg, long block_end,
   //    half-blocks. Note that the partial SA of the left half-block is already
   //    in memory.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "  Compute partial SA of block:\n");
+  if (right_block_size == 0) {  // STEP 3, case I
+    hblock_info.push_back(info_left);
+    free(left_block);
+    free(left_block_sabwt);
+    return;
+  }
+
+
+  //----------------------------------------------------------------------------
+  // From now on we assume right_block_size > 0.
+  //----------------------------------------------------------------------------
+
+  fprintf(stderr, "  Compute pseudo-gap array of left half-block:\n");
   buffered_gap_array *left_block_gap = NULL;
 
-  half_block_info<block_offset_type> info;
-  info.beg = block_beg;
-  info.end = block_end;
-
-  if (right_block_size == 0) {  // STEP 3, case I
-    free(left_block);
-
-    // 3.a
-    //
-    // Write the partial SA of the left half-block to disk (as a distributed file).
-    fprintf(stderr, "    Write to disk: ");
-    long double block_psa_write_start = utils::wclock();
-    info.psa = new distributed_file<block_offset_type>(output_filename,
-        std::max((long)sizeof(block_offset_type), ram_use / 10L),
-        left_block_psa_ptr, left_block_psa_ptr + left_block_size);
-    long double block_psa_write_time = utils::wclock() - block_psa_write_start;
-    long double block_psa_write_io = ((block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / block_psa_write_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", block_psa_write_time, block_psa_write_io);
-    free(left_block_sabwt);
-
-    hblock_info.push_back(info);
-    return;
-  } else {  // STEP 3, case II
+  // STEP 3, case II
     // 3.a
     //
     // Compute initial ranks for streaming of the right half-block.
-    fprintf(stderr, "    Compute initial ranks for right half-block: ");
+    fprintf(stderr, "    Compute initial ranks for streaming: ");
     long double initial_ranks_right_half_block_start = utils::wclock();
     std::vector<long> initial_ranks2;
     compute_initial_ranks<block_offset_type>(left_block, left_block_beg, left_block_end, text_length,
         left_block_psa_ptr, text_filename, initial_ranks2, max_threads, right_block_beg, right_block_end);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_right_half_block_start);
     free(left_block);
+    free(left_block_sabwt);
 
     // 3.b
     //
@@ -512,7 +524,7 @@ void process_block(long block_beg, long block_end,
     // RAM: left_block_sabwt, handles to right block psa and gt_begin.
     fprintf(stderr, "    Construct rank for left half-block: ");
     long double left_block_rank_build_start = utils::wclock();
-    rank4n<> *left_block_rank = new rank4n<>(left_block_bwt_ptr, left_block_size, max_threads);
+    rank4n<> *left_block_rank = new rank4n<>(left_block_bwt, left_block_size, max_threads);
     long double left_block_rank_build_time = utils::wclock() - left_block_rank_build_start;
     long double left_block_rank_build_speed = (left_block_size / (1024.L * 1024)) / left_block_rank_build_time;
     fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
@@ -521,50 +533,12 @@ void process_block(long block_beg, long block_end,
     //
     // Compute gap array of the left half-block wrt to the right half-block.
     // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
-    left_block_gap = new buffered_gap_array(left_block_size + 1, left_block_bwt_ptr);
+    left_block_gap = new buffered_gap_array(left_block_size + 1, output_filename);
     compute_gap<block_offset_type>(left_block_rank, left_block_gap, right_block_beg, right_block_end,
         text_length, max_threads, left_block_i0, stream_buffer_size, left_block_last,
         initial_ranks2, text_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
     delete left_block_rank;
     delete right_block_gt_begin_rev;
-
-    // 3.d
-    //
-    // Merge partial suffix arrays of half-blocks with the help of the gap array.
-    // The output of the merge is immediatelly written to disk as a distributed file.
-    //
-    // RAM: left_block_sabwt (including count array of left_block_gap),
-    // handle to right block psa.
-    fprintf(stderr, "    Merge partial SA of half blocks: ");
-    long double sa_merge_start = utils::wclock();
-
-    std::string sa_fname = output_filename + ".partial_sa." + utils::intToStr(block_id);
-    info.psa = new distributed_file<block_offset_type>(output_filename,
-        std::max((long)sizeof(block_offset_type), ram_use / 10L));
-    info.psa->initialize_writing(4 << 20);
-    right_block_psa->initialize_reading(4 << 20);
-    left_block_gap->start_sequential_access();
-
-    long gap_value = left_block_gap->get_next();
-    for (long i = 0; i < left_block_size; ++i) {
-      for (long j = 0; j < gap_value; ++j)
-        info.psa->write(left_block_size + right_block_psa->read());
-      info.psa->write(left_block_psa_ptr[i]);
-      gap_value = left_block_gap->get_next();
-    }
-    for (long j = 0; j < gap_value; ++j)
-      info.psa->write(left_block_size + right_block_psa->read());
-
-    right_block_psa->finish_reading();
-    delete right_block_psa;
-    info.psa->finish_writing();
-
-    long double sa_merge_time = utils::wclock() - sa_merge_start;
-    long double sa_merge_io_speed = (((right_block_size + block_size)
-          * sizeof(block_offset_type)) / (1024.L * 1024)) / sa_merge_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", utils::wclock() - sa_merge_start,
-        sa_merge_io_speed);
-  }
 
 
   //----------------------------------------------------------------------------
@@ -572,11 +546,24 @@ void process_block(long block_beg, long block_end,
   // last block of the text.
   //----------------------------------------------------------------------------
   if (last_block) {
-    left_block_gap->stop_sequential_access();
-    free(left_block_sabwt);
-    delete left_block_gap;
+    free(left_block_bwt);
 
-    hblock_info.push_back(info);
+    // INVARIANT:
+    //   The gap of the left half-block wrt to the right half-block is
+    //   the gap of the left half-block wrt to the whole tail and right_block_size > 0.
+    // What we should do in this situation, is to write the gap to disk
+    // and update the information about the gap array filename in info_left.
+    fprintf(stderr, "  Write gap array of left half-block to disk: ");
+    long double gap_write_start = utils::wclock();
+    info_left.gap_filename = output_filename + ".gap." + utils::random_string_hash();
+    left_block_gap->save_to_file(info_left.gap_filename);
+    delete left_block_gap;
+    long double gap_write_time = utils::wclock() - gap_write_start;
+    long double gap_write_io = (left_block_size / (1024.L * 1024)) / gap_write_time;
+    fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", gap_write_time, gap_write_io);
+
+    hblock_info.push_back(info_left);
+    hblock_info.push_back(info_right);
     return;
   }
 
@@ -610,9 +597,11 @@ void process_block(long block_beg, long block_end,
   // - sequential access of the left_block_gap is still initialized (i.e.,
   //   excess values are in RAM).
   //----------------------------------------------------------------------------
-  fprintf(stderr, "  Compute gap for block:\n");
+  fprintf(stderr, "  Compute the block BWT:\n");
   unsigned char *block_pbwt = (unsigned char *)malloc(block_size);
   long block_i0 = 0;
+
+  bitvector *left_block_gap_bv = new bitvector(block_size, max_threads);
 
   // 4.a
   //
@@ -625,7 +614,6 @@ void process_block(long block_beg, long block_end,
   //
   // Initialize the BWT readers.
   typedef stream_reader<unsigned char> bwt_reader_type;
-  bwt_reader_type *left_block_bwt_reader = new bwt_reader_type(left_block_pbwt_fname);
   bwt_reader_type *right_block_bwt_reader = new bwt_reader_type(right_block_pbwt_fname);
 
   left_block_gap->start_sequential_access();
@@ -636,19 +624,25 @@ void process_block(long block_beg, long block_end,
   // 4.c
   //
   // Actual merging.
+  // + also we create the bitvector-representation of the left block gap now.
+  long left_block_gap_bv_ptr = 0L;
   for (long i = 0; i < left_block_size; ++i) {
     for (long j = 0; j < val; ++j, ++ptr)
       block_pbwt[i + ptr] = right_block_bwt_reader->read();
+    for (long j = 0; j < val; ++j)
+      left_block_gap_bv->set(left_block_gap_bv_ptr++);  // add val 1s to the bitvector
+    left_block_gap_bv_ptr++;                            // add one 0 to the bitvector
     val = left_block_gap->get_next();
-    block_pbwt[i + ptr] = left_block_bwt_reader->read();
+    block_pbwt[i + ptr] = left_block_bwt[i];
 
     if (ptr <= right_block_i0) idx = i;
     if (i == left_block_i0) block_i0 = i + ptr;
   }
-  for (long j = 0; j < val; ++j, ++ptr) {
+  for (long j = 0; j < val; ++j, ++ptr) {  // XXX this looks fishy and inconsistent with the above code, inspect that.
     unsigned char bwt_char = right_block_bwt_reader->read();
     if (ptr == right_block_i0) block_pbwt[left_block_size + ptr] = left_block_last;
     else block_pbwt[left_block_size + ptr] = bwt_char;
+    left_block_gap_bv->set(left_block_gap_bv_ptr++);
   }
   block_pbwt[idx + 1 + right_block_i0] = left_block_last;
 
@@ -660,11 +654,9 @@ void process_block(long block_beg, long block_end,
   // Clean up.
   left_block_gap->stop_sequential_access();
   delete left_block_gap;
-  utils::file_delete(left_block_pbwt_fname);
   utils::file_delete(right_block_pbwt_fname);
-  delete left_block_bwt_reader;
   delete right_block_bwt_reader;
-  free(left_block_sabwt);
+  free(left_block_bwt);
 
   fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", utils::wclock() - bwt_merge_start, io_speed);
 
@@ -679,6 +671,7 @@ void process_block(long block_beg, long block_end,
   //   * block i0,
   //   * initial_ranks.
   //----------------------------------------------------------------------------
+  fprintf(stderr, "  Compute block gap:\n");
 
   // 5.a
   //
@@ -687,10 +680,11 @@ void process_block(long block_beg, long block_end,
   long double whole_block_rank_build_start = utils::wclock();
   rank4n<> *block_rank = new rank4n<>(block_pbwt, block_size, max_threads);
   free(block_pbwt);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - whole_block_rank_build_start);
+  long double whole_block_rank_build_time = utils::wclock() - whole_block_rank_build_start;
+  long double whole_block_rank_build_io = (block_size / (1024.L * 1024)) / whole_block_rank_build_time;
+  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", whole_block_rank_build_time, whole_block_rank_build_io);
 
-  unsigned char *block_gap_array = (unsigned char *)malloc(block_size + 1);
-  buffered_gap_array *block_gap = new buffered_gap_array(block_size + 1, block_gap_array);
+  buffered_gap_array *block_gap = new buffered_gap_array(block_size + 1, output_filename);
 
   // 5.b
   //
@@ -702,19 +696,64 @@ void process_block(long block_beg, long block_end,
       tail_gt_begin_rev, newtail_gt_begin_rev);
   delete block_rank;
 
-  // 5.c
-  //
-  // Save the gap of the block to disk as a regular file.
-  // RAM: block_gap_array, block_gap.
-  info.gap_filename = output_filename + ".gap." + utils::intToStr(block_id);
-  block_gap->save_to_file(info.gap_filename);
-  hblock_info.push_back(info);
 
-  // 5.d
+  //----------------------------------------------------------------------------
+  // STEP 6: compute the gap array of the right half-block
   //
-  // Clean up.
+  // At this point we know that right_block_size > 0 and the current block
+  // is not the last one in the text. The task now is to compute the gap
+  // arrays for the left and right half-blocks from the pseudo gap array for
+  // the left half-block and the gap array of the whole block. They are streamed
+  // directly to disk and after we're done we update the information about the
+  // location of gap arrays into info_left and info_right structures.
+  //----------------------------------------------------------------------------
+  fprintf(stderr, "  Compute gap array for half-blocks: ");
+  long double compute_hb_gaps_start = utils::wclock();
+  info_left.gap_filename = output_filename + ".gap." + utils::random_string_hash();
+  info_right.gap_filename = output_filename + ".gap." + utils::random_string_hash();
+  typedef vbyte_stream_writer<long> vbyte_writer_t;
+  vbyte_writer_t *left_gap_writer = new vbyte_writer_t(info_left.gap_filename);
+  vbyte_writer_t *right_gap_writer = new vbyte_writer_t(info_right.gap_filename);
+
+  block_gap->start_sequential_access();
+  long gap_val = block_gap->get_next();
+  long right_half_block_current_gap = 0L;
+  long left_half_block_current_gap = 0L;
+
+  for (long i = 0; i < block_size; ++i) {
+    // Invariant: val = gap[i].
+    right_half_block_current_gap += gap_val;
+    left_half_block_current_gap += gap_val;
+
+    if (left_block_gap_bv->get(i)) {
+      right_gap_writer->write(right_half_block_current_gap);
+      right_half_block_current_gap = 0L;
+      ++left_half_block_current_gap;
+    } else {
+      left_gap_writer->write(left_half_block_current_gap);
+      left_half_block_current_gap = 0L;
+    }
+
+    gap_val = block_gap->get_next();
+  }
+
+  right_half_block_current_gap += gap_val;
+  left_half_block_current_gap += gap_val;
+  right_gap_writer->write(right_half_block_current_gap);
+  left_gap_writer->write(left_half_block_current_gap);
+
+  block_gap->stop_sequential_access();
   delete block_gap;
-  free(block_gap_array);
+  delete left_gap_writer;
+  delete right_gap_writer;
+  delete left_block_gap_bv;
+
+  long double compute_hb_gaps_time = utils::wclock() - compute_hb_gaps_start;
+  long double compute_hb_gaps_io = (block_size / (1024.L * 1024)) / compute_hb_gaps_time;
+  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", compute_hb_gaps_time, compute_hb_gaps_io);
+
+  hblock_info.push_back(info_left);
+  hblock_info.push_back(info_right);
 }
 
 
@@ -737,8 +776,8 @@ std::vector<half_block_info<block_offset_type> > partial_sufsort(std::string tex
     fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n", n_blocks - block_id, n_blocks, block_beg, block_end);
 
     multifile *newtail_gt_begin_reversed = new multifile();
-    process_block<block_offset_type>(block_beg, block_end, max_block_size, text_length, ram_use, max_threads,
-        stream_buffer_size, text_filename, output_filename, newtail_gt_begin_reversed, tail_gt_begin_reversed, hblock_info);
+    process_block<block_offset_type>(block_beg, block_end, text_length, ram_use, max_threads, stream_buffer_size,
+        text_filename, output_filename, newtail_gt_begin_reversed, tail_gt_begin_reversed, hblock_info);
 
     delete tail_gt_begin_reversed;
     tail_gt_begin_reversed = newtail_gt_begin_reversed;
