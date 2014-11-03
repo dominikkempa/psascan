@@ -3,12 +3,17 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+
 #include <vector>
 #include <mutex>
 #include <algorithm>
 #include <string>
+#include <thread>
+#include <algorithm>
 
 #include "utils.h"
+#include "bitvector.h"
 #include "io_streamer.h"
 
 struct buffered_gap_array {
@@ -50,7 +55,7 @@ struct buffered_gap_array {
     if (!m_sequential_read_initialized) {
       m_sequential_read_initialized = true;
       m_total_excess = m_excess_filled + m_excess_disk;
-      m_sorted_excess = new long[m_total_excess];
+      m_sorted_excess = (long *)malloc(m_total_excess * sizeof(long));
       std::copy(m_excess, m_excess + m_excess_filled, m_sorted_excess);
       if (m_excess_disk > 0L) {
         long *dest = m_sorted_excess + m_excess_filled;
@@ -76,7 +81,7 @@ struct buffered_gap_array {
 
   void stop_sequential_access() {
     if (m_sequential_read_initialized) {
-      delete[] m_sorted_excess;
+      free(m_sorted_excess);
       m_sequential_read_initialized = false;
     } else {
       fprintf(stderr, "\nError: attempting to stop sequential "
@@ -127,6 +132,212 @@ struct buffered_gap_array {
     long double io_speed = (bytes_written / (1024.L * 1024)) / gap_write_time;
     fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", gap_write_time, io_speed);
   }
+  
+  
+  //==============================================================================
+  // Note about the input:
+  // - j is the maximal integer such that gapsum[j] + j <= beg.
+  // - S contains value gapsum[j] + j.
+  //==============================================================================
+  static void convert_gap_to_bitvector_aux(long beg, long end, long j, long S, buffered_gap_array *gap, bitvector *bv) {
+    // Initialize pointer to sorted excess values.
+    long excess_pointer = std::lower_bound(gap->m_sorted_excess,
+        gap->m_sorted_excess + gap->m_total_excess, j) - gap->m_sorted_excess;
+
+    // Compute gap[j].
+    long gap_j = gap->m_count[j];
+    while (excess_pointer < gap->m_total_excess && gap->m_sorted_excess[excess_pointer] == j) {
+      gap_j += 256L;
+      ++excess_pointer;
+    }
+
+    long p = beg;
+    long ones = std::min(end - p, gap_j - (beg - S));
+    for (long k = 0; k < ones; ++k) bv->set(p++);
+    ++j;
+
+    while (p < end) {
+      ++p;
+
+      // Compute gap[j].
+      gap_j = gap->m_count[j];
+      while (excess_pointer < gap->m_total_excess && gap->m_sorted_excess[excess_pointer] == j) {
+        gap_j += 256L;
+        ++excess_pointer;
+      }
+
+      ones = std::min(end - p, gap_j);
+
+      for (long k = 0; k < ones; ++k) bv->set(p++);
+      ++j;
+    }
+  }
+
+  static void compute_j_aux(long range_beg, long n_chunks, long max_chunk_size,
+      long *sparse_gapsum, long &initial_gap_ptr, long &initial_gapsum_value, buffered_gap_array *gap) {
+    // Fast forward through as many chunks as possible.
+    long j = 0L;
+    long gapsum_j = 0L;  // At any time gapsum_j = gap[0] + .. + gap[j - 1].
+    while (j + 1 < n_chunks && sparse_gapsum[j + 1] + (max_chunk_size * (j + 1)) <= range_beg) ++j;
+    gapsum_j = sparse_gapsum[j];
+    j = (j * max_chunk_size);
+
+    // Slowly find the right place in a single chunk.
+    long excess_ptr = std::lower_bound(gap->m_sorted_excess, gap->m_sorted_excess + gap->m_total_excess, j) - gap->m_sorted_excess;
+    while (j < gap->m_length) {
+      long gap_j = gap->m_count[j];
+      while (excess_ptr < gap->m_total_excess && gap->m_sorted_excess[excess_ptr] == j) {
+        gap_j += 256L;
+        ++excess_ptr;
+      }
+
+      if (gapsum_j + gap_j + j + 1 <= range_beg) {
+        gapsum_j += gap_j;
+        ++j;
+      } else break;
+    }
+
+    // Store the answer.
+    initial_gap_ptr = j;
+    initial_gapsum_value = gapsum_j + j;
+  }
+
+
+  static void compute_gapsum_for_chunk_group(long group_beg, long group_end, long max_chunk_size,
+      long *sparse_gapsum, buffered_gap_array *gap) {
+    for (long chunk_id = group_beg; chunk_id < group_end; ++chunk_id) {
+      long chunk_beg = chunk_id * max_chunk_size;
+      long chunk_end = std::min(chunk_beg + max_chunk_size, gap->m_length);
+
+      // Compute sum of gap values inside chunk. We assume that
+      // the excess values are in RAM and were sorted.
+      long occ = std::upper_bound(gap->m_sorted_excess, gap->m_sorted_excess + gap->m_total_excess, chunk_end - 1)
+        - std::lower_bound(gap->m_sorted_excess, gap->m_sorted_excess + gap->m_total_excess, chunk_beg);
+      long gap_sum_inside_chunk = 256L * std::max(0L, occ);
+      for (long j = chunk_beg; j < chunk_end; ++j)
+        gap_sum_inside_chunk += gap->m_count[j];
+
+      // Store the result.
+      sparse_gapsum[chunk_id] = gap_sum_inside_chunk;
+    }
+  }
+
+
+  //==============================================================================
+  //
+  // Given a gap array computed for substring of length left_block_size wrt
+  // to a range of suffixes of length right_block_size, compute a bitvector of
+  // length left_block_size + right_block_size that has 0 if the suffix starts in
+  // the left block and 1 if it start in the right block.
+  //
+  //==============================================================================
+  //
+  // This should have the following description. Compute the bitvector
+  // representation of gap array. Note that this is well defined for any gap
+  // array, regardless of whether it was indeed computed wrt tail or some subset
+  // of suffixes.
+  //
+  // Nevertheless, to optimize the computation, we provie the sum of values
+  // in the gap array. This allows to immediatelly allocate the bitvector of
+  // correct size.
+  //
+  // "Compute the bitvector representation of the gap array in parallel".
+  // 
+  //==============================================================================
+  bitvector* convert_to_bitvector(long max_threads) {
+    // 1
+    //
+    // The term chunks is used to compute sparse gapsum array.
+    // Chunk is a length such that
+    // gapsum[k] = gap[0] + gap[1] + .. + gap[k * max_chunk_size - 1]
+    long max_chunk_size = std::min(4L << 20, (m_length + max_threads - 1) / max_threads);
+    long n_chunks = (m_length + max_chunk_size - 1) / max_chunk_size;
+    long *sparse_gapsum = (long *)malloc(n_chunks * sizeof(long));
+
+
+    // 2
+    //
+    // Compute the sum of gap value inside each chunk. Since there can be
+    // more chunks than threads, we split chunks into groups and let each
+    // thread compute the sum of gap values inside the group of chunks.
+    long chunk_group_size = (n_chunks + max_threads - 1) / max_threads;
+    long n_chunk_groups = (n_chunks + chunk_group_size - 1) / chunk_group_size;
+
+    start_sequential_access();
+    std::thread **threads = new std::thread*[n_chunk_groups];
+    for (long t = 0; t < n_chunk_groups; ++t) {
+      long chunk_group_beg = t * chunk_group_size;
+      long chunk_group_end = std::min(chunk_group_beg + chunk_group_size, n_chunks);
+
+      threads[t] = new std::thread(compute_gapsum_for_chunk_group, chunk_group_beg,
+          chunk_group_end, max_chunk_size, sparse_gapsum, this);
+    }
+
+    for (long t = 0; t < n_chunk_groups; ++t) threads[t]->join();
+    for (long t = 0; t < n_chunk_groups; ++t) delete threads[t];
+    delete[] threads;
+
+
+    // 3
+    //
+    // Compute comulative sum over sparse_gapsum array.
+    long double gap_total_sum = 0L;
+    for (long i = 0L; i < n_chunks; ++i) {
+      long temp = sparse_gapsum[i];
+      sparse_gapsum[i] = gap_total_sum;
+      gap_total_sum += temp;
+    }
+
+
+    // 4
+    //
+    // Compute all initial gap pointers. For a thread handling range [beg..end), the
+    // initial_gap_ptr values is the largest j, such that gapsum[j] + j <= beg.
+    // After we find j, we store the value of gapsum[j] + j in initial_gapsum_value.
+    long result_length = (m_length + gap_total_sum) - 1;
+    bitvector *result = new bitvector(result_length, max_threads);
+
+    long max_range_size = (result_length + max_threads - 1) / max_threads;
+    while (max_range_size & 7) ++max_range_size;
+    long n_ranges = (result_length + max_range_size - 1) / max_range_size;
+
+    long *initial_gap_ptr = new long[n_ranges];
+    long *initial_gapsum_value = new long[n_ranges];
+
+    threads = new std::thread*[n_ranges];
+    for (long t = 0; t < n_ranges; ++t) {
+      long range_beg = t * max_range_size;
+      threads[t] = new std::thread(compute_j_aux, range_beg, n_chunks, max_chunk_size,
+          sparse_gapsum, std::ref(initial_gap_ptr[t]), std::ref(initial_gapsum_value[t]), this);
+    }
+    for (long t = 0; t < n_ranges; ++t) threads[t]->join();
+    for (long t = 0; t < n_ranges; ++t) delete threads[t];
+
+
+    // 5
+    //
+    // Compute the bitvector. Each thread fills in the range of bits.
+    for (long t = 0; t < n_ranges; ++t) {
+      long range_beg = t * max_range_size;
+      long range_end = std::min(range_beg + max_range_size, result_length);
+
+      threads[t] = new std::thread(convert_gap_to_bitvector_aux, range_beg,
+          range_end, initial_gap_ptr[t], initial_gapsum_value[t], this, result);
+    }
+
+    for (long t = 0; t < n_ranges; ++t) threads[t]->join();
+    for (long t = 0; t < n_ranges; ++t) delete threads[t];
+    delete[] threads;
+
+    delete[] initial_gap_ptr;
+    delete[] initial_gapsum_value;
+    stop_sequential_access();
+    free(sparse_gapsum);
+
+
+    return result;
+  }
+  
 
   static const int k_excess_limit = (1 << 25); // XXX: isn't that too big? that surely causes the problems with swapping.
 
@@ -139,10 +350,12 @@ struct buffered_gap_array {
   std::string m_storage_filename;
 
   bool m_sequential_read_initialized;
-  long *m_sorted_excess;
-  long m_total_excess;
   long m_excess_ptr;
   long m_current_pos;
+
+public:
+  long *m_sorted_excess;
+  long m_total_excess; 
 };
 
 #endif // __GAP_ARRAY_H_INCLUDED
