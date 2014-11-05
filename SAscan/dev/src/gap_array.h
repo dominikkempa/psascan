@@ -244,6 +244,7 @@ struct buffered_gap_array {
   // "Compute the bitvector representation of the gap array in parallel".
   // 
   //==============================================================================
+  // XXX this function was not thoroughly tested.
   bitvector* convert_to_bitvector(long max_threads) {
     // 1
     //
@@ -295,7 +296,7 @@ struct buffered_gap_array {
     // initial_gap_ptr values is the largest j, such that gapsum[j] + j <= beg.
     // After we find j, we store the value of gapsum[j] + j in initial_gapsum_value.
     long result_length = (m_length + gap_total_sum) - 1;
-    bitvector *result = new bitvector(result_length, max_threads);
+    bitvector *result = new bitvector(result_length);
 
     long max_range_size = (result_length + max_threads - 1) / max_threads;
     while (max_range_size & 7) ++max_range_size;
@@ -339,7 +340,7 @@ struct buffered_gap_array {
   }
   
 
-  static const int k_excess_limit = (1 << 25); // XXX: isn't that too big? that surely causes the problems with swapping.
+  static const int k_excess_limit = (1 << 22); // XXX: isn't that too big? that surely causes the problems with swapping.
 
   unsigned char *m_count;
   long m_length;

@@ -81,7 +81,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
       std::exit(EXIT_FAILURE);
     }
     if (n_blocks > 1 || has_tail)
-      gt_begin = new bitvector(text_length, max_threads);
+      gt_begin = new bitvector(text_length);
   } else {
     if (!gt_begin) {
       fprintf(stderr, "inmem_sascan: gt_begin was requested but is not allocated!\n");

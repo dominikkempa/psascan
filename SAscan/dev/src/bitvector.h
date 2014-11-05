@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <stdint.h>
 
 #include "utils.h"
 #include "io_streamer.h"
@@ -13,7 +14,7 @@ struct bitvector {
     utils::read_objects_from_file<unsigned char>(m_data, m_alloc_bytes, filename);
   }
 
-  bitvector(long length, long) {
+  bitvector(long length) {
     m_alloc_bytes = (length + 7) / 8;
     m_data = (unsigned char *)calloc(m_alloc_bytes, sizeof(unsigned char));
   }
@@ -44,6 +45,26 @@ struct bitvector {
     for (long i = length - 1; i >= 0; --i)
       writer->write(get(i));
     delete writer;
+  }
+
+  // Number of 1 bits in the range [beg..end).
+  long range_sum(long beg, long end) const {
+    long result = 0L;
+    
+    long j = beg;
+    while (j < end && (j & 63))
+      result += get(j++);
+
+    uint64_t *ptr64 = (uint64_t *)(m_data + (j >> 3));
+    while (j + 64 <= end) {
+      result += __builtin_popcountll(*ptr64++);
+      j += 64;
+    }
+
+    while (j < end)
+      result += get(j++);
+
+    return result;
   }
 
   ~bitvector() {

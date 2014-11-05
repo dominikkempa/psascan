@@ -1,7 +1,7 @@
 SHELL = /bin/sh
 
 CC = g++
-CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -pthread -std=c++0x -DNDEBUG -O3
+CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -pthread -std=c++0x -DNDEBUG -O3 -msse4.2
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -pthread -std=c++0x -g2
 
 all: sascan

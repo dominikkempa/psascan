@@ -41,6 +41,7 @@
 #include "multifile_bitvector.h"
 #include "inmem_sascan/inmem_sascan.h"
 #include "half_block_info.h"
+#include "bwt_merge.h"
 
 
 template<typename saidx_t>
@@ -154,7 +155,6 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
       "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
       stream_time, info.m_thread_count, speed / n_threads, speed);
 }
-
 
 
 //=============================================================================
@@ -282,7 +282,7 @@ void process_block(long block_beg, long block_end,
     unsigned char *right_block_sabwt = (unsigned char *)malloc(right_block_size * (sizeof(block_offset_type) + 1));
     block_offset_type *right_block_psa_ptr = (block_offset_type *)right_block_sabwt;
     unsigned char *right_block_bwt = (unsigned char *)(right_block_psa_ptr + right_block_size);
-    bitvector *right_block_gt_begin_bv = new bitvector(right_block_size, max_threads);
+    bitvector *right_block_gt_begin_bv = new bitvector(right_block_size);
     fprintf(stderr, "    Internal memory sufsort: ");
     long double right_block_sascan_start = utils::wclock();
 
@@ -392,7 +392,7 @@ void process_block(long block_beg, long block_end,
   block_offset_type *left_block_psa_ptr = (block_offset_type *)left_block_sabwt;
   unsigned char *left_block_bwt_ptr = (unsigned char *)(left_block_psa_ptr + left_block_size);
   bitvector *left_block_gt_beg_bv = NULL;
-  if (!first_block) left_block_gt_beg_bv = new bitvector(left_block_size, max_threads);  
+  if (!first_block) left_block_gt_beg_bv = new bitvector(left_block_size);  
   fprintf(stderr, "    Internal memory sufsort: ");
   long double left_block_sascan_start = utils::wclock();
 
@@ -630,18 +630,10 @@ void process_block(long block_beg, long block_end,
   // 4.c
   //
   // Actual merging of BWT.
-  // XXX do this in parallel.
   fprintf(stderr, "    Merge BWT of half-blocks: ");
   long double bwt_merge_start = utils::wclock();
-  long right_ptr = 0L, left_ptr = 0L, idx = 0L;
-  for (long i = 0; i < block_size; ++i) {
-    if (left_ptr == left_block_i0) block_i0 = i;
-    if (right_ptr == right_block_i0) idx = i;
-
-    if (left_block_gap_bv->get(i)) block_pbwt[i] = right_block_bwt[right_ptr++];
-    else block_pbwt[i] = left_block_bwt[left_ptr++];
-  }
-  block_pbwt[idx] = left_block_last;
+  block_i0 = merge_bwt(left_block_bwt, right_block_bwt, left_block_size, right_block_size,
+      left_block_i0, right_block_i0, left_block_last, block_pbwt, left_block_gap_bv, max_threads);
   long double bwt_merge_time = utils::wclock() - bwt_merge_start;
   long double bwt_merge_speed = (block_size / (1024.L * 1024)) / bwt_merge_time;
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", bwt_merge_time, bwt_merge_speed);

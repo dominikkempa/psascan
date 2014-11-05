@@ -160,7 +160,7 @@ void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
   // Allocate ane zero-initialize (in parallel) bitvectors.
   fprintf(stderr, "  Allocating: ");
   start = utils::wclock();
-  bitvector *undecided = new bitvector(text_length, max_threads);
+  bitvector *undecided = new bitvector(text_length);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // all_decided[i] == true, if all bits inside block i were
