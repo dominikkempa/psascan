@@ -1,4 +1,4 @@
-// XXX This function should probably be tested more thoroughly.
+// XXX The merge_bwt function should probably be tested more thoroughly.
 
 #ifndef __BWT_MERGE_H
 #define __BWT_MERGE_H
@@ -13,7 +13,8 @@
 // Compute bwt[beg..end).
 //==============================================================================
 void merge_bwt_aux(long beg, long end, long left_ptr, long right_ptr,
-    unsigned char *left_bwt, unsigned char *right_bwt, unsigned char *bwt, bitvector *bv) {
+    unsigned char *left_bwt, unsigned char *right_bwt, unsigned char *bwt,
+    bitvector *bv) {
   for (long i = beg; i < end; ++i) {
     if (bv->get(i)) bwt[i] = right_bwt[right_ptr++];
     else bwt[i] = left_bwt[left_ptr++];
@@ -22,15 +23,16 @@ void merge_bwt_aux(long beg, long end, long left_ptr, long right_ptr,
 
 
 //==============================================================================
-// Compute number of 1 bits in bv[0..i) with the help of sparse_rank.
-// sparse_rank[k] = number of 1s in bv[0..k*max_chunk_size).
-// Argument i can be any integer from 0 to bv->m_length (inclusive).
+// Compute the number of 1-bits in bv[0..i) with the help of sparse_rank.
+// Note:
+// - i is an integer in the range from 0 to length of bv (inclusive),
+// - sparse_rank[k] = number of 1-bits in bv[0..k * chunk_size),
 //==============================================================================
-void compute_rank_using_sparse_rank(long max_chunk_size, long i,
+void compute_rank_using_sparse_rank(long chunk_size, long i,
     long *sparse_rank, bitvector *bv, long &result) {
-  long j = i / max_chunk_size;
+  long j = i / chunk_size;
   result = sparse_rank[j];
-  j *= max_chunk_size;
+  j *= chunk_size;
 
   while (j < i)
     result += bv->get(j++);
@@ -64,7 +66,7 @@ long compute_select1_using_sparse_rank(long i, long chunk_size, long n_chunks,
 //==============================================================================
 long compute_select0_using_sparse_rank(long i, long chunk_size, long n_chunks,
     long *sparse_rank, bitvector *bv) {
-  // Fast forward through chunks preceding the trunk with the answer.
+  // Fast forward through chunks preceding the chunk with the answer.
   long j = 0L;
   while (j < n_chunks && ((j + 1) * chunk_size) - sparse_rank[j + 1] <= i)
     ++j;
@@ -83,19 +85,24 @@ long compute_select0_using_sparse_rank(long i, long chunk_size, long n_chunks,
 //==============================================================================
 // Compute sparse_rank[group_beg..group_end).
 //==============================================================================
-void process_group_of_chunks(long group_beg, long group_end, long max_chunk_size,
+void process_group_of_chunks(long group_beg, long group_end, long chunk_size,
     long *sparse_rank, bitvector *bv) {
   for (long chunk_id = group_beg; chunk_id < group_end; ++chunk_id) {
-    long chunk_beg = chunk_id * max_chunk_size;
-    long chunk_end = chunk_beg + max_chunk_size;
+    long chunk_beg = chunk_id * chunk_size;
+    long chunk_end = chunk_beg + chunk_size;
 
     sparse_rank[chunk_id] = bv->range_sum(chunk_beg, chunk_end);
   }
 }
 
-long merge_bwt(unsigned char *left_bwt, unsigned char *right_bwt, long left_size, long right_size,
-    long left_block_i0, long right_block_i0, unsigned char left_block_last, unsigned char *bwt,
-    bitvector *bv, long max_threads) {
+//==============================================================================
+// Merge partial bwt of half-blocks (of size left_size and right_size) into
+// partial bwt of the whole block.
+//==============================================================================
+long merge_bwt(unsigned char *left_bwt, unsigned char *right_bwt,
+    long left_size, long right_size, long left_block_i0, long right_block_i0,
+    unsigned char left_block_last, unsigned char *bwt, bitvector *bv,
+    long max_threads) {
   long block_size = left_size + right_size;
 
   long chunk_size = std::min((1L << 20), (block_size + max_threads - 1) / max_threads);
