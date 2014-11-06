@@ -38,7 +38,7 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
 
   // Get symbol counts of a block and turn into exclusive partial sum.
   long *count = new long[256];
-  std::copy(rank->c_rank, rank->c_rank + 256, count);
+  std::copy(rank->m_count, rank->m_count + 256, count);
   ++count[block_last_symbol];
   --count[0];
   for (long j = 0, s = 0, t; j < 256; ++j) {
