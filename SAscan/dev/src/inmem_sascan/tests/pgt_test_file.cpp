@@ -78,14 +78,14 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   long text_end = text_beg + text_length;
 
 
-  bitvector *text_gt_begin_correct = new bitvector(text_length, max_threads);
+  bitvector *text_gt_begin_correct = new bitvector(text_length);
   compute_gt_begin_for_text(supertext, supertext_length, text_beg, text_end, text_gt_begin_correct);
 
 
   // Compute tail_gt_begin_reversed.
   unsigned char *tail = supertext + text_end;
   long tail_length = supertext_length - text_end;
-  bitvector *tail_gt_begin_reversed_bv = new bitvector(tail_length, max_threads);
+  bitvector *tail_gt_begin_reversed_bv = new bitvector(tail_length);
   compute_gt_begin_reversed(tail, tail_length, tail_gt_begin_reversed_bv);
 
   // Store tail_gt_begin_reversed on disk as a multifile bitvector.
@@ -119,7 +119,7 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   // Run the tested algorithm.
   fprintf(stderr, "Running inmem sascan\n\n");
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
-  bitvector *text_gt_begin_computed = new bitvector(text_length, max_threads);
+  bitvector *text_gt_begin_computed = new bitvector(text_length);
   inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, false, // try also true here, to see if it works for both.
       true, text_gt_begin_computed, -1, text_beg, text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile);

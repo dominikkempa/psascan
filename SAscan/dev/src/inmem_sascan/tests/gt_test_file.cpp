@@ -95,7 +95,7 @@ void test(unsigned char *text, long text_length, long max_threads,
   if (!utils::file_exists(gt_begin_filename)) {
     fprintf(stderr, "Computing gt begin\n");
     start = utils::wclock();
-    bitvector gt_begin(text_length, max_threads);
+    bitvector gt_begin(text_length);
     bit_stream_writer *writer = new bit_stream_writer(gt_begin_filename);
     compute_gt_begin(text, text_length, &gt_begin);
     for (long i = 0; i < text_length; ++i)
@@ -106,7 +106,7 @@ void test(unsigned char *text, long text_length, long max_threads,
 
   fprintf(stderr, "Running inmem sascan\n\n");
   unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
-  bitvector *gt_begin = new bitvector(text_length, max_threads);
+  bitvector *gt_begin = new bitvector(text_length);
   inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, true, gt_begin, max_blocks);
 
   fprintf(stderr, "\nComparing:\n");

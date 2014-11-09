@@ -83,7 +83,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   //----------------------------------------------------------------------------
   // STEP 1: compute correct answer.
   //----------------------------------------------------------------------------
-  bitvector correct_gt_begin(text_length, max_threads);
+  bitvector correct_gt_begin(text_length);
   compute_gt_begin(text, text_length, &correct_gt_begin);
 
 
@@ -93,7 +93,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   // 1) compute gt_in of size block_size, where gt_in[i] == 1 iff
   //    text[block_beg + i..) > text[block_end..).
   unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(int) + 1)];
-  bitvector computed_gt_begin(text_length, max_threads);
+  bitvector computed_gt_begin(text_length);
   inmem_sascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads, false, true, &computed_gt_begin);
 
   //----------------------------------------------------------------------------

@@ -62,7 +62,7 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   // Compute tail_gt_begin_reversed.
   unsigned char *tail = supertext + text_end;
   long tail_length = supertext_length - text_end;
-  bitvector *tail_gt_begin_reversed_bv = new bitvector(tail_length, max_threads);
+  bitvector *tail_gt_begin_reversed_bv = new bitvector(tail_length);
   compute_gt_begin_reversed(tail, tail_length, tail_gt_begin_reversed_bv);
 
   // Store tail_gt_begin_reversed on disk as a multifile bitvector.
