@@ -39,13 +39,26 @@ int main(int argc, char* argv[]) {
       (sizeof(int) * length) / (1024.L * 1024));
 
   long double start = wclock();
-//  std::sort(tab, tab + length);
-//  __gnu_parallel::sort(data.begin(), data.end());
-//  __gnu_parallel::sort(random.begin(), random.end());
-//  __gnu_parallel::sort(random, random + numElements, __gnu_parallel::balanced_quicksort_tag());
-  __gnu_parallel::sort(tab, tab + length);
+
+  //std::sort(tab, tab + length);
+
+  // both versions of quicksort are inplace
+  // quickosrt achieves only x 1.45 (yes, only 45%) speedup over std::sort
+  //__gnu_parallel::sort(tab, tab + length, __gnu_parallel::balanced_quicksort_tag());
+  // version above is 11% slower then the quicksort below
+  //__gnu_parallel::sort(tab, tab + length, __gnu_parallel::quicksort_tag());
+
+
+  // all versions of mergesort differ by less than 1% in runtime.
+  // mergesort uses twice the space required for the input.
+  // with 24 threads (12 cores), this is 13.5 times faster than std::sort.
+  //__gnu_parallel::sort(tab, tab + length, __gnu_parallel::multiway_mergesort_exact_tag());
+  //__gnu_parallel::sort(tab, tab + length, __gnu_parallel::multiway_mergesort_sampling_tag());
+  //__gnu_parallel::sort(tab, tab + length);
+
+
   long double elapsed = wclock() - start;
-  printf("__gnu_parallel::sort: %.3Lfms\n", elapsed);
+  printf("__gnu_parallel::sort: %.3Lfs\n", elapsed);
 
   delete[] tab;
 }
