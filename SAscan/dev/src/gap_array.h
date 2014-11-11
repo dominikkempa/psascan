@@ -8,6 +8,7 @@
 #include <vector>
 #include <mutex>
 #include <algorithm>
+#include <parallel/algorithm>
 #include <string>
 #include <thread>
 #include <algorithm>
@@ -15,6 +16,9 @@
 #include "utils.h"
 #include "bitvector.h"
 #include "io_streamer.h"
+#include "parallel_utils.h"
+#include "async_stream_writer.h"
+
 
 struct buffered_gap_array {
   buffered_gap_array(long length, std::string storage_fname = std::string("")) {
@@ -51,11 +55,19 @@ struct buffered_gap_array {
     }
   }
 
+  void flush_excess_to_disk() {
+    if (m_excess_filled > 0) {
+      utils::add_objects_to_file(m_excess, m_excess_filled, m_storage_filename);
+      m_excess_disk += m_excess_filled;
+      m_excess_filled = 0L;
+    }
+  }
+
   void start_sequential_access() {
     if (!m_sequential_read_initialized) {
       m_sequential_read_initialized = true;
       m_total_excess = m_excess_filled + m_excess_disk;
-      m_sorted_excess = (long *)malloc(m_total_excess * sizeof(long));
+      m_sorted_excess = (long *)malloc(m_total_excess * sizeof(long));  // XXX what if m_total_excess is 0?
       std::copy(m_excess, m_excess + m_excess_filled, m_sorted_excess);
       if (m_excess_disk > 0L) {
         long *dest = m_sorted_excess + m_excess_filled;
@@ -101,6 +113,11 @@ struct buffered_gap_array {
 
     free(m_count);
     delete[] m_excess;
+//    if (utils::file_exists(m_storage_filename))
+//      utils::file_delete(m_storage_filename);
+  }
+
+  void erase_disk_excess() {
     if (utils::file_exists(m_storage_filename))
       utils::file_delete(m_storage_filename);
   }
@@ -296,7 +313,7 @@ struct buffered_gap_array {
     // initial_gap_ptr values is the largest j, such that gapsum[j] + j <= beg.
     // After we find j, we store the value of gapsum[j] + j in initial_gapsum_value.
     long result_length = (m_length + gap_total_sum) - 1;
-    bitvector *result = new bitvector(result_length);
+    bitvector *result = new bitvector(result_length + 1);
 
     long max_range_size = (result_length + max_threads - 1) / max_threads;
     while (max_range_size & 7) ++max_range_size;
@@ -336,6 +353,7 @@ struct buffered_gap_array {
     free(sparse_gapsum);
 
 
+    result->set(result_length);  // sentinel
     return result;
   }
   
@@ -359,5 +377,170 @@ public:
   long m_total_excess; 
 };
 
-#endif // __GAP_ARRAY_H_INCLUDED
 
+struct gap_array_2n {
+  gap_array_2n(buffered_gap_array *gap, long max_threads) {
+    m_length = gap->m_length;
+    m_count = (uint16_t *)malloc(m_length * sizeof(uint16_t));
+    parallel_utils::parallel_copy<unsigned char, uint16_t>(gap->m_count, m_count, m_length, max_threads);
+    m_storage_filename = gap->m_storage_filename;
+    m_excess_disk = gap->m_excess_disk;
+  }
+
+  gap_array_2n(long length) {
+    m_length = length;
+    m_count = (uint16_t *)malloc(m_length * sizeof(uint16_t));
+  }
+
+  ~gap_array_2n() {
+    if (m_count)
+      free(m_count);
+  }
+
+  static void apply_excess_aux(gap_array_2n *gap, long *tab,
+      long block_beg, long block_end, uint64_t &initial_run_length) {
+    long block_size = block_end - block_beg;
+
+    // Each thread gathers excess values in a buffer and at the end
+    // copies then to the gap array's mutex-protected m_excess vector.
+    std::vector<long> excess_buffer;
+
+    // Compute the length of initial run.
+    initial_run_length = 1UL;
+    while (initial_run_length < (uint64_t)block_size && tab[block_beg] ==
+        tab[block_beg + initial_run_length]) ++initial_run_length;
+
+    // Update count values.
+    for (long i = block_beg + initial_run_length; i < block_end; ++i) {
+      long x = tab[i];
+      uint64_t value = (uint64_t)gap->m_count[x] + 256UL;
+      if (value >= (1UL << 16)) {
+        value -= (1UL << 16);
+        excess_buffer.push_back(x);
+      }
+      gap->m_count[x] = value;
+    }
+
+    // Copy the excess values to the gap array's mutex-protected vector.
+    std::unique_lock<std::mutex> lk(gap->m_excess_mutex);
+    for (long i = 0; i < (long)excess_buffer.size(); ++i)
+      gap->m_excess.push_back(excess_buffer[i]);
+    lk.unlock();
+  }
+
+  void apply_excess_from_disk(long ram_budget, long max_threads) {
+    if (!m_excess_disk) return;
+
+    // We only use half of the RAM for buffer, because we will use parallel
+    // merge sort for sorting the buffer (which requires double the space
+    // for the input).
+    long elems = std::max(1L, ram_budget / (2L * (long)sizeof(long)));
+    long *buffer = (long *)malloc(elems * sizeof(long));
+
+    std::FILE *f = utils::open_file(m_storage_filename.c_str(), "r");
+    std::thread **threads = new std::thread*[max_threads];
+
+    // After sorting the buffer, when we split it equally between threads
+    // we obey the rule, the every thread only counts the number of 
+    // elements equal to the first element in the handled range, but does
+    // not do any updates for these elements. This prevents two threads
+    // trying to update the same elements in the m_count array. The
+    // length of the first run is computed and returned by each thread.
+    // It is then updated sequentially.
+    uint64_t *first_run_length = new uint64_t[max_threads];
+ 
+    while (m_excess_disk > 0) {
+      // Read a portion of excess values from disk.
+      long toread = std::min(m_excess_disk, elems);
+      utils::read_objects_from_file(buffer, toread, f);
+
+      // Sort excess values in parallel.
+      __gnu_parallel::sort(buffer, buffer + toread);
+
+      // Update m_count and m_excess with elements from the buffer.
+      // The buffer is dividied into blocks, each blocks handles one
+      // block. Each thread updates the values except the first run
+      // of the block, which is handled separatelly (sequentially).
+      long max_block_size = (toread + max_threads - 1) / max_threads;
+      long n_blocks = (toread + max_block_size - 1) / max_block_size;
+
+      for (long t = 0; t < n_blocks; ++t) {
+        long block_beg = t * max_block_size;
+        long block_end = std::min(block_beg + max_block_size, toread);
+
+        threads[t] = new std::thread(apply_excess_aux, this, buffer,
+            block_beg, block_end, std::ref(first_run_length[t]));
+      }
+
+      for (long t = 0; t < n_blocks; ++t) threads[t]->join();
+      for (long t = 0; t < n_blocks; ++t) delete threads[t];
+
+      // Sequentially handle the elements in the first run of each block.
+      for (long t = 0; t < n_blocks; ++t) {
+        long block_beg = t * max_block_size;
+        long first = buffer[block_beg];  // first elements in the block
+
+        uint64_t freq = (uint64_t)m_count[first] + (first_run_length[t] * 256L);
+        while (freq >= (1UL << 16)) {
+          freq -= (1UL << 16);
+          m_excess.push_back(first);
+        }
+        m_count[first] = freq;
+      }
+
+      m_excess_disk -= toread;
+    }
+
+    __gnu_parallel::sort(m_excess.begin(), m_excess.end());
+
+    delete[] threads;
+    delete[] first_run_length;
+
+    std::fclose(f);
+    free(buffer);
+  }
+
+  void set_count(long pos, long value) {
+    while (value >= (1L << 16)) {
+      m_excess.push_back(pos);
+      value -= (1L << 16);
+    }
+    m_count[pos] = (uint64_t)value;
+  }
+
+  void write_to_disk(std::string filename) {
+    async_stream_writer<unsigned char> *writer = new async_stream_writer<unsigned char>(filename);
+
+    for (long j = 0, excess_ptr = 0L; j < m_length; ++j) {
+      long val = m_count[j];
+      while (excess_ptr < (long)m_excess.size() && m_excess[excess_ptr] == j) {
+        val += (1L << 16);
+        ++excess_ptr;
+      }
+
+      while (val > 127) {
+        writer->write((val & 0x7f) | 0x80);
+        val >>= 7;
+      }
+      writer->write(val);
+    }
+
+    delete writer;
+  }
+
+  void erase_disk_excess() {
+    if (utils::file_exists(m_storage_filename))
+      utils::file_delete(m_storage_filename);
+  }
+
+  uint16_t *m_count;
+
+  long m_length;
+  long m_excess_disk;
+
+  std::mutex m_excess_mutex;
+  std::string m_storage_filename;
+  std::vector<long> m_excess;  // all excess values are in RAM
+};
+
+#endif // __GAP_ARRAY_H_INCLUDED

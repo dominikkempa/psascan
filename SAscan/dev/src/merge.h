@@ -11,6 +11,9 @@
 #include "distributed_file.h"
 #include "half_block_info.h"
 
+#include "async_stream_reader.h"
+#include "async_stream_writer.h"
+
 
 // Merge partial suffix arrays into final suffix array.
 // INVARIANT: 5.2 * length <= ram_use.
@@ -29,7 +32,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   fprintf(stderr, "\nBuffer size for merging: %ld\n", buffer_size);
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(uint40));
 
-  stream_writer<uint40> *output = new stream_writer<uint40>(output_filename, sizeof(uint40) * buffer_size);
+  async_stream_writer<uint40> *output = new async_stream_writer<uint40>(output_filename, sizeof(uint40) * buffer_size);
   vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
     hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);

@@ -27,6 +27,9 @@
 #include "compute_gap.h"
 #include "compute_initial_ranks.h"
 
+#include "compute_right_gap.h"
+#include "compute_left_gap.h"
+
 
 //=============================================================================
 // The main function processing the block.
@@ -428,6 +431,7 @@ void process_block(long block_beg, long block_end,
     // and update the information about the gap array filename in info_left.
     info_left.gap_filename = output_filename + ".gap." + utils::random_string_hash();
     left_block_gap->save_to_file(info_left.gap_filename);
+    left_block_gap->erase_disk_excess();
     delete left_block_gap;
 
     hblock_info.push_back(info_left);
@@ -478,6 +482,7 @@ void process_block(long block_beg, long block_end,
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", convert_to_bitvector_time, convert_to_bitvector_speed);
 
 
+  left_block_gap->erase_disk_excess();
   delete left_block_gap;
 
 
@@ -486,7 +491,7 @@ void process_block(long block_beg, long block_end,
   // Read the BWT of the right half-block into RAM.
   fprintf(stderr, "    Read BWT of right half-block: ");
   long double right_block_bwt_read_start = utils::wclock();
-  unsigned char *right_block_bwt = (unsigned char *)malloc(right_block_size);
+  unsigned char *right_block_bwt = NULL;
   utils::read_objects_from_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
   long double right_block_bwt_read_time = utils::wclock() - right_block_bwt_read_start;
   long double right_block_bwt_read_io = (right_block_size / (1024.L * 1024)) / right_block_bwt_read_time;
@@ -548,6 +553,8 @@ void process_block(long block_beg, long block_end,
       tail_gt_begin_rev, newtail_gt_begin_rev);
   delete block_rank;
 
+  block_gap->flush_excess_to_disk();
+
 
   //----------------------------------------------------------------------------
   // STEP 6: compute the gap array of the right half-block
@@ -559,51 +566,22 @@ void process_block(long block_beg, long block_end,
   // directly to disk and after we're done we update the information about the
   // location of gap arrays into info_left and info_right structures.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "  Compute gap array for half-blocks: ");
-  long double compute_hb_gaps_start = utils::wclock();
   info_left.gap_filename = output_filename + ".gap." + utils::random_string_hash();
   info_right.gap_filename = output_filename + ".gap." + utils::random_string_hash();
-  typedef vbyte_stream_writer<long> vbyte_writer_t;
-  vbyte_writer_t *left_gap_writer = new vbyte_writer_t(info_left.gap_filename);
-  vbyte_writer_t *right_gap_writer = new vbyte_writer_t(info_right.gap_filename);
 
-  block_gap->start_sequential_access();
-  long gap_val = block_gap->get_next();
-  long right_half_block_current_gap = 0L;
-  long left_half_block_current_gap = 0L;
-
-  for (long i = 0; i < block_size; ++i) {
-    // Invariant: val = gap[i].
-    right_half_block_current_gap += gap_val;
-    left_half_block_current_gap += gap_val;
-
-    if (left_block_gap_bv->get(i)) {
-      right_gap_writer->write(right_half_block_current_gap);
-      right_half_block_current_gap = 0L;
-      ++left_half_block_current_gap;
-    } else {
-      left_gap_writer->write(left_half_block_current_gap);
-      left_half_block_current_gap = 0L;
-    }
-
-    gap_val = block_gap->get_next();
-  }
-
-  right_half_block_current_gap += gap_val;
-  left_half_block_current_gap += gap_val;
-  right_gap_writer->write(right_half_block_current_gap);
-  left_gap_writer->write(left_half_block_current_gap);
-
-  block_gap->stop_sequential_access();
+  gap_array_2n *block_gap_2n = new gap_array_2n(block_gap, max_threads);
   delete block_gap;
-  delete left_gap_writer;
-  delete right_gap_writer;
+  block_gap_2n->apply_excess_from_disk(std::max((1L << 20), block_size), max_threads);
+
+  long ram_budget = std::max(1L << 20, (long)(0.875L * block_size));
+  compute_right_gap(left_block_size, right_block_size, block_gap_2n, left_block_gap_bv, info_right.gap_filename, max_threads, ram_budget);  
+  compute_left_gap(left_block_size, right_block_size, block_gap_2n, left_block_gap_bv, info_left.gap_filename, max_threads, ram_budget);
+
+  block_gap_2n->erase_disk_excess();
+
+  delete block_gap_2n;
   delete left_block_gap_bv;
-
-  long double compute_hb_gaps_time = utils::wclock() - compute_hb_gaps_start;
-  long double compute_hb_gaps_io = (block_size / (1024.L * 1024)) / compute_hb_gaps_time;
-  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", compute_hb_gaps_time, compute_hb_gaps_io);
-
+  
   hblock_info.push_back(info_left);
   hblock_info.push_back(info_right);
 }

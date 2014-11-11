@@ -73,7 +73,7 @@ void read_objects_from_file(T* &tab, long &length, std::string fname) {
   length = (long)(std::ftell(f) / sizeof(T));
   std::rewind(f);
   
-  tab = new T[length];
+  tab = (T *)malloc(length * sizeof(T));
   read_objects_from_file<T>(tab, length, f);
   
   std::fclose(f);
