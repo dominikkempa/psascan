@@ -10,96 +10,17 @@
 #include <algorithm>
 
 #include "bitvector.h"
+#include "ranksel_support.h"
 #include "gap_array.h"
 #include "parallel_utils.h"
 
 
 //==============================================================================
-// Compute the number of 1-bits in bv[0..i) with the help of sparse_rank.
-// Note:
-// - i is an integer in the range from 0 to length of bv (inclusive),
-// - sparse_rank[k] = number of 1-bits in bv[0..k * chunk_size),
-//==============================================================================
-// XXX remove the x from the function name, right not it is like that only
-//     because of name conflict
-// XXX maybe we should have class: rank support that can be built over bitvector
-//     in parallel to support fast rank queries.
-//==============================================================================
-void xcompute_rank_using_sparse_rank(long chunk_size, long i,
-    long *sparse_rank, bitvector *bv, long &result) {
-  long j = i / chunk_size;
-  result = sparse_rank[j];
-  j *= chunk_size;
-
-  while (j < i)
-    result += bv->get(j++);
-}
-
-
-//==============================================================================
-// Find the largest position j such that the number of 1s in bv[0..j) is <= i.
-// In other words, find the position of i-th 1-bit in bv (i = 0, 1, ..).
-//==============================================================================
-long xcompute_select1_using_sparse_rank(long i, long chunk_size, long n_chunks,
-    long *sparse_rank, bitvector *bv) {
-  // Fast-forward through chunks preceding the chunk with the answer.
-  long j = 0L;
-  while (j < n_chunks && sparse_rank[j + 1] <= i)
-    ++j;
-
-  long rank_j = sparse_rank[j];
-  j *= chunk_size;
-
-  // Slowly find the final position in a single chunk.
-  while (rank_j + bv->get(j) <= i)
-    rank_j += bv->get(j++);
-
-  return j;
-}
-
-
-//==============================================================================
-// Find the largest position j such that the number of 0s in bv[0..j) is <= i.
-// In other words, find the position of i-th 0-bit in bv (i = 0, 1, ..).
-//==============================================================================
-long xcompute_select0_using_sparse_rank(long i, long chunk_size, long n_chunks,
-    long *sparse_rank, bitvector *bv) {
-  // Fast forward through chunks preceding the chunk with the answer.
-  long j = 0L;
-  while (j < n_chunks && ((j + 1) * chunk_size) - sparse_rank[j + 1] <= i)
-    ++j;
-
-  long zero_cnt_j = (j * chunk_size) - sparse_rank[j];
-  j *= chunk_size;
-
-  // Slowly find the final position in a single chunk.
-  while (zero_cnt_j + (1 - bv->get(j)) <= i)
-    zero_cnt_j += (1 - bv->get(j++));
-
-  return j;
-}
-
-
-//==============================================================================
-// Compute sparse_rank[group_beg..group_end).
-//==============================================================================
-void xprocess_group_of_chunks(long group_beg, long group_end, long chunk_size,
-    long *sparse_rank, bitvector *bv) {
-  for (long chunk_id = group_beg; chunk_id < group_end; ++chunk_id) {
-    long chunk_beg = chunk_id * chunk_size;
-    long chunk_end = chunk_beg + chunk_size;
-
-    sparse_rank[chunk_id] = bv->range_sum(chunk_beg, chunk_end);
-  }
-}
-
-
-//==============================================================================
 // Compute the range_gap values corresponging to bv[part_beg..part_end).
 //==============================================================================
-void handle_bv_part(long part_beg, long part_end, long range_beg, long chunk_size,
-    long *range_gap, long *sparse_rank, gap_array_2n *block_gap, bitvector *bv,
-    long &res_sum, long &res_rank) {
+void rblock_handle_bv_part(long part_beg, long part_end, long range_beg,
+    long *range_gap, gap_array_2n *block_gap, bitvector *bv,
+    ranksel_support *bv_ranksel, long &res_sum, long &res_rank) {
   size_t excess_ptr = std::lower_bound(block_gap->m_excess.begin(),
       block_gap->m_excess.end(), part_beg) - block_gap->m_excess.begin();
 
@@ -133,7 +54,7 @@ void handle_bv_part(long part_beg, long part_end, long range_beg, long chunk_siz
 
   // Store gap[part_beg] + .. + gap[j] and bv.rank(part_beg) (== bv.rank(j)).
   res_sum = sum;
-  xcompute_rank_using_sparse_rank(chunk_size, part_beg, sparse_rank, bv, res_rank);
+  res_rank = bv_ranksel->rank(part_beg);
 
   if (j == part_end - 1)
     return;
@@ -167,7 +88,7 @@ void handle_bv_part(long part_beg, long part_end, long range_beg, long chunk_siz
 }
 
 
-void async_write_code(unsigned char* &slab, long &length, std::mutex &mtx,
+void rblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx,
     std::condition_variable &cv, bool &avail, bool &finished, std::string filename) {
   while (true) {
     // Wait until the passive buffer is available.
@@ -207,8 +128,13 @@ void compute_right_gap(long left_block_size, long right_block_size,
     gap_array_2n *block_gap, bitvector *bv, std::string out_filename,
     long max_threads, long ram_budget) {
   long block_size = left_block_size + right_block_size;
-  long bv_size = block_size + 1;
   long right_gap_size = right_block_size + 1;
+
+  // NOTE: we require that bv has room for one extra bit at the end
+  //       which we use as a sentinel. The actual value of that bit
+  //       prior to calling this function does not matter.
+  bv->set(block_size);
+  long bv_size = block_size + 1;
 
   fprintf(stderr, "  Compute gap for right half-block: ");
   long compute_gap_start = utils::wclock();
@@ -217,43 +143,7 @@ void compute_right_gap(long left_block_size, long right_block_size,
   // STEP 1: Preprocess left_block_gap_bv for rank and select queries,
   //         i.e., compute sparse_gap.
   //----------------------------------------------------------------------------
-  
-  // 1.a
-  //
-  // Compute chunk size and allocate spase rank.
-  long chunk_size = std::min((1L << 20), (bv_size + max_threads - 1) / max_threads);
-  long n_chunks = bv_size / chunk_size;  // we exclude the last partial chunk
-  long *sparse_rank = (long *)malloc((n_chunks + 1) * sizeof(long));
-
-  // 1.b
-  //
-  // Compute the values of sparse_rank, that is, the sum of 1-bits inside
-  // each chunk. Since there can be more chunks than threads, we split chunks
-  // into groups and let each thread handle the group of chunks.
-  long chunk_max_group_size = (n_chunks + max_threads - 1) / max_threads;
-  long n_chunk_groups = (n_chunks + chunk_max_group_size - 1) / chunk_max_group_size;
-
-  std::thread **threads = new std::thread*[n_chunk_groups];
-  for (long t = 0; t < n_chunk_groups; ++t) {
-    long chunk_group_beg = t * chunk_max_group_size;
-    long chunk_group_end = std::min(chunk_group_beg + chunk_max_group_size, n_chunks);
-    threads[t] = new std::thread(xprocess_group_of_chunks, chunk_group_beg,
-        chunk_group_end, chunk_size, sparse_rank, bv);
-  }
-
-  for (long t = 0; t < n_chunk_groups; ++t) threads[t]->join();
-  for (long t = 0; t < n_chunk_groups; ++t) delete threads[t];
-  delete[] threads;
-
-  // 1.c
-  //
-  // Compute cumulative sum of sparse_rank. From now on we can quickly
-  // answer rank, select0 and select1 queries on the bitvector.
-  for (long i = 0, sum = 0L; i <= n_chunks; ++i) {
-    long temp = sparse_rank[i];
-    sparse_rank[i] = sum;
-    sum += temp;
-  }
+  ranksel_support *bv_ranksel = new ranksel_support(bv, bv_size, max_threads);
 
 
   //============================================================================
@@ -282,9 +172,10 @@ void compute_right_gap(long left_block_size, long right_block_size,
   bool finished = false;
   
   // Start the thread doing asynchronius writes.
-  std::thread *async_writer = new std::thread(async_write_code, std::ref(passive_vbyte_slab),
-    std::ref(passive_vbyte_slab_length), std::ref(mtx), std::ref(cv), std::ref(avail),
-    std::ref(finished), out_filename);
+  std::thread *async_writer = new std::thread(rblock_async_write_code,
+      std::ref(passive_vbyte_slab), std::ref(passive_vbyte_slab_length),
+      std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished),
+      out_filename);
 
   for (long range_id = 0L; range_id < n_ranges; ++range_id) {
     // Compute the range [range_beg..range_end) of values in the right gap
@@ -300,8 +191,8 @@ void compute_right_gap(long left_block_size, long right_block_size,
     long bv_section_beg = 0L;
     long bv_section_end = 0L;
     if (range_beg > 0)
-      bv_section_beg = xcompute_select1_using_sparse_rank(range_beg - 1, chunk_size, n_chunks, sparse_rank, bv) + 1;
-    bv_section_end = xcompute_select1_using_sparse_rank(range_end - 1, chunk_size, n_chunks, sparse_rank, bv) + 1;
+      bv_section_beg = bv_ranksel->select1(range_beg - 1) + 1;
+    bv_section_end = bv_ranksel->select1(range_end - 1) + 1;
     long bv_section_size = bv_section_end - bv_section_beg;
 
     // We split the current bitvector section into
@@ -315,14 +206,13 @@ void compute_right_gap(long left_block_size, long right_block_size,
     long *res_sum = new long[n_parts];
     long *res_rank = new long[n_parts];
 
-    threads = new std::thread*[n_parts];
+    std::thread **threads = new std::thread*[n_parts];
     for (long t = 0; t < n_parts; ++t) {
       long part_beg = bv_section_beg + t * max_part_size;
       long part_end = std::min(part_beg + max_part_size, bv_section_end);
 
-      threads[t] = new std::thread(handle_bv_part, part_beg, part_end, range_beg,
-          chunk_size, range_gap, sparse_rank, block_gap, bv, std::ref(res_sum[t]),
-          std::ref(res_rank[t]));
+      threads[t] = new std::thread(rblock_handle_bv_part, part_beg, part_end, range_beg,
+          range_gap, block_gap, bv, bv_ranksel, std::ref(res_sum[t]), std::ref(res_rank[t]));
     }
 
     for (long t = 0; t < n_parts; ++t) threads[t]->join();
@@ -338,14 +228,13 @@ void compute_right_gap(long left_block_size, long right_block_size,
     // 2.c
     //
     // Convert the range_gap to the slab of vbyte encoding.
-    active_vbyte_slab_length = parallel_utils::convert_array_to_vbyte_slab(range_gap, range_size, active_vbyte_slab, max_threads);
-
+    active_vbyte_slab_length = parallel_utils::convert_array_to_vbyte_slab(
+        range_gap, range_size, active_vbyte_slab, max_threads);
 
     // 2.d
     //
     // Asynchronously schedule the write of the slab.
-
-    // Wait for the async I/O thread to finish writing.
+    // First, wait for the async I/O thread to finish writing.
     std::unique_lock<std::mutex> lk(mtx);
     while (avail == true)
       cv.wait(lk);
@@ -366,12 +255,12 @@ void compute_right_gap(long left_block_size, long right_block_size,
   lk.unlock();
   cv.notify_one();
   
-  // Wait for the thread to actually finish and delete it.
+  // Wait for the thread to finish.
   async_writer->join();
+
+  // Clean up.
   delete async_writer;
-
-
-  free(sparse_rank);
+  delete bv_ranksel;
   free(range_gap);
   free(active_vbyte_slab);
   free(passive_vbyte_slab);

@@ -65,11 +65,10 @@ struct async_stream_writer {
       send_active_buf_to_write();
 
     // Let the I/O thread know that we're done.
-    // XXX I think this is not correct, we should wait until the thread finished writing.
     std::unique_lock<std::mutex> lk(m_mutex);
     m_finished = true;
     lk.unlock();
-    m_cv.notify_one();  // what it the thread was not waiting at this point yet?
+    m_cv.notify_one();
 
     // Wait for the thread to actually finish.
     m_thread->join();

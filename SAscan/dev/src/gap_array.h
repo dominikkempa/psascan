@@ -313,7 +313,7 @@ struct buffered_gap_array {
     // initial_gap_ptr values is the largest j, such that gapsum[j] + j <= beg.
     // After we find j, we store the value of gapsum[j] + j in initial_gapsum_value.
     long result_length = (m_length + gap_total_sum) - 1;
-    bitvector *result = new bitvector(result_length + 1);
+    bitvector *result = new bitvector(result_length + 1);  // +1 is to make room for sentinel
 
     long max_range_size = (result_length + max_threads - 1) / max_threads;
     while (max_range_size & 7) ++max_range_size;
@@ -352,8 +352,6 @@ struct buffered_gap_array {
     stop_sequential_access();
     free(sparse_gapsum);
 
-
-    result->set(result_length);  // sentinel
     return result;
   }
   
