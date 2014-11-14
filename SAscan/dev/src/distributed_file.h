@@ -61,8 +61,7 @@ struct distributed_file {
     }
     m_filename = filename_base + ".distrfile." + utils::random_string_hash();
     initialize_writing(bufsize);
-    for (value_type *it = begin; it != end; ++it)
-      write(*it);
+    write(begin, end);
     finish_writing();
   }
 
