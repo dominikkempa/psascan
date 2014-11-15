@@ -22,6 +22,7 @@
 #include "update.h"
 #include "stream_info.h"
 #include "multifile_bitvector.h"
+#include "async_backward_skip_stream_reader.h"
 
 std::mutex stdout_mutex;
 
@@ -68,9 +69,8 @@ void parallel_stream(
   multifile_bitvector_reader gt_in(tail_gt_begin);
   gt_in.initialize_sequential_reading(length - stream_block_end);
 
-  backward_skip_stream_reader<unsigned char> *text_streamer
-    = new backward_skip_stream_reader<unsigned char>(text_filename, length - stream_block_end, 1 << 20); // 1MiB buffer
-
+  typedef async_backward_skip_stream_reader<unsigned char> text_reader_type;
+  text_reader_type *text_streamer = new text_reader_type(text_filename, length - stream_block_end, 1 << 20); // 1MiB buffer
   bit_stream_writer *gt_out = new bit_stream_writer(tail_gt_filename); // 1MiB buffer
 
   long j = stream_block_end, dbg = 0L;
