@@ -13,6 +13,7 @@
 
 #include "async_stream_reader.h"
 #include "async_stream_writer.h"
+#include "async_vbyte_stream_reader.h"
 
 
 // Merge partial suffix arrays into final suffix array.
@@ -32,12 +33,15 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   fprintf(stderr, "\nBuffer size for merging: %ld\n", buffer_size);
   fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(uint40));
 
-  async_stream_writer<uint40> *output = new async_stream_writer<uint40>(output_filename, sizeof(uint40) * buffer_size);
-  vbyte_stream_reader **gap = new vbyte_stream_reader*[n_block - 1];
+  typedef async_vbyte_stream_reader<long> vbyte_reader_type;
+  typedef async_stream_writer<uint40> output_writer_type;
+
+  output_writer_type *output = new output_writer_type(output_filename, sizeof(uint40) * buffer_size);
+  vbyte_reader_type **gap = new vbyte_reader_type*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
     hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);
     if (i + 1 != n_block)
-      gap[i] = new vbyte_stream_reader(hblock_info[i].gap_filename, buffer_size);
+      gap[i] = new vbyte_reader_type(hblock_info[i].gap_filename, buffer_size);
   }
 
   long *gap_head = new long[n_block];

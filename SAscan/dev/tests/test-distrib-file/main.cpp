@@ -9,56 +9,18 @@
 #include "uint40.h"
 #include "distributed_file.h"
 
-template<typename data_type>
-void test(data_type *seq, long length, long file_maxsize) {
+template<typename value_type>
+void test(value_type *seq, long length, long file_maxsize) {
+  typedef distributed_file<value_type> file_type;
+  file_type *f = new file_type("temp", file_maxsize);
 
-  distributed_file<data_type> *f =
-    new distributed_file<data_type>("temp", file_maxsize);
-
-  long write_buf_size = utils::random_int((long)sizeof(data_type),
-      (long)sizeof(data_type) + 100); // in bytes
-
-  // debug //
-  // fprintf(stderr, "\nWrite buffer size = %ld\n", write_buf_size);
-  // fprintf(stderr, "Anticipated number of files = %ld\n",
-  //     ((long)sizeof(data_type) * length + file_maxsize - 1) / file_maxsize);
-  ///////////
-
-  f->initialize_writing(write_buf_size);
-
-  long prob = utils::random_int(0, 19);
+  f->initialize_writing();
   long left = length, beg = 0;
-
-  // debug //
-  // fprintf(stderr, "A total of %ld elems (%ld bytes) will now be written to"
-  //     " distr-file (with %ld bytes limit on a single file)\n",
-  //   length, (long)sizeof(data_type) * length, file_maxsize);
-  ///////////
-
   while (left > 0) {
-    // Flip a coin to decide whether we write a single element
-    // or a block.
-    if (utils::random_int(0, 19) < prob) {
-      long block_size = utils::random_int(1, left);
-
-      // debug //
-      // fprintf(stderr, "  writing a block of %ld elems (%ld bytes)\n",
-      //     block_size, (long)sizeof(data_type) * block_size);
-      ///////////
-
-      f->write(seq + beg, seq + beg + block_size);
-      beg += block_size;
-      left -= block_size;
-    } else {
-      // debug //
-      // fprintf(stderr, "  writing a single elem (%ld bytes)\n",
-      //     (long)sizeof(data_type));
-      ///////////
-
-      f->write(seq[beg]);
-      ++beg;
-      --left;
-    }
+    long block_size = utils::random_int(1, left);
+    f->write(seq + beg, seq + beg + block_size);
+    beg += block_size;
+    left -= block_size;
   }
   // debug //
   // fprintf(stderr, "Writing done\n");
@@ -66,8 +28,8 @@ void test(data_type *seq, long length, long file_maxsize) {
 
   f->finish_writing();
 
-  long read_buf_size = utils::random_int((long)sizeof(data_type),
-      (long)sizeof(data_type) + 100);
+  long read_buf_size = utils::random_int((long)sizeof(value_type),
+      (long)sizeof(value_type) + 100);
   f->initialize_reading(read_buf_size);
 
   // debug //
@@ -76,7 +38,7 @@ void test(data_type *seq, long length, long file_maxsize) {
   // fprintf(stderr, "Reading buffer size = %ld\n", read_buf_size);
   ///////////
 
-  data_type *result = new data_type[length];
+  value_type *result = new value_type[length];
   for (long i = 0; i < length; ++i) {
     // debug //
     // fprintf(stderr, "  reading single elem\n");
@@ -328,41 +290,41 @@ int main(int, char **) {
   test_char(1000, 500);
   test_char(1000, 5000);
   test_char(1000, 50000);
-  test_char(1000, 500000);
+  test_char(100, 500000);
 
   test_short(1000, 50);
   test_short(1000, 500);
   test_short(1000, 5000);
   test_short(1000, 50000);
-  test_short(1000, 500000);
+  test_short(100, 500000);
 
   test_int(1000, 50);
   test_int(1000, 500);
   test_int(1000, 5000);
   test_int(1000, 50000);
-  test_int(1000, 500000);
+  test_int(100, 500000);
   
   test_long(1000, 50);
   test_long(1000, 500);
   test_long(1000, 5000);
   test_long(1000, 50000);
-  test_long(1000, 500000);
+  test_long(100, 500000);
 
   test_uint40(1000, 50);
   test_uint40(1000, 500);
   test_uint40(1000, 5000);
   test_uint40(1000, 50000);
-  test_uint40(1000, 500000);
+  test_uint40(100, 500000);
   
   test_double(1000, 50);
   test_double(1000, 500);
   test_double(1000, 5000);
   test_double(1000, 50000);
-  test_double(1000, 500000);
+  test_double(100, 500000);
   
   test_long_double(1000, 50);
   test_long_double(1000, 500);
   test_long_double(1000, 5000);
   test_long_double(1000, 50000);
-  test_long_double(1000, 500000);
+  test_long_double(100, 500000);
 }
