@@ -32,9 +32,9 @@ struct async_stream_writer {
           writer->m_passive_buf_filled, writer->m_file);
 
       // Let the caller know what the I/O thread finished writing.
-      std::unique_lock<std::mutex> lk2(writer->m_mutex);
+      lk.lock();
       writer->m_avail = false;
-      lk2.unlock();
+      lk.unlock();
       writer->m_cv.notify_one();
     }
   }

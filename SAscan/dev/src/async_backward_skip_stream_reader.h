@@ -36,9 +36,9 @@ struct async_backward_skip_stream_reader {
       }
 
       // Let the caller know what the I/O thread finished reading.
-      std::unique_lock<std::mutex> lk2(reader->m_mutex);
+      lk.lock();
       reader->m_avail = false;
-      lk2.unlock();
+      lk.unlock();
       reader->m_cv.notify_one();
     }
   }
