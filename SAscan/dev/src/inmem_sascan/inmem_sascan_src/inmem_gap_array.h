@@ -77,7 +77,7 @@ struct inmem_gap_array {
     long scan_end = j;
     long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), scan_end - 1)
              - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), scan_beg);
-    result += 256 * std::max(0L, occ);
+    result += 256L * std::max(0L, occ);
     for (long i = block_id * max_block_size; i < j; ++i)
       result += gap->m_count[i];
 
@@ -97,7 +97,7 @@ struct inmem_gap_array {
       // Process block.
       long occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), block_end - 1)
                - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), block_beg);
-      long block_gap_sum = 256 * std::max(0L, occ);
+      long block_gap_sum = 256L * std::max(0L, occ);
       for (long j = block_beg; j < block_end; ++j)
         block_gap_sum += gap->m_count[j];
 

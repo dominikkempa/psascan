@@ -27,10 +27,6 @@ struct gap_parallel_updater {
 
   template<typename T>
   static void parallel_update(gap_parallel_updater<T> *updater, int id) {
-    static const long excess_buffer_size = (1 << 16);
-    long *excess_buffer = (long *)malloc(excess_buffer_size * sizeof(long));
-    long excess_buffer_filled = 0;
-
     while (true) {
       // Wait until there is a buffer available or the
       // notification 'no more buffers' arrives (in that case exit).
@@ -41,14 +37,6 @@ struct gap_parallel_updater {
       if (!(updater->m_avail[id]) && updater->m_avail_no_more) {
         // The msg was that there won't be more buffers -- exit.
         lk.unlock();
-
-        buffered_gap_array *gap = updater->m_gap_array;
-        gap->m_excess_mutex.lock();
-        for (long j = 0; j < excess_buffer_filled; ++j)
-          gap->add_excess(excess_buffer[j]);
-        gap->m_excess_mutex.unlock();
-        free(excess_buffer);
-
         return;
       }
 
@@ -67,27 +55,9 @@ struct gap_parallel_updater {
 
         // Check if values wrapped-around.
         if (gap->m_count[x] == 0L) {
-//          gap->m_excess_mutex.lock();  // XXX could that lead to some slowdown?
-//          gap->add_excess(x);
-//          gap->m_excess_mutex.unlock();
-
-          // XXX This is an experimental fix. For all 'normal' strings I tested
-          // (wiki, countries, hg.reads) it does not make any differene. I
-          // suspect, however, that I can make a difference e.g., for a string
-          // a^n. In the current form, pSAscan (also the in-mem version) are
-          // to slow on this string, so I postpone the tests, until the
-          // computation of strating positions is fixed (for such repetitive
-          // artificial inputs).
-          // XXX consider implementing this improvement also in the in-mem SAscan
-          excess_buffer[excess_buffer_filled] = x;
-          excess_buffer_filled++;
-          if (excess_buffer_filled == excess_buffer_size) {
-            gap->m_excess_mutex.lock();
-            for (long j = 0; j < excess_buffer_filled; ++j)
-              gap->add_excess(excess_buffer[j]);
-            excess_buffer_filled = 0;
-            gap->m_excess_mutex.unlock();
-          }
+          gap->m_excess_mutex.lock();
+          gap->add_excess(x);
+          gap->m_excess_mutex.unlock();
         }
       }
 

@@ -2,6 +2,7 @@
 #define __INMEM_SASCAN_FINAL_INMEM_SUFSORT_H
 
 #include <vector>
+#include <limits>
 
 #include "../../bitvector.h"
 #include "../../multifile_bitvector.h"
@@ -41,6 +42,13 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   static const unsigned pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
   long double start;
+
+  if ((long)std::numeric_limits<saidx_t>::max() < text_length) {
+    fprintf(stderr, "Error: text is too long (%ld bytes),\n", text_length);
+    fprintf(stderr, "       std::numeric_limits<saidx_t>::max() = %ld\n",
+        (long)std::numeric_limits<saidx_t>::max());
+    std::exit(EXIT_FAILURE);
+  }
 
   if (max_blocks == -1)
     max_blocks = max_threads;

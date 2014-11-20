@@ -82,7 +82,7 @@ void parallel_merge_aux(
       long gap_left_idx = gap->m_count[left_idx];
       while (excess_ptr < gap->m_excess.size() &&
           gap->m_excess[excess_ptr] == left_idx) {
-        gap_left_idx += 256;
+        gap_left_idx += 256L;
         ++excess_ptr;
       }
       
