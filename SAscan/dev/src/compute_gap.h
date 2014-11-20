@@ -18,7 +18,7 @@
 #include "stream.h"
 #include "update.h"
 #include "stream_info.h"
-#include "multifile_bitvector.h"
+#include "multifile.h"
 
 
 //==============================================================================

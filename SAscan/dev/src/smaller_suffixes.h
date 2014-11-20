@@ -5,7 +5,7 @@
 #include <string>
 
 #include "utils.h"
-#include "multifile_bitvector.h"
+#include "multifile.h"
 #include "disk_pattern.h"
 
 

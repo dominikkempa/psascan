@@ -3,7 +3,7 @@
 
 #include "inmem_sascan_src/inmem_sascan.h"
 #include "../bitvector.h"
-#include "../multifile_bitvector.h"
+#include "../multifile.h"
 
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,

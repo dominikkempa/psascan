@@ -5,7 +5,7 @@
 #include <limits>
 
 #include "../../bitvector.h"
-#include "../../multifile_bitvector.h"
+#include "../../multifile.h"
 #include "inmem_gap_array.h"
 #include "compute_initial_gt_bitvectors.h"
 #include "initial_partial_sufsort.h"

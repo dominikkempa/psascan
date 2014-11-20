@@ -11,7 +11,7 @@
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "skewed-merge.h"
-#include "../../multifile_bitvector.h"
+#include "../../multifile.h"
 
 namespace inmem_sascan_private {
 

@@ -79,7 +79,7 @@
 #include "inmem_bwt_from_sa.h"
 #include "pagearray.h"
 #include "bwtsa.h"
-#include "../../multifile_bitvector.h"
+#include "../../multifile.h"
 
 namespace inmem_sascan_private {
 

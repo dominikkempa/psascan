@@ -7,7 +7,8 @@
 
 #include "../../bitvector.h"
 #include "srank_aux.h"
-#include "../../multifile_bitvector.h"
+#include "../../multifile.h"
+#include "../../multifile_bit_stream_reader.h"
 #include "disk_pattern.h"
 
 namespace inmem_sascan_private {
@@ -33,7 +34,7 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
 
   if (end == text_length) {
     // handling of the last block.
-    multifile_bitvector_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed); // ok with NULL.
+    multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed); // ok with NULL.
     pattern *pat = NULL;
     if (supertext_filename != "")
       pat = new pattern(supertext_filename, text_end);

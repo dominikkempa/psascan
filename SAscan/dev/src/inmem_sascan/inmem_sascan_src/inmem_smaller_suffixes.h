@@ -3,7 +3,8 @@
 
 #include "../../bitvector.h"
 #include "pagearray.h"
-#include "../../multifile_bitvector.h"
+#include "../../multifile.h"
+#include "../../multifile_bit_stream_reader.h"
 
 namespace inmem_sascan_private {
 
@@ -23,7 +24,7 @@ bool lcp_compare(unsigned char *text, long length, long i, long j, long &lcp) {
 // Return true iff text[i..) (but we always stop the comparison at text_length)
 // is smaller than pat[0..pat_length).
 bool lcp_compare2(unsigned char *text, long text_length, pattern &pat, long pat_length, long pat_absolute_beg,
-    long supertext_length, long j, multifile_bitvector_reader &reader) {
+    long supertext_length, long j, multifile_bit_stream_reader &reader) {
   long lcp = 0;
   while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
 
@@ -72,7 +73,7 @@ void inmem_smaller_suffixes(unsigned char *text, long text_length,
     pattern pat(supertext_filename, suf_start);
     long pat_length = supertext_length - suf_start;
 
-    multifile_bitvector_reader reader(tail_gt_begin_reversed);
+    multifile_bit_stream_reader reader(tail_gt_begin_reversed);
 
     // XXX we ignore the lcp information, should not slow down too much.
     // XXX in the future we have to fix it.

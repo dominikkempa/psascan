@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 #include "../../bitvector.h"
-#include "../../multifile_bitvector.h"
+#include "../../multifile.h"
 #include "utils.h"
 #include "io_streamer.h"
 #include "../inmem_sascan.h"

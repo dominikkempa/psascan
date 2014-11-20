@@ -46,7 +46,8 @@
 #include <vector>
 
 #include "utils.h"
-#include "multifile_bitvector.h"
+#include "multifile.h"
+#include "multifile_bit_stream_reader.h"
 #include "disk_pattern.h"
 
 // supertext[i..] < supertext[j..] ?
@@ -194,7 +195,7 @@ void parallel_smaller_suffixes(unsigned char *block, long block_beg, long block_
     return;
   }
 
-  multifile_bitvector_reader gt_reader(tail_gt_begin_reversed);
+  multifile_bit_stream_reader gt_reader(tail_gt_begin_reversed);
   pattern pat(text_filename, suffix_start_pos);
 
   GS_sets GS;

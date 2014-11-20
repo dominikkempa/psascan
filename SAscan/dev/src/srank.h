@@ -12,7 +12,8 @@
 #include <algorithm>
 
 #include "bitvector.h"
-#include "multifile_bitvector.h"
+#include "multifile.h"
+#include "multifile_bit_stream_reader.h"
 #include "smaller_suffixes.h"
 #include "disk_pattern.h"
 
@@ -53,7 +54,7 @@ void compute_block_gt_end(
     bitvector *block_gt_end) {
   long block_size = block_end - block_beg;
 
-  multifile_bitvector_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);
+  multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);
   pattern pat(text_filename, block_end);
   long pat_length = text_length - block_end;
 

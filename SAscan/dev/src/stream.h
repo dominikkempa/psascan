@@ -21,7 +21,8 @@
 #include "buffer.h"
 #include "update.h"
 #include "stream_info.h"
-#include "multifile_bitvector.h"
+#include "multifile.h"
+#include "async_multifile_bit_stream_reader.h"
 #include "async_backward_skip_stream_reader.h"
 #include "async_bit_stream_writer.h"
 
@@ -67,8 +68,7 @@ void parallel_stream(
   long *ptr = new long[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
-  multifile_bitvector_reader gt_in(tail_gt_begin);
-  gt_in.initialize_sequential_reading(length - stream_block_end);
+  async_multifile_bit_stream_reader gt_in(tail_gt_begin, length - stream_block_end, 1L << 20);
 
   typedef async_backward_skip_stream_reader<unsigned char> text_reader_type;
   typedef async_bit_stream_writer bit_stream_writer_type;

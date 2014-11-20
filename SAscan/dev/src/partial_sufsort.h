@@ -19,7 +19,7 @@
 #include "gap_array.h"
 #include "bitvector.h"
 #include "io_streamer.h"
-#include "multifile_bitvector.h"
+#include "multifile.h"
 #include "inmem_sascan/inmem_sascan.h"
 #include "distributed_file.h"
 #include "half_block_info.h"
