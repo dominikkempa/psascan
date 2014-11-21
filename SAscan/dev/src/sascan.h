@@ -31,10 +31,16 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
   fprintf(stderr, "Input length = %ld (%.1LfMiB)\n", length, 1.L * length / (1L << 20));
   fprintf(stderr, "\n");
 
-  long ram_use_excluding_threads = ram_use - n_stream_buffers * stream_buffer_size;
+  long ram_for_threads = n_stream_buffers * stream_buffer_size;  // for buffers
+  if (ram_use / 5.2L < (long double)(1L << 31))  // for oracle
+    ram_for_threads += max_threads * stream_buffer_size;
+  else ram_for_threads += ((4.L / 5) * max_threads) * stream_buffer_size;
+  ram_for_threads += max_threads * stream_buffer_size;  // for temp
+  ram_for_threads += max_threads * (6L << 20);  // for reader/writer buffers
+
+  long ram_use_excluding_threads = ram_use - ram_for_threads;
   if (ram_use_excluding_threads < 6L) {
-    long required_bytes = n_stream_buffers * stream_buffer_size;
-    long required_MiB = (required_bytes + (1L << 20) - 1) / (1L << 20);
+    long required_MiB = (ram_for_threads + (1L << 20) - 1) / (1L << 20);
     fprintf(stderr, "Error: not enough memory to start threads. You need "
         "at least %ldMiB\n", required_MiB + 1);
     std::exit(EXIT_FAILURE);

@@ -22,6 +22,7 @@
 #include "update.h"
 #include "stream_info.h"
 #include "multifile.h"
+#include "multifile_bit_stream_reader.h"
 #include "async_multifile_bit_stream_reader.h"
 #include "async_backward_skip_stream_reader.h"
 #include "async_bit_stream_writer.h"
@@ -51,7 +52,7 @@ void parallel_stream(
 
   static const int max_buckets = 4092;
   int *block_id_to_sblock_id = new int[max_buckets];
-  
+
   long bucket_size = 1;
   long bucket_size_bits = 0;
   while ((gap_range_size + bucket_size - 1) / bucket_size > max_buckets)
@@ -68,13 +69,13 @@ void parallel_stream(
   long *ptr = new long[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
-  async_multifile_bit_stream_reader gt_in(tail_gt_begin, length - stream_block_end, 1L << 20);
-
+  typedef async_multifile_bit_stream_reader bit_stream_reader_type;
   typedef async_backward_skip_stream_reader<unsigned char> text_reader_type;
   typedef async_bit_stream_writer bit_stream_writer_type;
 
-  text_reader_type *text_streamer = new text_reader_type(text_filename, length - stream_block_end, 1 << 20); // 1MiB buffer
-  bit_stream_writer_type *gt_out = new bit_stream_writer_type(tail_gt_filename, 2 << 20); // 1MiB buffer
+  text_reader_type *text_streamer = new text_reader_type(text_filename, length - stream_block_end, 4L << 20);
+  bit_stream_writer_type *gt_out = new bit_stream_writer_type(tail_gt_filename, 1L << 20);
+  bit_stream_reader_type gt_in(tail_gt_begin, length - stream_block_end, 1L << 20);
 
   long j = stream_block_end, dbg = 0L;
   while (j > stream_block_beg) {

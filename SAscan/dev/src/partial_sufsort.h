@@ -519,6 +519,19 @@ void process_block(long block_beg, long block_end,
   free(right_block_bwt);
 
 
+  //
+  //
+  // Write left_block_gap_bv to disk.
+  fprintf(stderr, "    Write left block gap bitvector to disk: ");
+  long double write_left_gap_bv_start = utils::wclock();
+  std::string left_block_gap_bv_filename = output_filename + ".left_block_gap_bv";
+  left_block_gap_bv->save(left_block_gap_bv_filename);
+  delete left_block_gap_bv;
+  long double write_left_gap_bv_time = utils::wclock() - write_left_gap_bv_start;
+  long double write_left_gap_bv_io = ((block_size / 8.L) / (1 << 20)) / write_left_gap_bv_time;
+  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", write_left_gap_bv_time, write_left_gap_bv_io);
+
+
   //----------------------------------------------------------------------------
   // STEP 5: Compute the gap array of the block.
   //
@@ -555,6 +568,17 @@ void process_block(long block_beg, long block_end,
 
   block_gap->flush_excess_to_disk();
 
+
+  //
+  //
+  // Read left_block_gap_bv from disk.
+  fprintf(stderr, "    Read left block gap bitvector from disk: ");
+  long double left_block_gap_bv_read_start = utils::wclock();
+  left_block_gap_bv = new bitvector(left_block_gap_bv_filename);
+  long double left_block_gap_bv_read_time = utils::wclock() - left_block_gap_bv_read_start;
+  long double left_block_gap_bv_read_io = ((block_size / 8.L) / (1 << 20)) / left_block_gap_bv_read_time;
+  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_block_gap_bv_read_time, left_block_gap_bv_read_io);
+  utils::file_delete(left_block_gap_bv_filename);
 
   //----------------------------------------------------------------------------
   // STEP 6: compute the gap array of the right half-block
