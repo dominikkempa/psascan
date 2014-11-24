@@ -93,6 +93,7 @@ long convert_array_to_vbyte_slab(long *tab, long length, unsigned char *dest, lo
   for (long t = 0; t < n_blocks; ++t) threads[t]->join();
   for (long t = 0; t < n_blocks; ++t) delete threads[t];
   delete[] threads;
+  delete[] block_slab_length;
 
   return total_slab_length;
 }
