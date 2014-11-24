@@ -137,17 +137,21 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   start = utils::wclock();
   std::vector<long> initial_ranks(n_threads);
   std::thread **threads = new std::thread*[n_threads];
-  for (long i = 0; i < n_threads; ++i) {
+  long prev_stream_block_size = 0L;
+  for (long i = n_threads - 1; i >= 0; --i) {
     long stream_block_beg = right_block_beg + i * max_stream_block_size;
     long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
+    long stream_block_size = stream_block_end - stream_block_beg;
 
     // The i-th thread streams symbols text[beg..end), right-to-left.
     // where beg = stream_block_beg[i], end = stream_block_end[i];
     typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_bwtsa_type;
     threads[i] = new std::thread(inmem_smaller_suffixes<pagearray_bwtsa_type>, text,
-        text_length, left_block_beg, left_block_end, stream_block_end,
+        text_length, left_block_beg, left_block_end, stream_block_end, prev_stream_block_size,
         std::ref(bwtsa), std::ref(initial_ranks[i]), text_beg, text_end, supertext_length,
         supertext_filename, tail_gt_begin_reversed);
+
+    prev_stream_block_size = stream_block_size;
   }
   for (long i = 0; i < n_threads; ++i) threads[i]->join();
   for (long i = 0; i < n_threads; ++i) delete threads[i];
