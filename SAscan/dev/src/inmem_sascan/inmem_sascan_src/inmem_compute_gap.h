@@ -69,6 +69,8 @@
 #ifndef __INMEM_SASCAN_INMEM_COMPUTE_GAP_H_INCLUDED
 #define __INMEM_SASCAN_INMEM_COMPUTE_GAP_H_INCLUDED
 
+#include <map>
+
 #include "../../bitvector.h"
 #include "rank.h"
 #include "buffer.h"
@@ -81,7 +83,134 @@
 #include "bwtsa.h"
 #include "../../multifile.h"
 
+
 namespace inmem_sascan_private {
+
+inline size_t find(const std::vector<long> &v, long x) {
+  size_t left = 0;
+  size_t right = v.size();
+
+  while (left != right) {
+    // Invariant: The answer is in the range [left..right].
+    size_t mid = (left + right) / 2;
+    if (v[mid] >= x) right = mid;
+    else left = mid + 1;
+  }
+
+  if (right != v.size() && v[right] != x)
+    right = v.size();
+  return right;
+}
+
+template<typename saidx_t, unsigned pagesize_log, unsigned filter_block_size_bits>
+void answer_isa_queries_aux(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
+    long block_beg, long block_end, const std::vector<long> &queries, std::vector<long> &answers,
+    unsigned char *filter) {
+  for (long j = block_beg; j < block_end; ++j) {
+    long sa_j = bwtsa[j].sa;
+    long bit = (sa_j >> filter_block_size_bits);
+    if (filter[bit >> 3] & (1 << (bit & 7))) {
+      size_t pos = find(queries, sa_j);
+      if (pos != queries.size())
+        answers[pos] = j;
+    }
+  }
+}
+
+template<typename saidx_t, unsigned pagesize_log>
+void answer_isa_queries(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
+    long size, std::vector<long> &queries, std::vector<long> &answers, long max_threads) {
+  if (queries.empty()) return;
+
+  std::sort(queries.begin(), queries.end());
+  queries.erase(std::unique(queries.begin(), queries.end()), queries.end());
+  answers.resize(queries.size());
+
+#if 1
+  // 1
+  //
+  // Compute the filter.
+  static const unsigned filter_block_size_bits = 14;  // best value, selected empirically
+  static const unsigned filter_block_size = (1U << filter_block_size_bits);
+
+  long n_filter_blocks = (size + filter_block_size - 1) / filter_block_size;
+  unsigned char *filter = new unsigned char[(n_filter_blocks + 7) / 8];
+  std::fill(filter, filter + (n_filter_blocks + 7) / 8, 0);
+  for (size_t j = 0; j < queries.size(); ++j) {
+    long x = queries[j];
+    long bit = (x >> filter_block_size_bits);
+    filter[bit >> 3] |= (1 << (bit & 7));
+  }
+
+  // 2
+  //
+  // Split the partial suffix array into blocks.
+  long max_block_size = (size + max_threads - 1) / max_threads;
+  long n_blocks = (size + max_block_size - 1) / max_block_size;
+
+  // 3
+  //
+  // Compute answers to queries in parallel for each block.
+  std::thread **threads = new std::thread*[n_blocks];
+  for (long t = 0; t < n_blocks; ++t) {
+    long block_beg = t * max_block_size;
+    long block_end = std::min(block_beg + max_block_size, size);
+
+    threads[t] = new std::thread(answer_isa_queries_aux<saidx_t, pagesize_log, filter_block_size_bits>,
+        std::ref(bwtsa), block_beg, block_end, std::ref(queries), std::ref(answers), filter);
+  }
+
+  for (long t = 0; t < n_blocks; ++t) threads[t]->join();
+  for (long t = 0; t < n_blocks; ++t) delete threads[t];
+
+  // 4
+  //
+  // Clean up.
+  delete[] threads;
+  delete[] filter;
+#else
+
+#if 0
+  for (long j = 0; j < size; ++j) {
+    long sa_j = bwtsa[j].sa;
+    size_t pos = find(queries, sa_j);
+    if (pos != queries.size())
+      answers[pos] = j;
+  }
+#else
+  // 1
+  //
+  // compute the filter.
+  static const long block_size_bits = 14;  // this is optimal choice
+  static const long block_size = (1L << block_size_bits);
+
+  long n_blocks = (size + block_size - 1) / block_size;
+  unsigned char *filter = new unsigned char[(n_blocks + 7) / 8];
+  std::fill(filter, filter + (n_blocks + 7) / 8, 0);
+  for (size_t j = 0; j < queries.size(); ++j) {
+    long x = queries[j];
+    long bit = (x >> block_size_bits);
+    filter[bit >> 3] |= (1 << (bit & 7));
+  }
+
+  for (long j = 0; j < size; ++j) {
+    long sa_j = bwtsa[j].sa;
+    long bit = (sa_j >> block_size_bits);
+    if (filter[bit >> 3] & (1 << (bit & 7))) {
+      size_t pos = find(queries, sa_j);
+      if (pos != queries.size())
+        answers[pos] = j;
+    }
+  }
+
+  // 3
+  //
+  // Clean up.
+  delete[] filter;
+#endif
+
+#endif
+}
 
 template<typename saidx_t, unsigned pagesize_log>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
@@ -136,30 +265,136 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   fprintf(stderr, "    Computing initial ranks: ");
   start = utils::wclock();
   std::vector<long> initial_ranks(n_threads);
+  std::vector<std::pair<long, long> > initial_ranges(n_threads);
   std::thread **threads = new std::thread*[n_threads];
-  long prev_stream_block_size = 0L;
-  for (long i = n_threads - 1; i >= 0; --i) {
+
+  // 1
+  //
+  // Compute the last starting position. This
+  // in the current form may require accessing disk.
+  typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_bwtsa_type;
+  long last_stream_block_beg = right_block_beg + (n_threads - 1) * max_stream_block_size;
+  long last_stream_block_end = right_block_end;
+
+  compute_last_starting_position<pagearray_bwtsa_type>(text, text_length, left_block_beg, left_block_end,
+      last_stream_block_end, std::ref(bwtsa), std::ref(initial_ranks[n_threads - 1]), text_beg,
+      text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+
+  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  start = utils::wclock();
+
+  // 2
+  //
+  // Compute the starting position for all
+  // starting positions other than the last one.
+  long prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
+  for (long i = n_threads - 2; i >= 0; --i) {
     long stream_block_beg = right_block_beg + i * max_stream_block_size;
     long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
     long stream_block_size = stream_block_end - stream_block_beg;
 
-    // The i-th thread streams symbols text[beg..end), right-to-left.
-    // where beg = stream_block_beg[i], end = stream_block_end[i];
-    typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_bwtsa_type;
-    threads[i] = new std::thread(inmem_smaller_suffixes<pagearray_bwtsa_type>, text,
-        text_length, left_block_beg, left_block_end, stream_block_end, prev_stream_block_size,
-        std::ref(bwtsa), std::ref(initial_ranks[i]), text_beg, text_end, supertext_length,
-        supertext_filename, tail_gt_begin_reversed);
+    // i-th thread streams text[stream_block_beg[i]..stream_block_end[i]), right-to-left.
+    threads[i] = new std::thread(compute_other_starting_position<pagearray_bwtsa_type>,
+        text, left_block_beg, left_block_end, stream_block_end, prev_stream_block_size,
+        std::ref(bwtsa), std::ref(initial_ranges[i]));
 
     prev_stream_block_size = stream_block_size;
   }
-  for (long i = 0; i < n_threads; ++i) threads[i]->join();
-  for (long i = 0; i < n_threads; ++i) delete threads[i];
+
+  for (long i = 0; i + 1 < n_threads; ++i) threads[i]->join();
+  for (long i = 0; i + 1 < n_threads; ++i) delete threads[i];
   delete[] threads;
+
+  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  start = utils::wclock();
+
+  // 2.5
+  //
+  // XXX shrink ranges to size O(n_threads).
+  // XXX also, at this stage we try to minimize the intervals even further,
+  //     (if we can). More precisely: when the period is very small, we should
+  //     be able to determine the status (simpy by symbol comparisons) evem of
+  //     the suffixes in the shrinked range.
+
+
+////////////////////////////////////////////////////////////////// testing ISA queries (speed).
+/*  {
+    fprintf(stderr, "\nanswering isa queries: ");
+    long double starting = utils::wclock();
+    std::vector<long> queries;
+    std::vector<long> answers;
+    for (long j = 0; j < max_threads * max_threads; ++j)
+      queries.push_back(utils::random_long(0, left_block_size - 1));
+    answer_isa_queries(bwtsa, left_block_size, queries, answers, max_threads);
+    fprintf(stderr, "%.2Lf\n", utils::wclock() - starting);
+  }*/
+//////////////////////////////////////////////////////////////////
+
+
+
+  // 3
+  //
+  // Prepare ISA queries.
+  std::vector<long> isa_queries;
+  prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
+  for (long i = n_threads - 2; i >= 0; --i) {
+    long stream_block_beg = right_block_beg + i * max_stream_block_size;
+    long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
+    long stream_block_size = stream_block_end - stream_block_beg;
+
+    long beg = initial_ranges[i].first;
+    long end = initial_ranges[i].second;
+    for (long j = beg + 1; j < end; ++j)
+      if ((long)bwtsa[j].sa + prev_stream_block_size < left_block_size)
+        isa_queries.push_back((long)bwtsa[j].sa + prev_stream_block_size);
+
+    prev_stream_block_size = stream_block_size;
+  }
+
+  // 4
+  //
+  // Answer ISA queries.
+  std::vector<long> isa_answers;
+  answer_isa_queries(bwtsa, left_block_size, isa_queries, isa_answers, max_threads);
+  std::map<long, long> isa;
+  for (size_t j = 0; j < isa_queries.size(); ++j)
+    isa[isa_queries[j]] = isa_answers[j];
+
+  // 5
+  //
+  // Use answers to ISA queries to refine ranges to single elements.
+  prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
+  long prev_rank = initial_ranks[n_threads - 1];
+  for (long i = n_threads - 2; i >= 0; --i) {
+    long stream_block_beg = right_block_beg + i * max_stream_block_size;
+    long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
+    long stream_block_size = stream_block_end - stream_block_beg;
+    long suf_start = stream_block_end;
+
+    long beg = initial_ranges[i].first;
+    long end = initial_ranges[i].second;
+
+    // Invariant: the answer is in the range (beg..end].
+    long ret = beg + 1;
+    while (ret < end) {
+      // Check if suffix starting at position stream_block_end is larger
+      // than the one starting at block_beg + bwtsa[ret].sa in the text.
+      // We know they have a common prefix of length prev_stream_block_size.
+      if ((long)bwtsa[ret].sa + prev_stream_block_size >= left_block_size) {
+        if (gt->get(suf_start + left_block_size - bwtsa[ret].sa - 1)) ++ret;
+        else break;
+      } else {
+        long j = bwtsa[ret].sa + prev_stream_block_size;
+        if (isa[j] < prev_rank) ++ret; else break;
+      }
+    }
+
+    initial_ranks[i] = ret;
+    prev_rank = ret;
+    prev_stream_block_size = stream_block_size;
+  }
+
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-
-
-
 
 
   //----------------------------------------------------------------------------

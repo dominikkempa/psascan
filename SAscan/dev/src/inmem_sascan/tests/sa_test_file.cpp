@@ -73,7 +73,7 @@ void test_file(const char *filename, long max_threads, long max_blocks) {
   utils::read_objects_from_file(text, length, filename);
   fprintf(stderr, "DONE\n");
 
-  test<int>(text, length, max_threads, max_blocks, filename);
+  test<uint40>(text, length, max_threads, max_blocks, filename);
 
   delete[] text;
 }
