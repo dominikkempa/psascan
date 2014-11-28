@@ -102,14 +102,17 @@ inline size_t find(const std::vector<long> &v, long x) {
   return right;
 }
 
-template<typename saidx_t, unsigned pagesize_log, unsigned filter_block_size_bits>
+template<typename saidx_t, unsigned pagesize_log, unsigned n_buckets_log>
 void answer_isa_queries_aux(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     long block_beg, long block_end, const std::vector<long> &queries, std::vector<long> &answers,
     unsigned char *filter) {
+  static const unsigned n_buckets = (1U << n_buckets_log);
+  static const unsigned n_buckets_mask = n_buckets - 1;
+
   for (long j = block_beg; j < block_end; ++j) {
     long sa_j = bwtsa[j].sa;
-    long bit = (sa_j >> filter_block_size_bits);
-    if (filter[bit >> 3] & (1 << (bit & 7))) {
+    long bucket_id = (sa_j & n_buckets_mask);
+    if (filter[bucket_id >> 3] & (1 << (bucket_id & 7))) {
       size_t pos = find(queries, sa_j);
       if (pos != queries.size())
         answers[pos] = j;
@@ -126,25 +129,30 @@ void answer_isa_queries(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
   queries.erase(std::unique(queries.begin(), queries.end()), queries.end());
   answers.resize(queries.size());
 
-#if 1
   // 1
   //
   // Compute the filter.
-  static const unsigned filter_block_size_bits = 14;  // best value, selected empirically
-  static const unsigned filter_block_size = (1U << filter_block_size_bits);
+  //fprintf(stderr, "[compute-filter:");
+  //long double st = utils::wclock();
+  static const unsigned n_buckets_log = 16;  // best value, selected empirically
+  static const unsigned n_buckets = (1U << n_buckets_log);
+  static const unsigned n_buckets_mask = n_buckets - 1;
 
-  long n_filter_blocks = (size + filter_block_size - 1) / filter_block_size;
-  unsigned char *filter = new unsigned char[(n_filter_blocks + 7) / 8];
-  std::fill(filter, filter + (n_filter_blocks + 7) / 8, 0);
+  unsigned char *filter = new unsigned char[n_buckets >> 3];
+  std::fill(filter, filter + (n_buckets >> 3), 0);
   for (size_t j = 0; j < queries.size(); ++j) {
     long x = queries[j];
-    long bit = (x >> filter_block_size_bits);
-    filter[bit >> 3] |= (1 << (bit & 7));
+    long bucket_id = (x & n_buckets_mask);
+    filter[bucket_id >> 3] |= (1 << (bucket_id & 7));
   }
+  //fprintf(stderr, "%.3Lf] ", utils::wclock() - st);
+
 
   // 2
   //
   // Split the partial suffix array into blocks.
+  //fprintf(stderr, "[queries:");
+  //st = utils::wclock();
   long max_block_size = (size + max_threads - 1) / max_threads;
   long n_blocks = (size + max_block_size - 1) / max_block_size;
 
@@ -156,7 +164,7 @@ void answer_isa_queries(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     long block_beg = t * max_block_size;
     long block_end = std::min(block_beg + max_block_size, size);
 
-    threads[t] = new std::thread(answer_isa_queries_aux<saidx_t, pagesize_log, filter_block_size_bits>,
+    threads[t] = new std::thread(answer_isa_queries_aux<saidx_t, pagesize_log, n_buckets_log>,
         std::ref(bwtsa), block_beg, block_end, std::ref(queries), std::ref(answers), filter);
   }
 
@@ -168,48 +176,7 @@ void answer_isa_queries(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
   // Clean up.
   delete[] threads;
   delete[] filter;
-#else
-
-#if 0
-  for (long j = 0; j < size; ++j) {
-    long sa_j = bwtsa[j].sa;
-    size_t pos = find(queries, sa_j);
-    if (pos != queries.size())
-      answers[pos] = j;
-  }
-#else
-  // 1
-  //
-  // compute the filter.
-  static const long block_size_bits = 14;  // this is optimal choice
-  static const long block_size = (1L << block_size_bits);
-
-  long n_blocks = (size + block_size - 1) / block_size;
-  unsigned char *filter = new unsigned char[(n_blocks + 7) / 8];
-  std::fill(filter, filter + (n_blocks + 7) / 8, 0);
-  for (size_t j = 0; j < queries.size(); ++j) {
-    long x = queries[j];
-    long bit = (x >> block_size_bits);
-    filter[bit >> 3] |= (1 << (bit & 7));
-  }
-
-  for (long j = 0; j < size; ++j) {
-    long sa_j = bwtsa[j].sa;
-    long bit = (sa_j >> block_size_bits);
-    if (filter[bit >> 3] & (1 << (bit & 7))) {
-      size_t pos = find(queries, sa_j);
-      if (pos != queries.size())
-        answers[pos] = j;
-    }
-  }
-
-  // 3
-  //
-  // Clean up.
-  delete[] filter;
-#endif
-
-#endif
+  //fprintf(stderr, "%.3Lf] ", utils::wclock() - st);
 }
 
 template<typename saidx_t, unsigned pagesize_log>
