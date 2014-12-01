@@ -28,7 +28,7 @@ void parallel_merge_aux(
     pagearray_type *output,
     inmem_gap_array *gap,
     long left_idx, long right_idx,
-    int remaining_gap, long res_beg,
+    long remaining_gap, long res_beg,
     long res_size,
     long what_to_add) {
 
@@ -145,7 +145,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   // Compute initial parameters for each thread.
   long *left_idx = new long[n_threads];
   long *right_idx = new long[n_threads];
-  int *remaining_gap = new int[n_threads];
+  long *remaining_gap = new long[n_threads];
 
   // Prepare gap queries.
   long *gap_query = new long[n_threads];
@@ -162,7 +162,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
     long j = gap_answer_a[i], s = gap_answer_b[i];
     left_idx[i] = j;
     right_idx[i] = res_beg - j;
-    remaining_gap[i] = (int)(j + s - res_beg);
+    remaining_gap[i] = j + s - res_beg;
   }
   delete[] gap_query;
   delete[] gap_answer_a;
