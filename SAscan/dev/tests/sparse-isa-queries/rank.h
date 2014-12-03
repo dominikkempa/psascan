@@ -1,54 +1,16 @@
-//==============================================================================
-// Data structure answering general rank queries over byte alphabet based
-// on the rank data structure from the bwtdisk implementation
-// (http://people.unipmn.it/manzini/bwtdisk/) of the algorithm from:
-//
-//     Paolo Ferragina, Travis Gagie, Giovanni Manzini:
-//     Lightweight Data Indexing and Compression in External Memory.
-//     Algorithmica 63(3): 707-730 (2012)
-//
-// Our key modification is applying two new techniques:
-//
-//   * alphabet partitioning
-//
-//     Jeremy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
-//     Alphabet Partitioning for Compressed Rank/Select and Applications.
-//     Proc. ISAAC 2010.
-//
-//   * fixed block boosting
-//
-//     Juha Karkkainen, Simon J. Puglisi:
-//     Fixed Block Compression Boosting in FM-Indexes.
-//     Proc. SPIRE 2011.
-//
-//------------------------------------------------------------------------------
-//
-// NEWS:
-//   - changed the construction, so that it need 5n bytes (rather than
-//     the old 4n) since immediatelly after building rank we allocate
-//     n-bytes gap array, so the peak does not change.
-//
-//==============================================================================
-
-#ifndef __INMEM_SASCAN_RANK4N_H_INCLUDED
-#define __INMEM_SASCAN_RANK4N_H_INCLUDED
+#ifndef __RANK_H_INCLUDED
+#define __RANK_H_INCLUDED
 
 #include <algorithm>
 #include <vector>
 #include <thread>
 
 #include "utils.h"
-#include "bwtsa.h"
-#include "pagearray.h"
-
-namespace inmem_sascan_private {
 
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 20, unsigned k_sigma_log = 8>
+template<unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 20, unsigned k_sigma_log = 8>
 class rank4n {
   private:
-    typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
-
     static const unsigned long k_cblock_size;
     static const unsigned long k_cblock_size_mask;
     static const unsigned long k_cblock_size_mask_neg;
@@ -61,9 +23,6 @@ class rank4n {
     static const unsigned k_sblock_size_mask;
     static const unsigned k_sigma;
     static const unsigned k_sigma_mask;
-
-    static const unsigned pagesize = (1U << pagesize_log);
-    static const unsigned pagesize_mask = (1U << pagesize_log) - 1;
 
     static const unsigned k_char_type_freq =    0x01;
     static const unsigned k_char_type_rare =    0x02;
@@ -87,7 +46,7 @@ class rank4n {
     unsigned long *m_count; // symbol counts
 
   public:
-    rank4n(const pagearray_type *ptext, unsigned long length, unsigned max_threads) {
+    rank4n(const unsigned char *text, unsigned long length, unsigned max_threads) {
       m_length = length;
       n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
       n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
@@ -113,7 +72,6 @@ class rank4n {
       unsigned long range_size = (n_cblocks + max_threads - 1) / max_threads;
       unsigned long n_ranges = (n_cblocks + range_size - 1) / range_size;
 
-      long double start = utils::wclock();
       m_sblock_header = (unsigned long *)malloc(n_sblocks * sizeof(unsigned long) * k_sigma);
       m_cblock_header = (unsigned long *)malloc(n_cblocks * sizeof(unsigned long));
       m_cblock_header2 = (unsigned long *)malloc(n_cblocks * k_sigma * sizeof(unsigned long));
@@ -131,21 +89,14 @@ class rank4n {
       unsigned **occ = (unsigned **)malloc(n_ranges * sizeof(unsigned *));
       for (unsigned long i = 0; i < n_ranges; ++i)
         occ[i] = (unsigned *)malloc((k_cblock_size + 1) * sizeof(unsigned));
-      long double alloc_time = utils::wclock() - start;
-      if (alloc_time > 0.05L)
-        fprintf(stderr, "alloc: %.2Lf ", alloc_time);
 
-      unsigned char *bwt = (unsigned char *)malloc(length + k_cblock_size);
-
-      fprintf(stderr, "s1: ");
-      start = utils::wclock();
       std::thread **threads = new std::thread*[n_ranges];
       for (unsigned long i = 0; i < n_ranges; ++i) {
         unsigned long range_beg = i * range_size;
         unsigned long range_end = std::min(range_beg + range_size, n_cblocks);
 
         threads[i] = new std::thread(construction_step_1, std::ref(*this),
-            ptext, range_beg, range_end, rare_trunk_size, cblock_type, occ[i], bwt);
+            text, range_beg, range_end, rare_trunk_size, cblock_type, occ[i]);
       }
       for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
@@ -155,8 +106,6 @@ class rank4n {
         free(occ[i]);
       }
       free(occ);
-
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
 
       //------------------------------------------------------------------------
@@ -168,8 +117,6 @@ class rank4n {
       //  * cumulative counts of all symbols (necessary during queries)
       //  * non-inclusive partial sum over cblock range counts
       //------------------------------------------------------------------------
-      fprintf(stderr, "s2: ");
-      start = utils::wclock();
       unsigned long rare_trunk_total_size = 0;
       for (unsigned long cblock_id = 0; cblock_id < n_cblocks; ++cblock_id) {
         unsigned long cblock_beg = (cblock_id << k_cblock_size_log);
@@ -210,11 +157,8 @@ class rank4n {
       }
       delete[] cblock_type;
       delete[] rare_trunk_size;
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
 
-      fprintf(stderr, "s3: ");
-      start = utils::wclock();
       //------------------------------------------------------------------------
       // STEP 3: compute freq and rare trunk for cblocks encoded with
       //         alphabet partitioning.
@@ -226,21 +170,18 @@ class rank4n {
         unsigned long range_end = std::min(range_beg + range_size, n_cblocks);
 
         threads[i] = new std::thread(construction_step_3, std::ref(*this),
-            range_beg, range_end, bwt);
+            text, range_beg, range_end);
       }
       for (unsigned long i = 0; i < n_ranges; ++i) threads[i]->join();
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
       m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
-
-      free(bwt);
     }
 
-    static void construction_step_1(rank4n &r, const pagearray_type *ptext,
+    static void construction_step_1(rank4n &r, const unsigned char *text,
         unsigned long cblock_range_beg, unsigned long cblock_range_end,
-        unsigned long *rare_trunk_size, bool *cblock_type, unsigned *occ, unsigned char *bwt) {
+        unsigned long *rare_trunk_size, bool *cblock_type, unsigned *occ) {
       std::vector<std::pair<uint32_t, unsigned char> > sorted_chars;
       std::vector<unsigned char> freq_chars;
       std::vector<unsigned char> rare_chars;
@@ -255,8 +196,6 @@ class rank4n {
       unsigned *min_block_size_precomputed = new unsigned[k_sigma];
       unsigned long *refpoint_mask_precomputed = new unsigned long[k_sigma];
 
-      typedef typename pagearray_type::value_type value_type;
-
       for (unsigned long cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
         unsigned long cblock_beg = cblock_id << k_cblock_size_log;
         unsigned long cblock_end = cblock_beg + k_cblock_size;
@@ -265,26 +204,9 @@ class rank4n {
 
         // compute cblock symbols into cblock_symbols tab.
         unsigned long maxj = std::min(cblock_end, r.m_length);
-        unsigned long page_id = (cblock_beg >> pagesize_log);
-        value_type *cur_page = ptext->m_pageindex[page_id++];
-        unsigned long page_offset = (cblock_beg & pagesize_mask); // this should be the content of an iterator.
-
-        for (unsigned long j = cblock_beg; j < maxj; ++j) {
-          unsigned char c = cur_page[page_offset].bwt;
-          bwt[j] = c;
-          ++cblock_count[c];
-          ++page_offset;
-          if (!(page_offset & pagesize_mask)) {
-            cur_page = ptext->m_pageindex[page_id];
-            page_id++;
-            page_offset = 0;
-          }
-        }
-        for (unsigned long j = maxj; j < cblock_end; ++j) {
-          bwt[j] = 0;
-          ++cblock_count[0];
-        }
-
+        for (unsigned long j = cblock_beg; j < maxj; ++j)
+          ++cblock_count[text[j]];
+        cblock_count[0] += cblock_end - maxj;
 
         // Compute starting positions of occurrences lists.
         for (unsigned j = 0, t, s = 0; j < k_sigma; ++j) {
@@ -377,8 +299,10 @@ class rank4n {
           cblock_type[cblock_id] = true;
  
           // Compute lists of occurrences.
-          for (unsigned long i = cblock_beg; i < cblock_end; ++i)
-            occ[list_beg2[bwt[i]]++] = i - cblock_beg;
+          for (unsigned long i = cblock_beg; i < maxj; ++i)
+            occ[list_beg2[text[i]]++] = i - cblock_beg;
+          for (unsigned long i = maxj; i < cblock_end; ++i)
+            occ[list_beg2[0]++] = i - cblock_beg;
 
           // Precompute some values and store lookup bits into the header.
           for (unsigned c = 0; c < k_sigma; ++c) {
@@ -444,8 +368,8 @@ class rank4n {
       free(refpoint_precomputed);
     }
 
-    static void construction_step_3(rank4n &r,
-        unsigned long cblock_range_beg, unsigned long cblock_range_end, unsigned char *bwt) {
+    static void construction_step_3(rank4n &r, const unsigned char *text,
+        unsigned long cblock_range_beg, unsigned long cblock_range_end) {
       unsigned char *freq_map = new unsigned char[k_sigma];
       unsigned char *rare_map = new unsigned char[k_sigma];
       unsigned long *cur_count = new unsigned long[k_sigma];
@@ -456,10 +380,6 @@ class rank4n {
 
       std::vector<unsigned char> freq_chars;
       std::vector<unsigned char> rare_chars;
-
-      // long double phase1 = 0.L;
-      // long double phase2 = 0.L;
-      // long double phase3 = 0.L;
 
       for (unsigned long cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
         unsigned long cblock_beg = cblock_id << k_cblock_size_log;
@@ -472,13 +392,9 @@ class rank4n {
         // Skip this cblock if its trunk was already encoded.
         if (r.m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7))) continue;
 
-
-
         //----------------------------------
         // PHASE 1
         //----------------------------------
-        // long double start = utils::wclock();
- 
         // Retreive symbol counts up to this cblock begin and pointer
         // to rare trunk size from cblock headers.
         for (unsigned c = 0; c < k_sigma; ++c)
@@ -513,14 +429,12 @@ class rank4n {
           rare_cnt_log = 0;
           rare_cnt = 0;
         }
-        // phase1 += utils::wclock() - start;
 
 
 
         //--------------------
         // PHASE 2
         //--------------------
-        // start = utils::wclock();
         long sblock_id = (cblock_beg >> k_sblock_size_log);
         std::copy(r.m_sblock_header + (sblock_id << 8), r.m_sblock_header + (sblock_id << 8) + k_sigma, sblock_h);
         for (long j = 0; j < k_sigma; ++j) off[j] = cur_count[j] - sblock_h[j];
@@ -528,44 +442,70 @@ class rank4n {
         long nofreq_cnt = 0;
         long freq_chars_size = (long)freq_chars.size();
         long rare_chars_size = (long)rare_chars.size();
-        for (unsigned long i = cblock_beg; i < cblock_end; i += freq_cnt) {
-          for (long j = 0; j < freq_chars_size; ++j) {
-            unsigned char ch = freq_chars[j];
-            r.m_freq_trunk[i + j] = (off[ch] << 8);
-          }
-          r.m_freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
-          for (unsigned long j = i; j < i + freq_cnt; ++j) {
-            unsigned char c = bwt[j];
-            r.m_freq_trunk[j] |= freq_map[c];
-            if (israre[c]) {
-              if (!(nofreq_cnt & rare_cnt_mask)) {
-                for (long jj = 0; jj < rare_chars_size; ++jj) {
-                  unsigned char ch = rare_chars[jj];
-                  r.m_rare_trunk[r_filled++] = (off[ch] << 8);
-                }
-                r_filled += rare_cnt - rare_chars_size;
-              }
-              r.m_rare_trunk[r_ptr++] |= rare_map[c];
+
+        if (cblock_end <= r.m_length) {
+          for (unsigned long i = cblock_beg; i < cblock_end; i += freq_cnt) {
+            for (long j = 0; j < freq_chars_size; ++j) {
+              unsigned char ch = freq_chars[j];
+              r.m_freq_trunk[i + j] = (off[ch] << 8);
             }
-            ++off[c];
-            nofreq_cnt += israre[c];
+            r.m_freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
+            for (unsigned long j = i; j < i + freq_cnt; ++j) {
+              unsigned char c = text[j];
+              r.m_freq_trunk[j] |= freq_map[c];
+              if (israre[c]) {
+                if (!(nofreq_cnt & rare_cnt_mask)) {
+                  for (long jj = 0; jj < rare_chars_size; ++jj) {
+                    unsigned char ch = rare_chars[jj];
+                    r.m_rare_trunk[r_filled++] = (off[ch] << 8);
+                  }
+                  r_filled += rare_cnt - rare_chars_size;
+                }
+                r.m_rare_trunk[r_ptr++] |= rare_map[c];
+              }
+              ++off[c];
+              nofreq_cnt += israre[c];
+            }
           }
+          for (long i = 0; i < k_sigma; ++i)
+            cur_count[i] = sblock_h[i] + off[i];
+        } else {
+          for (unsigned long i = cblock_beg; i < cblock_end; i += freq_cnt) {
+            for (long j = 0; j < freq_chars_size; ++j) {
+              unsigned char ch = freq_chars[j];
+              r.m_freq_trunk[i + j] = (off[ch] << 8);
+            }
+            r.m_freq_trunk[i + freq_cnt - 1] = (nofreq_cnt << 8);
+            for (unsigned long j = i; j < i + freq_cnt; ++j) {
+              unsigned char c = (j < r.m_length ? text[j] : 0);
+              r.m_freq_trunk[j] |= freq_map[c];
+              if (israre[c]) {
+                if (!(nofreq_cnt & rare_cnt_mask)) {
+                  for (long jj = 0; jj < rare_chars_size; ++jj) {
+                    unsigned char ch = rare_chars[jj];
+                    r.m_rare_trunk[r_filled++] = (off[ch] << 8);
+                  }
+                  r_filled += rare_cnt - rare_chars_size;
+                }
+                r.m_rare_trunk[r_ptr++] |= rare_map[c];
+              }
+              ++off[c];
+              nofreq_cnt += israre[c];
+            }
+          }
+          for (long i = 0; i < k_sigma; ++i)
+            cur_count[i] = sblock_h[i] + off[i];
         }
-        for (long i = 0; i < k_sigma; ++i)
-          cur_count[i] = sblock_h[i] + off[i];
-        // phase2 += utils::wclock() - start;
 
 
         //---------------------------
         // PHASE 3
         //---------------------------
-        // start = utils::wclock();
         for (long j = 0; j < rare_cnt; ++j) {
           unsigned char ch = (j < (long)rare_chars.size() ? rare_chars[j] : 0);
           long local_rank = cur_count[ch] - r.m_sblock_header[(sblock_id << 8) + ch];
           r.m_rare_trunk[r_filled++] = (local_rank << 8);
         }
-        // phase3 += utils::wclock() - start;
       }
 
       delete[] cur_count;
@@ -574,11 +514,9 @@ class rank4n {
       delete[] rare_map;
       delete[] israre;
       delete[] off;
-
-      // fprintf(stderr, "\tphase1: %.4Lf, phase2: %.4Lf, phase3: %.4Lf\n", phase1, phase2, phase3);
     }
 
-    inline long rank(long i, unsigned char c) const {
+    inline long rank(long i, unsigned char c) {
       if (i <= 0) return 0L;
       else if ((unsigned long)i >= m_length) return m_count[c];
 
@@ -689,7 +627,7 @@ class rank4n {
             return rank_up_to_cblock + begin;
           }
         }
-      } else {    
+      } else {
         long sblock_id = (i >> k_sblock_size_log);
         long sblock_rank = m_sblock_header[(sblock_id << 8) + c];
 
@@ -765,54 +703,52 @@ class rank4n {
 };
 
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned long rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size = (1 << k_cblock_size_log);
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned long rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size_mask = (1 << k_cblock_size_log) - 1;
   
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_2cblock_size = (2 << k_cblock_size_log);
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_2cblock_size_mask = (2 << k_cblock_size_log) - 1;
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sigma = (1 << k_sigma_log);
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sigma_mask = (1 << k_sigma_log) - 1;
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned long rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size_mask_neg = ~((1 << k_cblock_size_log) - 1);
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblocks_in_sblock_log = k_sblock_size_log - k_cblock_size_log;
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblocks_in_sblock = (1 << (k_sblock_size_log - k_cblock_size_log));
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblocks_in_sblock_mask = (1 << (k_sblock_size_log - k_cblock_size_log)) - 1;
 
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sblock_size = (1 << k_sblock_size_log);
     
-template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
-  const unsigned rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
+  const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sblock_size_mask = (1 << k_sblock_size_log) - 1;
-
-}  // namespace inmem_sascan
 
 #endif // __RANK4N_H_INCLUDED

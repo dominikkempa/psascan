@@ -81,103 +81,11 @@
 #include "inmem_bwt_from_sa.h"
 #include "pagearray.h"
 #include "bwtsa.h"
+#include "sparse_isa.h"
 #include "../../multifile.h"
 
 
 namespace inmem_sascan_private {
-
-inline size_t find(const std::vector<long> &v, long x) {
-  size_t left = 0;
-  size_t right = v.size();
-
-  while (left != right) {
-    // Invariant: The answer is in the range [left..right].
-    size_t mid = (left + right) / 2;
-    if (v[mid] >= x) right = mid;
-    else left = mid + 1;
-  }
-
-  if (right != v.size() && v[right] != x)
-    right = v.size();
-  return right;
-}
-
-template<typename saidx_t, unsigned pagesize_log, unsigned n_buckets_log>
-void answer_isa_queries_aux(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
-    long block_beg, long block_end, const std::vector<long> &queries, std::vector<long> &answers,
-    unsigned char *filter) {
-  static const unsigned n_buckets = (1U << n_buckets_log);
-  static const unsigned n_buckets_mask = n_buckets - 1;
-
-  for (long j = block_beg; j < block_end; ++j) {
-    long sa_j = bwtsa[j].sa;
-    long bucket_id = (sa_j & n_buckets_mask);
-    if (filter[bucket_id >> 3] & (1 << (bucket_id & 7))) {
-      size_t pos = find(queries, sa_j);
-      if (pos != queries.size())
-        answers[pos] = j;
-    }
-  }
-}
-
-template<typename saidx_t, unsigned pagesize_log>
-void answer_isa_queries(const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
-    long size, std::vector<long> &queries, std::vector<long> &answers, long max_threads) {
-  if (queries.empty()) return;
-
-  std::sort(queries.begin(), queries.end());
-  queries.erase(std::unique(queries.begin(), queries.end()), queries.end());
-  answers.resize(queries.size());
-
-  // 1
-  //
-  // Compute the filter.
-  //fprintf(stderr, "[compute-filter:");
-  //long double st = utils::wclock();
-  static const unsigned n_buckets_log = 16;  // best value, selected empirically
-  static const unsigned n_buckets = (1U << n_buckets_log);
-  static const unsigned n_buckets_mask = n_buckets - 1;
-
-  unsigned char *filter = new unsigned char[n_buckets >> 3];
-  std::fill(filter, filter + (n_buckets >> 3), 0);
-  for (size_t j = 0; j < queries.size(); ++j) {
-    long x = queries[j];
-    long bucket_id = (x & n_buckets_mask);
-    filter[bucket_id >> 3] |= (1 << (bucket_id & 7));
-  }
-  //fprintf(stderr, "%.3Lf] ", utils::wclock() - st);
-
-
-  // 2
-  //
-  // Split the partial suffix array into blocks.
-  //fprintf(stderr, "[queries:");
-  //st = utils::wclock();
-  long max_block_size = (size + max_threads - 1) / max_threads;
-  long n_blocks = (size + max_block_size - 1) / max_block_size;
-
-  // 3
-  //
-  // Compute answers to queries in parallel for each block.
-  std::thread **threads = new std::thread*[n_blocks];
-  for (long t = 0; t < n_blocks; ++t) {
-    long block_beg = t * max_block_size;
-    long block_end = std::min(block_beg + max_block_size, size);
-
-    threads[t] = new std::thread(answer_isa_queries_aux<saidx_t, pagesize_log, n_buckets_log>,
-        std::ref(bwtsa), block_beg, block_end, std::ref(queries), std::ref(answers), filter);
-  }
-
-  for (long t = 0; t < n_blocks; ++t) threads[t]->join();
-  for (long t = 0; t < n_blocks; ++t) delete threads[t];
-
-  // 4
-  //
-  // Clean up.
-  delete[] threads;
-  delete[] filter;
-  //fprintf(stderr, "%.3Lf] ", utils::wclock() - st);
-}
 
 template<typename saidx_t, unsigned pagesize_log>
 void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
@@ -235,7 +143,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   std::vector<std::pair<long, long> > initial_ranges(n_threads);
   std::thread **threads = new std::thread*[n_threads];
 
-  // 1
+  // 3.a
   //
   // Compute the last starting position. This
   // in the current form may require accessing disk.
@@ -250,7 +158,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   fprintf(stderr, "%.2Lf ", utils::wclock() - start);
   start = utils::wclock();
 
-  // 2
+  // 3.b
   //
   // Compute the starting position for all
   // starting positions other than the last one.
@@ -271,97 +179,68 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   for (long i = 0; i + 1 < n_threads; ++i) threads[i]->join();
   for (long i = 0; i + 1 < n_threads; ++i) delete threads[i];
   delete[] threads;
-
   fprintf(stderr, "%.2Lf ", utils::wclock() - start);
-  start = utils::wclock();
 
-  // 2.5
-  //
-  // XXX shrink ranges to size O(n_threads).
-  // XXX also, at this stage we try to minimize the intervals even further,
-  //     (if we can). More precisely: when the period is very small, we should
-  //     be able to determine the status (simpy by symbol comparisons) evem of
-  //     the suffixes in the shrinked range.
+  bool nontrivial_range = false;
+  for (long j = 0; j < n_threads - 1; ++j)
+    if (initial_ranges[j].first + 1 != initial_ranges[j].second)
+      nontrivial_range = true;
 
+  if (nontrivial_range) {
+    // 3.c
+    //
+    // Build the data structure allowing answering ISA queries.
+    start = utils::wclock();
+    typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
+    typedef sparse_isa<pagearray_type, rank_type, 12U> sparse_isa_type;
+    sparse_isa_type *sp_isa = new sparse_isa_type(&bwtsa, text +
+        left_block_beg, rank, left_block_size, i0, max_threads);
+    fprintf(stderr, "%.3Lf ", utils::wclock() - start);
 
-////////////////////////////////////////////////////////////////// testing ISA queries (speed).
-/*  {
-    fprintf(stderr, "\nanswering isa queries: ");
-    long double starting = utils::wclock();
-    std::vector<long> queries;
-    std::vector<long> answers;
-    for (long j = 0; j < max_threads * max_threads; ++j)
-      queries.push_back(utils::random_long(0, left_block_size - 1));
-    answer_isa_queries(bwtsa, left_block_size, queries, answers, max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - starting);
-  }*/
-//////////////////////////////////////////////////////////////////
+    // 3.d
+    //
+    // Narrow nontrivial ranges to single elements.
+    start = utils::wclock();
+    prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
+    long prev_rank = initial_ranks[n_threads - 1];
+    for (long i = n_threads - 2; i >= 0; --i) {
+      long stream_block_beg = right_block_beg + i * max_stream_block_size;
+      long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
+      long stream_block_size = stream_block_end - stream_block_beg;
+      long suf_start = stream_block_end;
 
+      long left = initial_ranges[i].first;
+      long right = initial_ranges[i].second;
 
+      // Invariant: the answer is in the range (beg..end].
+      while (left + 1 < right) {
+        long mid = (left + right) / 2;
 
-  // 3
-  //
-  // Prepare ISA queries.
-  std::vector<long> isa_queries;
-  prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
-  for (long i = n_threads - 2; i >= 0; --i) {
-    long stream_block_beg = right_block_beg + i * max_stream_block_size;
-    long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
-    long stream_block_size = stream_block_end - stream_block_beg;
-
-    long beg = initial_ranges[i].first;
-    long end = initial_ranges[i].second;
-    for (long j = beg + 1; j < end; ++j)
-      if ((long)bwtsa[j].sa + prev_stream_block_size < left_block_size)
-        isa_queries.push_back((long)bwtsa[j].sa + prev_stream_block_size);
-
-    prev_stream_block_size = stream_block_size;
-  }
-
-  // 4
-  //
-  // Answer ISA queries.
-  std::vector<long> isa_answers;
-  answer_isa_queries(bwtsa, left_block_size, isa_queries, isa_answers, max_threads);
-  std::map<long, long> isa;
-  for (size_t j = 0; j < isa_queries.size(); ++j)
-    isa[isa_queries[j]] = isa_answers[j];
-
-  // 5
-  //
-  // Use answers to ISA queries to refine ranges to single elements.
-  prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
-  long prev_rank = initial_ranks[n_threads - 1];
-  for (long i = n_threads - 2; i >= 0; --i) {
-    long stream_block_beg = right_block_beg + i * max_stream_block_size;
-    long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
-    long stream_block_size = stream_block_end - stream_block_beg;
-    long suf_start = stream_block_end;
-
-    long beg = initial_ranges[i].first;
-    long end = initial_ranges[i].second;
-
-    // Invariant: the answer is in the range (beg..end].
-    long ret = beg + 1;
-    while (ret < end) {
-      // Check if suffix starting at position stream_block_end is larger
-      // than the one starting at block_beg + bwtsa[ret].sa in the text.
-      // We know they have a common prefix of length prev_stream_block_size.
-      if ((long)bwtsa[ret].sa + prev_stream_block_size >= left_block_size) {
-        if (gt->get(suf_start + left_block_size - bwtsa[ret].sa - 1)) ++ret;
-        else break;
-      } else {
-        long j = bwtsa[ret].sa + prev_stream_block_size;
-        if (isa[j] < prev_rank) ++ret; else break;
+        // Check if suffix starting at position stream_block_end is larger
+        // than the one starting at block_beg + bwtsa[ret].sa in the text.
+        // We know they have a common prefix of length prev_stream_block_size.
+        if ((long)bwtsa[mid].sa + prev_stream_block_size >= left_block_size) {
+          if (gt->get(suf_start + left_block_size - bwtsa[mid].sa - 1)) left = mid;
+          else right = mid;
+        } else {
+          long j = bwtsa[mid].sa + prev_stream_block_size;
+          if (sp_isa->query(j) < prev_rank) left = mid;
+          else right = mid;
+        }
       }
+
+      initial_ranks[i] = right;
+      prev_rank = right;
+      prev_stream_block_size = stream_block_size;
     }
 
-    initial_ranks[i] = ret;
-    prev_rank = ret;
-    prev_stream_block_size = stream_block_size;
+    delete sp_isa;
+    fprintf(stderr, "%.3Lf ", utils::wclock() - start);
+  } else {
+    for (long j = 0; j + 1 < n_threads; ++j)
+      initial_ranks[j] = initial_ranges[j].second;
   }
-
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "\n");
 
 
   //----------------------------------------------------------------------------
