@@ -61,40 +61,33 @@ void compute_other_starting_position(unsigned char *text, long block_beg, long b
   // If there is no such j (i.e., all suffixes were smaller), the answer will
   // be equal to block_size.
 
+  static const long min_discrepancy = (1L << 16);
+  static const long balancing_constant = 64L;
+
   long left = -1L, right = block_size;
   long llcp = 0L, rlcp = 0L;
-  long steps = 0L;
   while (left + 1 != right) {
-    ++steps;
     // Invariant: llcp = lcp(left, suf_start), rlcp = lcp(right, suf_start).
     // Invariant: the index we are searching for is in the range (beg..end].
 
     // Compute mid.
     // Valid values for mid are: left + 1, .., right - 1.
     long mid = 0L;
-    if (steps > 256) {
-      // This is the sign, that the biased binsearch went many times towards
-      // the smaller lcp. An unlikely, but possible case. To fix this, We
-      // just switch back to the standard choice of pivot.
-      mid = (left + right) / 2;
+    if (llcp + min_discrepancy < rlcp) {
+      // Choose the pivot that split the range into two parts of sizes
+      // with ratio equal to logd / d.
+      long d = rlcp - llcp;
+      long logd = utils::log2ceil(d);
+      mid = left + 1 + ((right - left - 1) * balancing_constant * logd) / (d + balancing_constant * logd);
+    } else if (rlcp + min_discrepancy < llcp) {
+      // Choose the pivot that split the range into two parts of sizes
+      // with ratio equal to logd / d.
+      long d = rlcp - llcp;
+      long logd = utils::log2ceil(d);
+      mid = right - 1 - ((right - left - 1) * balancing_constant * logd) / (d + balancing_constant * logd);
     } else {
-      if (llcp /*+ (1 << 16)*/ < rlcp) {
-        // Choose the pivot that split the range into two parts of sizes
-        // with ratio equal to logd / d.
-        long d = rlcp - llcp;
-        long logd = utils::log2ceil(d);
-        mid = left + 1 + ((right - left - 1) * logd) / (d + logd);
-      } else if (rlcp /*+ (1 << 16)*/ < llcp) {
-        // Choose the pivot that split the range into two parts of sizes
-        // with ratio equal to logd / d.
-        long d = rlcp - llcp;
-        long logd = utils::log2ceil(d);
-        mid = right - 1 - ((right - left - 1) * logd) / (d + logd);
-      } else {
-        // Discrepancy between lcp values is small -> just use plain old
-        // binary search.
-        mid = (left + right) / 2;
-      }
+      // Discrepancy between lcp values is small, use standard binary search.
+      mid = (left + right) / 2;
     }
 
     long lcp = std::min(llcp, rlcp);
@@ -114,37 +107,26 @@ void compute_other_starting_position(unsigned char *text, long block_beg, long b
   if (rlcp == maxlcp) {
     right = block_size;
     rlcp = 0L;
-    steps = 0L;
 
     while (left + 1 != right) {
-      ++steps;
-
       // Compute mid.
       // Valid values for mid are: left + 1, .., right - 1.
       long mid = 0L;
-      if (steps > 256) {
-        // This is the sign, that the biased binsearch went many times towards
-        // the smaller lcp. An unlikely, but possible case. To fix this, We
-        // just switch back to the standard choice of pivot.
-        mid = (left + right) / 2;
+      if (llcp + min_discrepancy < rlcp) {
+        // Choose the pivot that split the range into two parts of sizes
+        // with ratio equal to logd / d.
+        long d = rlcp - llcp;
+        long logd = utils::log2ceil(d);
+        mid = left + 1 + ((right - left - 1) * balancing_constant * logd) / (d + balancing_constant * logd);
+      } else if (rlcp + min_discrepancy < llcp) {
+        // Choose the pivot that split the range into two parts of sizes
+        // with ratio equal to logd / d.
+        long d = rlcp - llcp;
+        long logd = utils::log2ceil(d);
+        mid = right - 1 - ((right - left - 1) * balancing_constant * logd) / (d + balancing_constant * logd);
       } else {
-        if (llcp /*+ (1 << 16)*/ < rlcp) {
-          // Choose the pivot that split the range into two parts of sizes
-          // with ratio equal to logd / d.
-          long d = rlcp - llcp;
-          long logd = utils::log2ceil(d);
-          mid = left + 1 + ((right - left - 1) * logd) / (d + logd);
-        } else if (rlcp /*+ (1 << 16)*/ < llcp) {
-          // Choose the pivot that split the range into two parts of sizes
-          // with ratio equal to logd / d.
-          long d = rlcp - llcp;
-          long logd = utils::log2ceil(d);
-          mid = right - 1 - ((right - left - 1) * logd) / (d + logd);
-        } else {
-          // Discrepancy between lcp values is small -> just use plain old
-          // binary search.
-          mid = (left + right) / 2;
-        }
+        // Discrepancy between lcp values is small, use standard binary search.
+        mid = (left + right) / 2;
       }
 
       long lcp = std::min(llcp, rlcp);
