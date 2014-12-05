@@ -36,21 +36,21 @@ void test(unsigned char *text, long text_length, long max_threads) {
   if (!std::equal(correct_sa, correct_sa + text_length, computed_sa)) {
     fprintf(stdout, "\nError:\n");
     fprintf(stdout, "\tlength = %ld\n", text_length);
+    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
     if (text_length <= 1000) {
       fprintf(stdout, "\ttext: ");
       for (long j = 0; j < text_length; ++j)
         fprintf(stdout, "%c", text[j]);
       fprintf(stdout, "\n");
+      fprintf(stdout, "\tcorrect sa: ");
+      for (long i = 0; i < text_length; ++i)
+        fprintf(stdout, "%d ", correct_sa[i]);
+      fprintf(stdout, "\n");
+      fprintf(stdout, "\tcomputed sa: ");
+      for (long i = 0; i < text_length; ++i)
+        fprintf(stdout, "%d ", computed_sa[i]);
+      fprintf(stdout, "\n");
     }
-    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
-    fprintf(stdout, "\tcorrect sa: ");
-    for (long i = 0; i < text_length; ++i)
-      fprintf(stdout, "%d ", correct_sa[i]);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\tcomputed sa: ");
-    for (long i = 0; i < text_length; ++i)
-      fprintf(stdout, "%d ", computed_sa[i]);
-    fprintf(stdout, "\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   }
