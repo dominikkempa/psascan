@@ -82,7 +82,7 @@ void compute_other_starting_position(unsigned char *text, long block_beg, long b
     } else if (rlcp + min_discrepancy < llcp) {
       // Choose the pivot that split the range into two parts of sizes
       // with ratio equal to logd / d.
-      long d = rlcp - llcp;
+      long d = llcp - rlcp;
       long logd = utils::log2ceil(d);
       mid = right - 1 - ((right - left - 1) * balancing_constant * logd) / (d + balancing_constant * logd);
     } else {
@@ -121,7 +121,7 @@ void compute_other_starting_position(unsigned char *text, long block_beg, long b
       } else if (rlcp + min_discrepancy < llcp) {
         // Choose the pivot that split the range into two parts of sizes
         // with ratio equal to logd / d.
-        long d = rlcp - llcp;
+        long d = llcp - rlcp;
         long logd = utils::log2ceil(d);
         mid = right - 1 - ((right - left - 1) * balancing_constant * logd) / (d + balancing_constant * logd);
       } else {
