@@ -29,8 +29,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
     long supertext_length,
     std::string supertext_filename,
     multifile *tail_gt_begin_reversed) {
+  bool res = true;
   all_decided = true;
-
 
   if (end == text_length) {
     // handling of the last block.
@@ -43,6 +43,7 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
     unsigned char *txt = text + begin;
     long tail_length = supertext_length - text_end;
     long range_size = end - begin;
+
     while (i < range_size) {
       while (i + el < range_size && el < tail_length && txt[i + el] == (*pat)[el]) ++el;
       if ((el == tail_length) || 
@@ -57,8 +58,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
 
     delete pat;
   } else {
-    long i = 0, el = 0, s = 0, p = 0, r = 0;
-    long i_max = 0, el_max = 0, s_max = 0, p_max = 0, r_max = 0;
+    long i = 0, el = 0, s = 0, p = 0;
+    long i_max = 0, el_max = 0, s_max = 0, p_max = 0;
 
     unsigned char *txt = text + begin;
     unsigned char *pat = text + end;
@@ -66,13 +67,13 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
 
     while (i < range_size) {
       while (el < max_lcp && txt[i + el] == pat[el])
-        next(pat, ++el, s, p, r);
-     
+        next(pat, ++el, s, p);
+
       if (el < max_lcp) {
         if (txt[i + el] > pat[el]) gt->set(end - i - 1);
       } else {
         undecided->set(begin + i);
-        all_decided = false;
+        res = false;
       }
 
       long j = i_max;
@@ -80,7 +81,6 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
         std::swap(el, el_max);
         std::swap(s, s_max);
         std::swap(p, p_max);
-        std::swap(r, r_max);
         i_max = i;
       }
 
@@ -88,7 +88,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
         ++i;
         el = 0;
       } else if (p > 0 && (p << 2) <= el && !memcmp(pat, pat + p, s)) {
-        for (long k = 1; k < std::min(p, range_size - i); ++k) {
+        long maxk = std::min(p, range_size - i);
+        for (long k = 1; k < maxk; ++k) {
           if (undecided->get(begin + j + k)) undecided->set(begin + i + k);
           if (gt->get(end - (j + k) - 1)) gt->set(end - (i + k) - 1);
         }
@@ -97,7 +98,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
         el -= p;
       } else {
         long h = (el >> 2) + 1;
-        for (long k = 1; k < std::min(h, range_size - i); ++k) {
+        long maxk = std::min(h, range_size - i);
+        for (long k = 1; k < maxk; ++k) {
           if (undecided->get(begin + j + k)) undecided->set(begin + i + k);
           if (gt->get(end - (j + k) - 1)) gt->set(end - (i + k) - 1);
         }
@@ -109,6 +111,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
       }
     }
   }
+
+  all_decided = res;
 }
 
 
