@@ -165,9 +165,20 @@ void compute_last_starting_position(unsigned char *text, long text_length,
   long block_size = block_end - block_beg;
 
   if (!has_tail) {
-    ret = 0L;
+    /*ret = 0L;
     while (ret < block_size && lcp_compare3(text, text_length, suf_start, block_beg + partial_bwtsa[ret].sa))
-      ++ret;
+      ++ret;*/
+
+    // Invariant: the answer is in the range (left..right].
+    long left = -1, right = block_size;
+    while (left + 1 != right) {
+      long mid = (left + right) / 2;
+      if (lcp_compare3(text, text_length, suf_start, block_beg + partial_bwtsa[mid].sa))
+        left = mid;
+      else right = mid;
+    }
+
+    ret = right;
   } else {
     suf_start += text_beg; // suf_start is now absolute wrt. to supertext.
     pattern pat(supertext_filename, suf_start);

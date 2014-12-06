@@ -20,8 +20,8 @@ void read_sa(saidx_t* &sa, std::string filename) {
 
 template<typename saidx_t>
 void test(unsigned char *text, long text_length, long max_threads,
-    long max_blocks, std::string filename) {
-  long double start;
+    long max_blocks, std::string /*filename*/) {
+  /*long double start;
 
   std::string sa_filename = filename + ".sa" + utils::intToStr(sizeof(long));
   if (!utils::file_exists(sa_filename)) {
@@ -32,14 +32,13 @@ void test(unsigned char *text, long text_length, long max_threads,
     utils::write_objects_to_file(correct_sa, text_length, sa_filename);
     delete[] correct_sa;
     fprintf(stderr, "Total time: %.2Lf\n", utils::wclock() - start);
-  }
+  }*/
 
   fprintf(stderr, "Running inmem sascan\n\n");
   unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
-  saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   inmem_sascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, false, false, NULL, max_blocks);
 
-  fprintf(stderr, "\nComparing:\n");
+  /*fprintf(stderr, "\nComparing:\n");
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
@@ -58,10 +57,10 @@ void test(unsigned char *text, long text_length, long max_threads,
     }
   }
   fprintf(stderr, "Compared %ld values", compared);
-  fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");
+  fprintf(stderr, "\nResult: %s\n", eq ? "OK" : "FAIL");*/
 
   free(computed_sa_temp);
-  delete sa_reader;
+  //delete sa_reader;
 }
 
 
