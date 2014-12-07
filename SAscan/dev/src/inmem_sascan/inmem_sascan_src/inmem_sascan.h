@@ -120,7 +120,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
   //----------------------------------------------------------------------------
-  if (compute_gt_begin || has_tail || n_blocks > 1) {
+  if (n_blocks > 1 || compute_gt_begin || has_tail) {
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
     compute_initial_gt_bitvectors(text, text_length, gt_begin, min_block_size, max_threads,
@@ -139,7 +139,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   // STEP 2: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging. Also, create block description array.
   //----------------------------------------------------------------------------
-  if (compute_gt_begin || n_blocks > 1) {
+  if (n_blocks > 1 || compute_gt_begin) {
     fprintf(stderr, "Overwriting gt_end with gt_begin: ");
     start = utils::wclock();
     gt_end_to_gt_begin(text, text_length, gt_begin, min_block_size, max_threads);
@@ -160,24 +160,45 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   print_schedule(schedule, n_blocks);
   fprintf(stderr, "\n");
 
-  long i0_result;
-  pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = NULL;
-  if (n_blocks > 1 || compute_bwt || has_tail) {
-    result = balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
-        gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin, compute_bwt, i0_result, schedule,
-        text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
-    if (i0) *i0 = i0_result;
+  long *i0_array = new long[n_blocks];
+  if (n_blocks > 1 || compute_bwt) {
+    for (long block_id = 0; block_id < n_blocks; ++block_id) {
+      long block_beg = block_id * min_block_size;
+      long block_end = block_beg + min_block_size;
+      if (block_end + min_block_size > text_length)
+        block_end = text_length;
+      long block_size = block_end - block_beg;
+
+      if (block_id + 1 != n_blocks || compute_bwt) {
+        fprintf(stderr, "Computing BWT for block %ld: ", block_id + 1);
+        long double bwt_start = utils::wclock();
+        bwt_from_sa_into_dest<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, i0_array[block_id]);
+        fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
+      }
+    }
+    fprintf(stderr, "\n");
   }
 
   if (n_blocks > 1) {
-    // We permute it to plain array.
+    long i0_result;
+    pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = balanced_merge<saidx_t, pagesize_log>(text,
+        text_length, bwtsa, gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin,
+        compute_bwt, i0_result, schedule, text_beg, text_end, supertext_length, supertext_filename,
+        tail_gt_begin_reversed, i0_array);
+    if (i0) *i0 = i0_result;
+
+    // Permute SA to plain array.
     fprintf(stderr, "\nPermuting the resulting SA to plain array: ");
     start = utils::wclock();
     result->permute_to_plain_array(max_threads);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-  }
 
-  delete result;
+    delete result;
+  } else if (compute_bwt) {
+    if (i0) *i0 = i0_array[0];
+  }
+  delete[] i0_array;
+
   if (!compute_gt_begin && (n_blocks > 1 || has_tail)) {
     delete gt_begin;
     gt_begin = NULL;

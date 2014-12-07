@@ -21,7 +21,8 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
     long min_block_size, long range_beg, long range_end, long max_threads,
     bool need_gt, bool need_bwt, long &result_i0, MergeSchedule &schedule,
     long text_beg, long text_end, long supertext_length,
-    std::string supertext_filename, multifile *tail_gt_begin_reversed) {
+    std::string supertext_filename, multifile *tail_gt_begin_reversed,
+    long *i0_array) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 
   long range_size = range_end - range_beg;
@@ -31,15 +32,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
     long block_end = block_beg + min_block_size;
     if (block_end + min_block_size > text_length) block_end = text_length;
 
-    long block_size = block_end - block_beg;
-
-    if (need_bwt) {
-      fprintf(stderr, "Computing BWT for block %ld: ", range_beg + 1);
-      long double start = utils::wclock();
-      bwt_from_sa_into_dest<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, result_i0);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
-    }
-
+    result_i0 = i0_array[range_beg];
     pagearray_type *bwtsa_pagearray = new pagearray_type(bwtsa + block_beg, bwtsa + block_end);
     return bwtsa_pagearray;
   }
@@ -77,7 +70,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   pagearray_type *l_bwtsa =
     balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
     min_block_size, lrange_beg, lrange_end, max_threads, need_gt, true, left_i0, schedule,
-    text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+    text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array);
 
   // 2
   // 
@@ -86,7 +79,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   pagearray_type *r_bwtsa =
       balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
       min_block_size, rrange_beg, rrange_end, max_threads, true, need_bwt, right_i0, schedule,
-      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array);
 
 
   //----------------------------------------------------------------------------
@@ -108,12 +101,6 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
       *l_bwtsa, gt, gap, max_threads, need_gt, left_i0, (1L << 21), rank_init_time, streaming_time,
       text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
   fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
-
-
-//  fprintf(stderr, "gap array: ");
-//  for (long i = 0; i < lsize + 1; ++i)
-//    fprintf(stderr, "%ld ", (long)gap->m_count[i]);
-//  fprintf(stderr, "\n");
 
 
   // 2
