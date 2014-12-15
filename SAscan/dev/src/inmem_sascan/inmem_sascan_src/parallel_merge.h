@@ -29,11 +29,16 @@ void parallel_merge_aux(
     inmem_gap_array *gap,
     long left_idx, long right_idx,
     long remaining_gap,
-    long res_beg, long res_size,
+    long page_range_beg,
+    long page_range_end,
     long what_to_add) {
 
   typedef typename pagearray_type::value_type value_type;
   static const unsigned pagesize = pagearray_type::pagesize;
+
+  long res_beg = std::max(0L, output->get_page_addr(page_range_beg) - output->m_origin);
+  long res_end = std::min(output->m_length, output->get_page_addr(page_range_end) - output->m_origin);
+  long res_size = res_end - res_beg;
 
   long lpage_read = 0L;
   long lpage_id = l_pagearray->get_page_id(left_idx);
@@ -183,13 +188,12 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
 
   std::thread **threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
-    long res_beg = t * pages_per_thread * pagesize;
-    long res_end = std::min(res_beg + pages_per_thread * pagesize, length);
-    long res_size = res_end - res_beg;
+    long page_range_beg = t * pages_per_thread;
+    long page_range_end = std::min(page_range_beg + pages_per_thread, n_pages);
 
     threads[t] = new std::thread(parallel_merge_aux<pagearray_type>,
         l_pagearray, r_pagearray, result, gap,  left_idx[t], right_idx[t],
-        remaining_gap[t], res_beg, res_size, what_to_add);
+        remaining_gap[t], page_range_beg, page_range_end, what_to_add);
   }
   for (long t = 0; t < n_threads; ++t) threads[t]->join();
   for (long t = 0; t < n_threads; ++t) delete threads[t];
