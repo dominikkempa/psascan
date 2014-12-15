@@ -198,26 +198,34 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   delete[] right_idx;
   delete[] remaining_gap;
 
-  // If the last input page was incomplete, handle
-  // it separatelly and exclude from the computation.
+  bool *usedpage = new bool[n_pages];
+  std::fill(usedpage, usedpage + n_pages, false);
+
+  // Handle the page that was not full
+  // manually (if there was one).
   if (length % pagesize) {
     long size = length % pagesize;
-    value_type *lastpage = result->m_pageindex[n_pages - 1];
-    value_type *dest = result->m_origin + pagesize * (n_pages - 1);
-    std::copy(lastpage, lastpage + size, dest);
+
+#if 0
+    value_type *src = result->m_pageindex[0];
+    value_type *dest = result->get_page_offset(0);
+    std::copy(src + pagesize - size, src + pagesize, dest + pagesize - size);
+    result->m_pageindex[0] = dest;
+    usedpage[0] = true;
+#else
+    value_type *src = result->m_pageindex[n_pages - 1];
+    value_type *dest = result->get_page_addr(n_pages - 1);
+    std::copy(src, src + size, dest);
     result->m_pageindex[n_pages - 1] = dest;
+    usedpage[n_pages - 1] = true;
+#endif
 
     // Release the lastpage if it was temporary.
-    if (!result->owns_page(lastpage))
-      delete[] lastpage;
-
-    length -= size;
-    --n_pages;
+    if (!result->owns_page(src))
+      delete[] src;
   }
 
   // Find unused input pages.
-  bool *usedpage = new bool[n_pages];
-  std::fill(usedpage, usedpage + n_pages, false);
   std::vector<std::pair<long, value_type*> > auxpages;
   for (long i = 0; i < n_pages; ++i) {
     value_type *p = result->m_pageindex[i];
@@ -229,11 +237,11 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   // order and release them (aux pages).
   for (long i = 0, ptr = 0; i < n_pages; ++i) {
     if (!usedpage[i]) {
-      long page_id = auxpages[ptr].first;
+      long id = auxpages[ptr].first;
       value_type *src = auxpages[ptr++].second;
-      value_type *dest = result->m_origin + i * pagesize;
+      value_type *dest = result->get_page_addr(i);
       std::copy(src, src + pagesize, dest);
-      result->m_pageindex[page_id] = dest;
+      result->m_pageindex[id] = dest;
       delete[] src;
     }
   }

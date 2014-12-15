@@ -82,6 +82,14 @@ struct pagearray {
     return m_origin <= page && page < m_origin + m_length;
   }
 
+  inline value_type *get_page_addr(long id) const {
+    return m_origin + (id << pagesize_log);
+  }
+
+  inline bool fully_contained_page(value_type *p) const {
+    return (m_origin <= p && p + pagesize <= m_origin + m_length);
+  }
+
   // Used only for testing.
   void random_shuffle() {
     long trimmed_length = m_length - m_length % pagesize;
@@ -107,9 +115,7 @@ struct pagearray {
   static void permute_to_plain_array_aux(pagearray_type &a,
       std::mutex *mutexes, long &selector, std::mutex &selector_mutex) {
     static const unsigned pagesize = (1U << pagesize_log);
-
-    long len = a.m_length - a.m_length % pagesize;
-    long n_pages = (len + pagesize - 1) >> pagesize_log;
+    long n_pages = (a.m_length + pagesize - 1) / pagesize;
 
     // Invariant: at all times, index[i] for any i points
     // to content that should be placed at i-th page of tab.
@@ -119,10 +125,8 @@ struct pagearray {
       while (true) {
         // Get the candidate using selector.
         std::unique_lock<std::mutex> lk(selector_mutex);
-        while (selector < n_pages &&
-            (a.m_pageindex[selector] == a.m_origin + (selector << pagesize_log) ||
-             a.m_pageindex[selector] < a.m_origin || a.m_origin + len <= a.m_pageindex[selector]))
-            ++selector;
+        while (selector < n_pages && a.m_pageindex[selector] == a.get_page_addr(selector))
+          ++selector;
 
         // Exit, if the selector does not give any candidate.
         if (selector == n_pages) {
@@ -137,9 +141,7 @@ struct pagearray {
 
         // Lock a candidate page and check if it's still good.
         // If yes, keep lock and proceed to process it.
-        if (mutexes[start].try_lock() &&
-            a.m_pageindex[start] != a.m_origin + (start << pagesize_log) &&
-            a.m_origin <= a.m_pageindex[start] && a.m_pageindex[start] < a.m_origin + len) break;
+        if (mutexes[start].try_lock() && a.m_pageindex[start] != a.get_page_addr(start)) break;
       }
 
       // Invariant: we have found a good candidate
@@ -157,21 +159,20 @@ struct pagearray {
       // elements from the cycle and moving temp pointer.
       do {
         // Invariant: temp points to a page inside tab.
-        long next = (temp - a.m_origin) >> pagesize_log;
+        long next = a.get_page_id(temp);
         std::unique_lock<std::mutex> lk(mutexes[next]);
         std::copy(a.m_pageindex[next], a.m_pageindex[next] + pagesize, temp);
         std::swap(a.m_pageindex[next], temp);
         lk.unlock();
-      } while (a.m_origin <= temp && temp < a.m_origin + len);
+      } while (a.owns_page(temp));
       delete[] temp;
     }
   }
 
   void permute_to_plain_array(long max_threads) {
-    long len = m_length - m_length % pagesize;
-    long n_pages = (len + pagesize - 1) >> pagesize_log;
-
+    long n_pages = (m_length + pagesize - 1) / pagesize;
     long selector = 0;
+
     std::mutex selector_mutex;
     std::mutex *mutexes = new std::mutex[n_pages];
     std::thread **threads = new std::thread*[max_threads];
