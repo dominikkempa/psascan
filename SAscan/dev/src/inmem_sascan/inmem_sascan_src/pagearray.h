@@ -66,6 +66,22 @@ struct pagearray {
     return m_pageindex[i >> pagesize_log][i & pagesize_mask];
   }
 
+  inline long get_page_offset(long i) const {
+    return (i & pagesize_mask);
+  }
+
+  inline long get_page_id(long i) const {
+    return (i >> pagesize_log);
+  }
+
+  inline long get_page_id(value_type *p) const {
+    return ((p - m_origin) >> pagesize_log);
+  }
+
+  inline bool owns_page(T *page) const {
+    return m_origin <= page && page < m_origin + m_length;
+  }
+
   // Used only for testing.
   void random_shuffle() {
     long trimmed_length = m_length - m_length % pagesize;
