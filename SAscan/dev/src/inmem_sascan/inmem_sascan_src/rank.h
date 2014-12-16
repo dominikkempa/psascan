@@ -266,17 +266,19 @@ class rank4n {
         // compute cblock symbols into cblock_symbols tab.
         unsigned long maxj = std::min(cblock_end, r.m_length);
         unsigned long page_id = (cblock_beg >> pagesize_log);
+
+
         value_type *cur_page = ptext->m_pageindex[page_id++];
-        unsigned long page_offset = (cblock_beg & pagesize_mask); // this should be the content of an iterator.
+        unsigned long page_offset = ptext->get_page_offset(cblock_beg);
 
         for (unsigned long j = cblock_beg; j < maxj; ++j) {
           unsigned char c = cur_page[page_offset].bwt;
           bwt[j] = c;
           ++cblock_count[c];
           ++page_offset;
-          if (!(page_offset & pagesize_mask)) {
+          if (page_offset == pagesize) {
             cur_page = ptext->m_pageindex[page_id];
-            page_id++;
+            ++page_id;
             page_offset = 0;
           }
         }
