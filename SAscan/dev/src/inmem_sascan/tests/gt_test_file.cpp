@@ -122,7 +122,7 @@ void test(unsigned char *text, long text_length, long max_threads,
     }
 
     bool next_correct_gt = gt_reader->read();
-    bool next_computed_gt = gt_begin->get(i);
+    bool next_computed_gt = gt_begin->get(text_length - 1 - i);
     if (next_correct_gt != next_computed_gt) {
       eq = false;
       break;

@@ -140,7 +140,7 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
     }
     
     bool next_text_gt_begin_correct = text_gt_begin_correct->get(i);
-    bool next_text_gt_begin_computed = text_gt_begin_computed->get(i);
+    bool next_text_gt_begin_computed = text_gt_begin_computed->get(text_length - 1 - i);
     if (next_text_gt_begin_correct != next_text_gt_begin_computed) { eq = false; break; }
   }
   fprintf(stderr, "Compared %ld values", compared);

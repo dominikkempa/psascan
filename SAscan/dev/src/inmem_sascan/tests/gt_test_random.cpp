@@ -101,7 +101,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   //----------------------------------------------------------------------------
   bool eq = true;
   for (long i = 0; i < text_length; ++i) {
-    if (correct_gt_begin.get(i) != computed_gt_begin.get(i)) { eq = false; break; }
+    if (correct_gt_begin.get(i) != computed_gt_begin.get(text_length - 1 - i)) { eq = false; break; }
   }
   
   if (!eq) {

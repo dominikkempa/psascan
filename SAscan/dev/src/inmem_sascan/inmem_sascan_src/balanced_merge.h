@@ -18,19 +18,21 @@ namespace inmem_sascan_private {
 template<typename saidx_t, unsigned pagesize_log>
 pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
     long text_length, bwtsa_t<saidx_t> *bwtsa, bitvector *gt,
-    long min_block_size, long range_beg, long range_end, long max_threads,
+    long max_block_size, long range_beg, long range_end, long max_threads,
     bool need_gt, bool need_bwt, long &result_i0, MergeSchedule &schedule,
     long text_beg, long text_end, long supertext_length,
     std::string supertext_filename, multifile *tail_gt_begin_reversed,
     long *i0_array) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 
+  long shift = (max_block_size - text_length % max_block_size) % max_block_size;
   long range_size = range_end - range_beg;
 
   if (range_size == 1) {
-    long block_beg = range_beg * min_block_size;
-    long block_end = block_beg + min_block_size;
-    if (block_end + min_block_size > text_length) block_end = text_length;
+    long block_beg = range_beg * max_block_size;
+    long block_end = block_beg + max_block_size;
+    block_beg = std::max(0L, block_beg - shift);
+    block_end -= shift;
 
     result_i0 = i0_array[range_beg];
     pagearray_type *bwtsa_pagearray = new pagearray_type(bwtsa + block_beg, bwtsa + block_end);
@@ -49,11 +51,14 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long rrange_beg = lrange_end;
   long rrange_end = rrange_beg + rrange_size;
 
-  long lbeg = lrange_beg * min_block_size;
-  long rbeg = rrange_beg * min_block_size;
+  long lbeg = lrange_beg * max_block_size;
+  long rbeg = rrange_beg * max_block_size;
   long lend = rbeg;
-  long rend = rbeg + rrange_size * min_block_size;
-  if (rend + min_block_size > text_length) rend = text_length;
+  long rend = rbeg + rrange_size * max_block_size;
+  lbeg = std::max(0L, lbeg - shift);
+  rbeg -= shift;
+  lend -= shift;
+  rend -= shift;
 
   long lsize = lend - lbeg;
   long rsize = rend - rbeg;
@@ -69,7 +74,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long left_i0;
   pagearray_type *l_bwtsa =
     balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-    min_block_size, lrange_beg, lrange_end, max_threads, need_gt, true, left_i0, schedule,
+    max_block_size, lrange_beg, lrange_end, max_threads, need_gt, true, left_i0, schedule,
     text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array);
 
   // 2
@@ -78,7 +83,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long right_i0;
   pagearray_type *r_bwtsa =
       balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-      min_block_size, rrange_beg, rrange_end, max_threads, true, need_bwt, right_i0, schedule,
+      max_block_size, rrange_beg, rrange_end, max_threads, true, need_bwt, right_i0, schedule,
       text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array);
 
 

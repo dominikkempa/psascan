@@ -156,7 +156,7 @@ void process_block(long block_beg, long block_end,
     unsigned char *right_block_sabwt = (unsigned char *)malloc(right_block_size * (sizeof(block_offset_type) + 1));
     block_offset_type *right_block_psa_ptr = (block_offset_type *)right_block_sabwt;
     unsigned char *right_block_bwt = (unsigned char *)(right_block_psa_ptr + right_block_size);
-    bitvector *right_block_gt_begin_bv = new bitvector(right_block_size);
+    bitvector *right_block_gt_begin_rev_bv = new bitvector(right_block_size);
     fprintf(stderr, "    Internal memory sufsort: ");
     long double right_block_sascan_start = utils::wclock();
 
@@ -171,7 +171,7 @@ void process_block(long block_beg, long block_end,
 
     // Run in-memory SAscan.
     inmem_sascan<block_offset_type>(right_block, right_block_size, right_block_sabwt, max_threads,
-        !last_block, true, right_block_gt_begin_bv, -1, right_block_beg, right_block_end, text_length,
+        !last_block, true, right_block_gt_begin_rev_bv, -1, right_block_beg, right_block_end, text_length,
         text_filename, tail_gt_begin_rev, &right_block_i0);
 
     // Restore stderr.
@@ -223,17 +223,17 @@ void process_block(long block_beg, long block_end,
 
     // 1.f
     //
-    // Write gt_begin of the right half-block to disk.
+    // Write reversed gt_begin of the right half-block to disk.
     fprintf(stderr, "    Write gt_begin to disk: ");
-    long double right_gt_begin_save_start = utils::wclock();
-    right_block_gt_begin_bv->save_reversed(right_block_gt_begin_rev_fname, right_block_size);
+    long double right_gt_begin_rev_save_start = utils::wclock();
+    right_block_gt_begin_rev_bv->save(right_block_gt_begin_rev_fname);
     right_block_gt_begin_rev = new multifile();
     right_block_gt_begin_rev->add_file(text_length - right_block_end, text_length - right_block_beg,
         right_block_gt_begin_rev_fname);
-    delete right_block_gt_begin_bv;
-    long double right_gt_begin_save_time = utils::wclock() - right_gt_begin_save_start;
-    long double right_gt_begin_save_io = (right_block_size / (8.L * (1 << 20))) / right_gt_begin_save_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_gt_begin_save_time, right_gt_begin_save_io);
+    delete right_block_gt_begin_rev_bv;
+    long double right_gt_begin_rev_save_time = utils::wclock() - right_gt_begin_rev_save_start;
+    long double right_gt_begin_rev_save_io = (right_block_size / (8.L * (1 << 20))) / right_gt_begin_rev_save_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_gt_begin_rev_save_time, right_gt_begin_rev_save_io);
   }
 
 
@@ -266,8 +266,8 @@ void process_block(long block_beg, long block_end,
   unsigned char *left_block_sabwt = (unsigned char *)malloc(left_block_size * (sizeof(block_offset_type) + 1) + 1);
   block_offset_type *left_block_psa_ptr = (block_offset_type *)left_block_sabwt;
   unsigned char *left_block_bwt_ptr = (unsigned char *)(left_block_psa_ptr + left_block_size);
-  bitvector *left_block_gt_beg_bv = NULL;
-  if (!first_block) left_block_gt_beg_bv = new bitvector(left_block_size);  
+  bitvector *left_block_gt_begin_rev_bv = NULL;
+  if (!first_block) left_block_gt_begin_rev_bv = new bitvector(left_block_size);  
   fprintf(stderr, "    Internal memory sufsort: ");
   long double left_block_sascan_start = utils::wclock();
 
@@ -282,7 +282,7 @@ void process_block(long block_beg, long block_end,
 
   // Run in-memory SAscan.
   inmem_sascan<block_offset_type>(left_block, left_block_size, left_block_sabwt, max_threads,
-      (right_block_size > 0), !first_block, left_block_gt_beg_bv, -1, left_block_beg,
+      (right_block_size > 0), !first_block, left_block_gt_begin_rev_bv, -1, left_block_beg,
       left_block_end, text_length, text_filename, right_block_gt_begin_rev, &left_block_i0);
 
   // Restore stderr.
@@ -341,14 +341,14 @@ void process_block(long block_beg, long block_end,
   // It is only needed if the block is not the first block of the text.
   if (!first_block) {
     fprintf(stderr, "    Write gt_begin to disk: ");
-    long double left_gt_begin_save_start = utils::wclock();
+    long double left_gt_begin_rev_save_start = utils::wclock();
     std::string left_block_gt_begin_rev_fname = output_filename + "." + utils::random_string_hash();
-    left_block_gt_beg_bv->save_reversed(left_block_gt_begin_rev_fname, left_block_size);
+    left_block_gt_begin_rev_bv->save(left_block_gt_begin_rev_fname);
     newtail_gt_begin_rev->add_file(text_length - left_block_end, text_length - left_block_beg, left_block_gt_begin_rev_fname);
-    delete left_block_gt_beg_bv;
-    long double left_gt_begin_save_time = utils::wclock() - left_gt_begin_save_start;
-    long double left_gt_begin_save_io = (left_block_size / (8.L * (1 << 20))) / left_gt_begin_save_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_gt_begin_save_time, left_gt_begin_save_io);
+    delete left_block_gt_begin_rev_bv;
+    long double left_gt_begin_rev_save_time = utils::wclock() - left_gt_begin_rev_save_start;
+    long double left_gt_begin_rev_save_io = (left_block_size / (8.L * (1 << 20))) / left_gt_begin_rev_save_time;
+    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_gt_begin_rev_save_time, left_gt_begin_rev_save_io);
   }
 
 

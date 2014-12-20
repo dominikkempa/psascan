@@ -102,7 +102,7 @@ void test(unsigned char *supertext, long supertext_length,
   // Compare answers.
   bool eq = true;
   for (long i = 0; i < text_length; ++i)
-    if (text_gt_begin_correct->get(i) != text_gt_begin_computed->get(i)) { eq = false; break; }
+    if (text_gt_begin_correct->get(i) != text_gt_begin_computed->get(text_length - 1 - i)) { eq = false; break; }
 
   if (!eq) {
     fprintf(stdout, "Error:\n");

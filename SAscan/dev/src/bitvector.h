@@ -36,15 +36,8 @@ struct bitvector {
     else set(i);
   }
 
-  void save(std::string filename) const {
+  inline void save(std::string filename) {
     utils::write_objects_to_file<unsigned char>(m_data, m_alloc_bytes, filename);
-  }
-
-  void save_reversed(std::string filename, long length) const {
-    bit_stream_writer *writer = new bit_stream_writer(filename);
-    for (long i = length - 1; i >= 0; --i)
-      writer->write(get(i));
-    delete writer;
   }
 
   // Number of 1 bits in the range [beg..end).

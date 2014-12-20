@@ -77,10 +77,11 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   //----------------------------------------------------------------------------
 
   long alignment_unit = (long)std::max(pagesize, 8U);
-  long min_block_size = text_length / max_blocks;
-  while (min_block_size & (alignment_unit - 1)) --min_block_size;
-  if (!min_block_size) min_block_size = text_length;
-  long n_blocks = text_length / min_block_size;
+  long max_block_size = (text_length + max_blocks - 1) / max_blocks;
+  while ((max_block_size & (alignment_unit - 1)) && max_block_size < text_length)
+    ++max_block_size;
+
+  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
 
   if (!compute_gt_begin) {
@@ -100,7 +101,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
 
   fprintf(stderr, "Text length = %ld (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
-  fprintf(stderr, "Min block size = %ld (%.2LfMiB)\n", min_block_size, min_block_size / (1024.L * 1024));
+  fprintf(stderr, "Max block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
   fprintf(stderr, "Max blocks = %ld\n", max_blocks);
   fprintf(stderr, "Number of blocks = %ld\n", n_blocks);
   fprintf(stderr, "Max threads = %ld\n", max_threads);
@@ -123,16 +124,15 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   if (n_blocks > 1 || compute_gt_begin || has_tail) {
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
-    compute_initial_gt_bitvectors(text, text_length, gt_begin, min_block_size, max_threads,
+    compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size, max_threads,
         text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
     fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
   }
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
-  initial_partial_sufsort(text, text_length, gt_begin, bwtsa, min_block_size, max_threads, has_tail);
+  initial_partial_sufsort(text, text_length, gt_begin, bwtsa, max_block_size, max_threads, has_tail);
   fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
-
 
 
   //----------------------------------------------------------------------------
@@ -142,10 +142,9 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   if (n_blocks > 1 || compute_gt_begin) {
     fprintf(stderr, "Overwriting gt_end with gt_begin: ");
     start = utils::wclock();
-    gt_end_to_gt_begin(text, text_length, gt_begin, min_block_size, max_threads);
+    gt_end_to_gt_begin(text, text_length, gt_begin, max_block_size, max_threads);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
   }
-
 
 
   float rl_ratio = 10.L; // estimated empirically
@@ -163,10 +162,8 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   long *i0_array = new long[n_blocks];
   if (n_blocks > 1 || compute_bwt) {
     for (long block_id = 0; block_id < n_blocks; ++block_id) {
-      long block_beg = block_id * min_block_size;
-      long block_end = block_beg + min_block_size;
-      if (block_end + min_block_size > text_length)
-        block_end = text_length;
+      long block_end = text_length - (n_blocks - 1 - block_id) * max_block_size;
+      long block_beg = std::max(0L, block_end - max_block_size);
       long block_size = block_end - block_beg;
 
       if (block_id + 1 != n_blocks || compute_bwt) {
@@ -182,7 +179,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   if (n_blocks > 1) {
     long i0_result;
     pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = balanced_merge<saidx_t, pagesize_log>(text,
-        text_length, bwtsa, gt_begin, min_block_size, 0, n_blocks, max_threads, compute_gt_begin,
+        text_length, bwtsa, gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
         compute_bwt, i0_result, schedule, text_beg, text_end, supertext_length, supertext_filename,
         tail_gt_begin_reversed, i0_array);
     if (i0) *i0 = i0_result;

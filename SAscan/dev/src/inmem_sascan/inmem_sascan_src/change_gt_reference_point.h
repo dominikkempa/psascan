@@ -14,7 +14,7 @@ namespace inmem_sascan_private {
 // Compute range [microblock_beg..microblock_end) of bits in the output
 // bitvector gt_out.
 //==============================================================================
-void gt_end_to_gt_begin_aux(unsigned char *text,
+void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
     long block_beg, long block_end, bitvector *gt) {
   long block_size = block_end - block_beg;
   unsigned char *pat = text + block_beg, *txt = pat;
@@ -22,6 +22,7 @@ void gt_end_to_gt_begin_aux(unsigned char *text,
   long i = 1, el = 0L, s = 0L, p = 0L;
   long i_max = i, el_max = 0L, s_max = 0L, p_max = 0L;
 
+  long rev_end = text_length - block_beg;
   while (i < block_size) {
     // Compute lcp(text[left_block_beg..), text[left_block_beg+i..),
     // but compare not more than left_block_size symbols (we have gt
@@ -30,9 +31,9 @@ void gt_end_to_gt_begin_aux(unsigned char *text,
       next(pat, ++el, s, p);
 
     if (((block_beg + i + el != block_end && txt[i + el] > pat[el]) ||
-         (block_beg + i + el == block_end && !gt->get(block_beg + i - 1))))
-      gt->set(block_beg + i - 1);
-    else gt->reset(block_beg + i - 1);
+         (block_beg + i + el == block_end && !gt->get(rev_end - i))))
+      gt->set(rev_end - i);
+    else gt->reset(rev_end - i);
 
     long j = i_max;
     if (el > el_max) {
@@ -48,8 +49,8 @@ void gt_end_to_gt_begin_aux(unsigned char *text,
     } else if (p > 0L && (p << 2) <= el && !memcmp(pat, pat + p, s)) {
       long maxk = std::min(block_size - i, p);
       for (long k = 1L; k < maxk; ++k) {
-        if (gt->get(block_beg + j + k - 1)) gt->set(block_beg + i + k - 1);
-        else gt->reset(block_beg + i + k - 1);
+        if (gt->get(rev_end - (j + k))) gt->set(rev_end - (i + k));
+        else gt->reset(rev_end - (i + k));
       }
 
       i += p;
@@ -58,8 +59,8 @@ void gt_end_to_gt_begin_aux(unsigned char *text,
       long h = (el >> 2) + 1L;
       long maxk = std::min(h, block_size - i);
       for (long k = 1L; k < maxk; ++k) {
-        if (gt->get(block_beg + j + k - 1)) gt->set(block_beg + i + k - 1);
-        else gt->reset(block_beg + i + k - 1);
+        if (gt->get(rev_end - (j + k))) gt->set(rev_end - (i + k));
+        else gt->reset(rev_end - (i + k));
       }
 
       i += h;
@@ -75,20 +76,18 @@ void gt_end_to_gt_begin_aux(unsigned char *text,
 // Change gt_end bitvector into gt_begin using string range matching.
 //==============================================================================
 void gt_end_to_gt_begin(unsigned char *text, long text_length,
-    bitvector *gt, long min_block_size, long /*max_threads*/) {
-  // NOTE: The called of this function *must* use the same max block size.
-  long n_blocks = text_length / min_block_size;
+    bitvector *gt, long max_block_size, long /*max_threads*/) {
+  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
 
   //----------------------------------------------------------------------------
   // STEP 1: Compute the last bit in every block.
   //----------------------------------------------------------------------------
   for (long i = 0; i < n_blocks; ++i) {
-    long block_beg = i * min_block_size;
-    long block_end = block_beg + min_block_size;
-    if (block_end + min_block_size > text_length) block_end = text_length;
-
-    gt->flip(block_end - 1);
+    long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+    long block_beg = std::max(0L, block_beg - max_block_size);
+    long rev_beg = text_length - block_end;
+    gt->flip(rev_beg);
   }
 
 
@@ -97,12 +96,11 @@ void gt_end_to_gt_begin(unsigned char *text, long text_length,
   //----------------------------------------------------------------------------
   std::thread **threads = new std::thread*[n_blocks];
   for (long i = 0; i < n_blocks; ++i) {
-    long block_beg = i * min_block_size;
-    long block_end = block_beg + min_block_size;
-    if (block_end + min_block_size > text_length) block_end = text_length;
+    long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+    long block_beg = std::max(0L, block_end - max_block_size);
 
     threads[i] = new std::thread(gt_end_to_gt_begin_aux,
-        text, block_beg, block_end, gt);
+        text, text_length, block_beg, block_end, gt);
   }
 
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();

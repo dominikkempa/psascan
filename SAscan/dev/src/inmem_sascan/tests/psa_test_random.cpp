@@ -190,6 +190,32 @@ int main() {
   int redir = open("/dev/null", O_WRONLY);
   dup2(redir, 2);
   close(redir);
+  
+  test_random<int, 1>(1000, 300, 5);
+  test_random<int, 1>(1000, 300, 128);
+  test_random<int, 3>(1000, 300, 5);
+  test_random<int, 3>(1000, 300, 128);
+  test_random<int, 5>(1000, 300, 5);
+  test_random<int, 5>(1000, 300, 128);
+  test_random<int, 12>(1000, 300, 5);
+  test_random<int, 12>(1000, 300, 128);
+  test_random<int, 1>(1000, 300, 255);
+  test_random<int, 3>(1000, 300, 255);
+  test_random<int, 5>(1000, 300, 255);
+  test_random<int, 12>(1000, 300, 255);
+
+  test_random<int, 1>(100, 1000, 5);
+  test_random<int, 1>(100, 1000, 128);
+  test_random<int, 3>(100, 1000, 5);
+  test_random<int, 3>(100, 1000, 128);
+  test_random<int, 5>(100, 1000, 5);
+  test_random<int, 5>(100, 1000, 128);
+  test_random<int, 12>(100, 1000, 5);
+  test_random<int, 12>(100, 1000, 128);
+  test_random<int, 1>(100, 1000, 255);
+  test_random<int, 3>(100, 1000, 255);
+  test_random<int, 5>(100, 1000, 255);
+  test_random<int, 12>(100, 1000, 255);
 
   test_random<uint40, 2>(10000,   10,      5);
   test_random<uint40, 5>(10000,   10,      5);

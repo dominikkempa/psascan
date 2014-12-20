@@ -56,7 +56,6 @@ void parallel_merge_aux(
   output->m_pageindex[pageid++] = dest;
 
   std::stack<value_type*> freepages;
-
   size_t excess_ptr = std::lower_bound(gap->m_excess.begin(),
       gap->m_excess.end(), left_idx + 1) - gap->m_excess.begin();
 
@@ -127,9 +126,11 @@ void parallel_merge_aux(
 template<typename pagearray_type>
 pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pagearray,
     inmem_gap_array *gap, long max_threads, long i0, long &aux_result, long what_to_add) {
-  typedef typename pagearray_type::value_type value_type;
   static const unsigned pagesize_log = pagearray_type::pagesize_log;
   static const unsigned pagesize = pagearray_type::pagesize;
+  typedef typename pagearray_type::value_type value_type;
+  typedef pagearray<value_type, pagesize_log> output_type;
+
 
   //----------------------------------------------------------------------------
   // STEP 1: compute the initial parameters for each thread. For now, we do it
@@ -149,6 +150,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   long n_pages = (length + pagesize - 1) / pagesize;
   long pages_per_thread = (n_pages + max_threads - 1) / max_threads;
   long n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
+  output_type *result = new output_type(l_pagearray->m_origin, length);
 
   // Compute initial parameters for each thread.
   long *left_idx = new long[n_threads];
@@ -159,14 +161,18 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   long *gap_query = new long[n_threads];
   long *gap_answer_a = new long[n_threads];
   long *gap_answer_b = new long[n_threads];
-  for (long i = 0; i < n_threads; ++i)
-    gap_query[i] = i * pages_per_thread * pagesize;
+  for (long i = 0; i < n_threads; ++i) {
+    long page_range_beg = i * pages_per_thread;
+    long res_beg = std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
+    gap_query[i] = res_beg;
+  }
 
   // Answer these queries in parallel and convert the answers
   // to left_idx, right_idx and remaining_gap values.
   aux_result = gap->answer_queries(n_threads, gap_query, gap_answer_a, gap_answer_b, max_threads, i0);
   for (long i = 0; i < n_threads; ++i) {
-    long res_beg = i * pages_per_thread * pagesize;
+    long page_range_beg = i * pages_per_thread;
+    long res_beg = std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
     long j = gap_answer_a[i], s = gap_answer_b[i];
     left_idx[i] = j;
     right_idx[i] = res_beg - j;
@@ -183,8 +189,6 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   //----------------------------------------------------------------------------
   fprintf(stderr, "merge: ");
   start = utils::wclock();
-  typedef pagearray<value_type, pagesize_log> output_type;
-  output_type *result = new output_type(l_pagearray->m_origin, length);
 
   std::thread **threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
@@ -209,20 +213,11 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   // manually (if there was one).
   if (length % pagesize) {
     long size = length % pagesize;
-
-#if 0
     value_type *src = result->m_pageindex[0];
-    value_type *dest = result->get_page_offset(0);
+    value_type *dest = result->get_page_addr(0);
     std::copy(src + pagesize - size, src + pagesize, dest + pagesize - size);
     result->m_pageindex[0] = dest;
     usedpage[0] = true;
-#else
-    value_type *src = result->m_pageindex[n_pages - 1];
-    value_type *dest = result->get_page_addr(n_pages - 1);
-    std::copy(src, src + size, dest);
-    result->m_pageindex[n_pages - 1] = dest;
-    usedpage[n_pages - 1] = true;
-#endif
 
     // Release the lastpage if it was temporary.
     if (!result->owns_page(src))

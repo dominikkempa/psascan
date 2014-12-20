@@ -34,9 +34,10 @@ struct pagearray {
   static const unsigned pagesize_mask = (1U << k_pagesize_log) - 1;
 
   typedef T value_type;
-  typedef pagearray<value_type, pagesize_log> pagearray_type;
+  typedef pagearray<value_type, k_pagesize_log> pagearray_type;
 
   long m_length;
+  long m_shift;
 
   value_type *m_origin;
   value_type **m_pageindex;
@@ -46,6 +47,7 @@ struct pagearray {
   pagearray(value_type *origin, long length) {
     m_length = length;
     m_origin = origin;
+    m_shift = (pagesize - m_length % pagesize) % pagesize;
 
     long n_pages = (m_length + pagesize - 1) / pagesize;
     m_pageindex = new value_type*[n_pages + 1];
@@ -55,38 +57,45 @@ struct pagearray {
   pagearray(value_type *begin, value_type *end) {
     m_length = end - begin;
     m_origin = begin;
+    m_shift = (pagesize - m_length % pagesize) % pagesize;
 
     long n_pages = (m_length + pagesize - 1) / pagesize;
     m_pageindex = new value_type*[n_pages + 1];
     for (long i = 0; i < n_pages; ++i)
-      m_pageindex[i] = begin + i * pagesize;
+      m_pageindex[i] = begin + i * pagesize - m_shift;
   }
 
   inline value_type &operator[] (long i) const {
+    i += m_shift;
     return m_pageindex[i >> pagesize_log][i & pagesize_mask];
   }
 
   inline long get_page_offset(long i) const {
+    i += m_shift;
     return (i & pagesize_mask);
   }
 
   inline long get_page_id(long i) const {
+    i += m_shift;
     return (i >> pagesize_log);
   }
 
   inline long get_page_id(value_type *p) const {
+    p += m_shift;
     return ((p - m_origin) >> pagesize_log);
   }
 
-  inline bool owns_page(T *page) const {
-    return m_origin <= page && page < m_origin + m_length;
+  inline bool owns_page(value_type *p) const {
+    p += m_shift;
+    return m_origin <= p && p < m_origin + m_length;
   }
 
   inline value_type *get_page_addr(long id) const {
-    return m_origin + (id << pagesize_log);
+    return m_origin + (id << pagesize_log) - m_shift;
   }
 
   inline bool fully_contained_page(value_type *p) const {
+    p += m_shift;
     return (m_origin <= p && p + pagesize <= m_origin + m_length);
   }
 

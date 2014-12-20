@@ -220,7 +220,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
         // than the one starting at block_beg + bwtsa[ret].sa in the text.
         // We know they have a common prefix of length prev_stream_block_size.
         if ((long)bwtsa[mid].sa + prev_stream_block_size >= left_block_size) {
-          if (gt->get(suf_start + left_block_size - bwtsa[mid].sa - 1)) left = mid;
+          if (gt->get(text_length - 1 - (suf_start + left_block_size - bwtsa[mid].sa - 1))) left = mid;
           else right = mid;
         } else {
           long j = bwtsa[mid].sa + prev_stream_block_size;
@@ -292,7 +292,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long end = std::min(beg + max_stream_block_size, right_block_end);
 
     threads[t] = new std::thread(inmem_parallel_stream<rank_type, saidx_t>,
-      text, beg, end, last, count, full_buffers, empty_buffers,
+      text, text_length, beg, end, last, count, full_buffers, empty_buffers,
       initial_ranks[t], i0, rank, gap->m_length, max_threads, gt,
       temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
   }
@@ -331,6 +331,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   long double cleaning_time = utils::wclock() - start;
   if (cleaning_time > 0.1L)
     fprintf(stderr, "    Cleaning: %.2Lf\n", cleaning_time);
+
 }
 
 }  // namespace inmem_sascan

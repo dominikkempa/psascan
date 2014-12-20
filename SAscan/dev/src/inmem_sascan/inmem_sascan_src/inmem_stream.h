@@ -33,6 +33,7 @@ namespace inmem_sascan_private {
 template<typename rank_type, typename block_offset_type>
 void inmem_parallel_stream(
     unsigned char *text,
+    long text_length,
     long stream_block_beg,
     long stream_block_end,
     unsigned char last,
@@ -71,7 +72,7 @@ void inmem_parallel_stream(
   // STEP 2: perform the actual streaming.
   //----------------------------------------------------------------------------
   long j = stream_block_end;
-  bool gt_bit = gt->get(j - 1);
+  bool gt_bit = gt->get(text_length - j);
   while (j > stream_block_beg) {
     //--------------------------------------------------------------------------
     // Get a buffer from the poll of empty buffers.
@@ -92,8 +93,8 @@ void inmem_parallel_stream(
     if (need_gt) {
       for (long t = 0; t < b->m_filled; ++t) {
         bool new_gt_bit = (i > i0);
-        if (new_gt_bit) gt->set(j - 1);
-        else gt->reset(j - 1);
+        if (new_gt_bit) gt->set(text_length - j);
+        else gt->reset(text_length - j);
 
         unsigned char c = text[j - 1];
 
@@ -106,7 +107,7 @@ void inmem_parallel_stream(
         block_count[i >> bucket_size_bits]++;
 
         --j;
-        gt_bit = gt->get(j - 1);
+        gt_bit = gt->get(text_length - j);
       }
     } else {
       for (long t = 0; t < b->m_filled; ++t) {
@@ -123,7 +124,7 @@ void inmem_parallel_stream(
         block_count[i >> bucket_size_bits]++;
 
         --j;
-        gt_bit = gt->get(j - 1);
+        gt_bit = gt->get(text_length - j);
       }
 
     }
