@@ -99,7 +99,7 @@ void test(unsigned char *supertext, long supertext_length,
 
   // Compare answers.
   bool eq = true;
-  long correct_i0;
+  long correct_i0 = 0;
   for (long i = 0; i < text_length; ++i) {
     unsigned char correct_bwt = ((correct_answer[i] == 0) ? 0 : text[correct_answer[i] - 1]);
     if (computed_bwt[i] != correct_bwt) { eq = false; break; }
