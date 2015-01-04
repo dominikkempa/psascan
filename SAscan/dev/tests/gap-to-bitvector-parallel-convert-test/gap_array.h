@@ -19,6 +19,7 @@
 #include "parallel_utils.h"
 #include "async_stream_writer.h"
 
+#define GAP_EXCESS_THRESHOLD 2L
 
 struct buffered_gap_array {
   buffered_gap_array(long length, std::string storage_fname = std::string("")) {
@@ -42,6 +43,14 @@ struct buffered_gap_array {
     m_excess_disk = 0L;
     m_sorted_excess = NULL;
     m_sequential_read_initialized = false;
+  }
+
+  void set_count(long pos, long value) {
+    while (value >= GAP_EXCESS_THRESHOLD) {
+      add_excess(pos);
+      value -= GAP_EXCESS_THRESHOLD;
+    }
+    m_count[pos] = (unsigned char)value;
   }
 
   void add_excess(long x) {
@@ -85,7 +94,7 @@ struct buffered_gap_array {
     long c = 0;
     while (m_excess_ptr < m_total_excess && m_sorted_excess[m_excess_ptr] == m_current_pos)
       ++m_excess_ptr, ++c;
-    long result = c * 256L + m_count[m_current_pos];
+    long result = c * GAP_EXCESS_THRESHOLD + m_count[m_current_pos];
 
     ++m_current_pos;
     return result;
@@ -164,7 +173,7 @@ struct buffered_gap_array {
     // Compute gap[j].
     long gap_j = gap->m_count[j];
     while (excess_pointer < gap->m_total_excess && gap->m_sorted_excess[excess_pointer] == j) {
-      gap_j += 256L;
+      gap_j += GAP_EXCESS_THRESHOLD;
       ++excess_pointer;
     }
 
@@ -179,7 +188,7 @@ struct buffered_gap_array {
       // Compute gap[j].
       gap_j = gap->m_count[j];
       while (excess_pointer < gap->m_total_excess && gap->m_sorted_excess[excess_pointer] == j) {
-        gap_j += 256L;
+        gap_j += GAP_EXCESS_THRESHOLD;
         ++excess_pointer;
       }
 
@@ -204,7 +213,7 @@ struct buffered_gap_array {
     while (j < gap->m_length) {
       long gap_j = gap->m_count[j];
       while (excess_ptr < gap->m_total_excess && gap->m_sorted_excess[excess_ptr] == j) {
-        gap_j += 256L;
+        gap_j += GAP_EXCESS_THRESHOLD;
         ++excess_ptr;
       }
 
@@ -230,7 +239,7 @@ struct buffered_gap_array {
       // the excess values are in RAM and were sorted.
       long occ = std::upper_bound(gap->m_sorted_excess, gap->m_sorted_excess + gap->m_total_excess, chunk_end - 1)
         - std::lower_bound(gap->m_sorted_excess, gap->m_sorted_excess + gap->m_total_excess, chunk_beg);
-      long gap_sum_inside_chunk = 256L * std::max(0L, occ);
+      long gap_sum_inside_chunk = GAP_EXCESS_THRESHOLD * std::max(0L, occ);
       for (long j = chunk_beg; j < chunk_end; ++j)
         gap_sum_inside_chunk += gap->m_count[j];
 
@@ -261,6 +270,7 @@ struct buffered_gap_array {
   // "Compute the bitvector representation of the gap array in parallel".
   // 
   //==============================================================================
+  // XXX this function was not thoroughly tested.
   bitvector* convert_to_bitvector(long max_threads) {
     // 1
     //
@@ -355,7 +365,7 @@ struct buffered_gap_array {
   }
   
 
-  static const int k_excess_limit = (1 << 22); // XXX: isn't that too big? that surely causes the problems with swapping.
+  static const int k_excess_limit = /*(1 << 22)*/3; // XXX: isn't that too big? that surely causes the problems with swapping.
 
   unsigned char *m_count;
   long m_length;
