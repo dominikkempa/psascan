@@ -1,5 +1,5 @@
-#ifndef __COMPUTE_LEFT_GAP_H_INCLUDED
-#define __COMPUTE_LEFT_GAP_H_INCLUDED
+#ifndef __COMPUTE_RIGHT_GAP_H_INCLUDED
+#define __COMPUTE_RIGHT_GAP_H_INCLUDED
 
 #include <cstdio>
 #include <vector>
@@ -18,7 +18,7 @@
 //==============================================================================
 // Compute the range_gap values corresponging to bv[part_beg..part_end).
 //==============================================================================
-void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
+void rblock_handle_bv_part(long part_beg, long part_end, long range_beg,
     long *range_gap, gap_array_2n *block_gap, bitvector *bv,
     ranksel_support *bv_ranksel, long &res_sum, long &res_rank) {
   size_t excess_ptr = std::lower_bound(block_gap->m_excess.begin(),
@@ -35,9 +35,9 @@ void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
   }
 
   // Initialize sum.
-  long sum = gap_j + 1;
+  long sum = gap_j;
 
-  while (j != part_end - 1 && bv->get(j) == 1) {
+  while (j != part_end - 1 && bv->get(j) == 0) {
     // Update j.
     ++j;
 
@@ -49,13 +49,12 @@ void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
     }
 
     // Update sum.
-    sum += gap_j + 1;
+    sum += gap_j;
   }
-  if (bv->get(j) == 0) --sum;
 
   // Store gap[part_beg] + .. + gap[j] and bv.rank(part_beg) (== bv.rank(j)).
   res_sum = sum;
-  res_rank = bv_ranksel->rank0(part_beg);
+  res_rank = bv_ranksel->rank(part_beg);
 
   if (j == part_end - 1)
     return;
@@ -74,22 +73,22 @@ void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
     }
 
     // Update sum.
-    sum += gap_j + 1;
+    sum += gap_j;
 
     // Update range_gap.
-    if (bv->get(j) == 0) {
-      range_gap[range_gap_ptr - range_beg] = sum - 1;
+    if (bv->get(j) == 1) {
+      range_gap[range_gap_ptr - range_beg] = sum;
       ++range_gap_ptr;
       sum = 0L;
     }
   }
 
-  if (bv->get(j) == 1)
+  if (bv->get(j) == 0)
     range_gap[range_gap_ptr - range_beg] = sum;
 }
 
 
-void lblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx,
+void rblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx,
     std::condition_variable &cv, bool &avail, bool &finished, std::string filename) {
   while (true) {
     // Wait until the passive buffer is available.
@@ -119,25 +118,25 @@ void lblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx
 //==============================================================================
 // Given the gap array of the block (representation using 2 bytes per elements)
 // and the gap array of the left half-block wrt right half-block (bitvector
-// representation), compute the gap array (wrt tail) of the left half-block
+// representation), compute the gap array (wrt tail) of the right half-block
 // and write to a given file using v-byte encoding.
 //
 // The whole computation is performed under given ram budget. It is fully
 // parallelized and uses asynchronous I/O as much as possible.
 //==============================================================================
-void compute_left_gap(long left_block_size, long right_block_size,
+void compute_right_gap(long left_block_size, long right_block_size,
     gap_array_2n *block_gap, bitvector *bv, std::string out_filename,
     long max_threads, long ram_budget) {
   long block_size = left_block_size + right_block_size;
-  long left_gap_size = left_block_size + 1;
+  long right_gap_size = right_block_size + 1;
 
   // NOTE: we require that bv has room for one extra bit at the end
   //       which we use as a sentinel. The actual value of that bit
   //       prior to calling this function does not matter.
-  bv->reset(block_size);
+  bv->set(block_size);
   long bv_size = block_size + 1;
 
-  fprintf(stderr, "  Compute gap for left half-block: ");
+  fprintf(stderr, "  Compute gap for right half-block: ");
   long compute_gap_start = utils::wclock();
 
   //----------------------------------------------------------------------------
@@ -151,13 +150,13 @@ void compute_left_gap(long left_block_size, long right_block_size,
   // STEP 2: compute the values of the right gap array, one range at a time.
   //============================================================================
   long max_range_size = std::max(1L, ram_budget / (3L * (long)sizeof(long)));
-  long n_ranges = (left_gap_size + max_range_size - 1) / max_range_size;
+  long n_ranges = (right_gap_size + max_range_size - 1) / max_range_size;
 
   // To ensure that asynchronous I/O is really taking
   // place, we try to make 8 parts.
   if (n_ranges < 8L) {
-    max_range_size = (left_gap_size + 7L) / 8L;
-    n_ranges = (left_gap_size + max_range_size - 1) / max_range_size;
+    max_range_size = (right_gap_size + 7L) / 8L;
+    n_ranges = (right_gap_size + max_range_size - 1) / max_range_size;
   }
 
   long *range_gap = (long *)malloc(max_range_size * sizeof(long));
@@ -173,7 +172,7 @@ void compute_left_gap(long left_block_size, long right_block_size,
   bool finished = false;
   
   // Start the thread doing asynchronius writes.
-  std::thread *async_writer = new std::thread(lblock_async_write_code,
+  std::thread *async_writer = new std::thread(rblock_async_write_code,
       std::ref(passive_vbyte_slab), std::ref(passive_vbyte_slab_length),
       std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished),
       out_filename);
@@ -182,7 +181,7 @@ void compute_left_gap(long left_block_size, long right_block_size,
     // Compute the range [range_beg..range_end) of values in the right gap
     // (which if indexed [0..right_gap_size)).
     long range_beg = range_id * max_range_size;
-    long range_end = std::min(range_beg + max_range_size, left_gap_size);
+    long range_end = std::min(range_beg + max_range_size, right_gap_size);
     long range_size = range_end - range_beg;
 
     // 2.a
@@ -192,8 +191,8 @@ void compute_left_gap(long left_block_size, long right_block_size,
     long bv_section_beg = 0L;
     long bv_section_end = 0L;
     if (range_beg > 0)
-      bv_section_beg = bv_ranksel->select0(range_beg - 1) + 1;
-    bv_section_end = bv_ranksel->select0(range_end - 1) + 1;
+      bv_section_beg = bv_ranksel->select1(range_beg - 1) + 1;
+    bv_section_end = bv_ranksel->select1(range_end - 1) + 1;
     long bv_section_size = bv_section_end - bv_section_beg;
 
     // We split the current bitvector section into
@@ -212,7 +211,7 @@ void compute_left_gap(long left_block_size, long right_block_size,
       long part_beg = bv_section_beg + t * max_part_size;
       long part_end = std::min(part_beg + max_part_size, bv_section_end);
 
-      threads[t] = new std::thread(lblock_handle_bv_part, part_beg, part_end, range_beg,
+      threads[t] = new std::thread(rblock_handle_bv_part, part_beg, part_end, range_beg,
           range_gap, block_gap, bv, bv_ranksel, std::ref(res_sum[t]), std::ref(res_rank[t]));
     }
 
@@ -271,4 +270,4 @@ void compute_left_gap(long left_block_size, long right_block_size,
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", compute_gap_time, compute_gap_speed);
 }
 
-#endif  // __COMPUTE_LEFT_GAP_H_INCLUDED
+#endif  // __COMPUTE_RIGHT_GAP_H_INCLUDED
