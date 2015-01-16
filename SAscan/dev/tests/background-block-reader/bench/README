@@ -1,0 +1,2 @@
+usage:
+ ./test ~/data/wiki.4G 0 4000000000
