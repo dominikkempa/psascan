@@ -22,7 +22,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
     bool need_gt, bool need_bwt, long &result_i0, MergeSchedule &schedule,
     long text_beg, long text_end, long supertext_length,
     std::string supertext_filename, multifile *tail_gt_begin_reversed,
-    long *i0_array) {
+    long *i0_array, long **block_rank_matrix) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 
   long shift = (max_block_size - text_length % max_block_size) % max_block_size;
@@ -75,7 +75,8 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   pagearray_type *l_bwtsa =
     balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
     max_block_size, lrange_beg, lrange_end, max_threads, need_gt, true, left_i0, schedule,
-    text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array);
+    text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array,
+    block_rank_matrix);
 
   // 2
   // 
@@ -84,7 +85,8 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   pagearray_type *r_bwtsa =
       balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
       max_block_size, rrange_beg, rrange_end, max_threads, true, need_bwt, right_i0, schedule,
-      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array);
+      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array,
+      block_rank_matrix);
 
 
   //----------------------------------------------------------------------------
@@ -104,7 +106,8 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long double start1 = utils::wclock();
   inmem_compute_gap<saidx_t, pagesize_log>(text, text_length, lbeg, lsize, rsize,
       *l_bwtsa, gt, gap, max_threads, need_gt, left_i0, (1L << 21), rank_init_time, streaming_time,
-      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, block_rank_matrix,
+      lrange_beg, lrange_end, rrange_beg, rrange_end);
   fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
 
 

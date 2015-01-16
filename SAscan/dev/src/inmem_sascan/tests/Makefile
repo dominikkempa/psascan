@@ -49,4 +49,4 @@ clean:
 	/bin/rm -f *.o
 
 nuclear:
-	/bin/rm -f sa_test_file sa_test_random bwt_test_file bwt_test_random gt_test_file gt_test_random multi_test_file psa_test_random psa_test_file pbwt_test_file pgt_test_file pbwt_test_random pgt_test_random *.o
+	/bin/rm -f sa_test_file sa_test_random bwt_test_file bwt_test_random gt_test_file gt_test_random multi_test_file psa_test_random psa_test_file pbwt_test_file pgt_test_file pbwt_test_random pgt_test_random *.o gt_begin_reversed_bv* supertext.txt

@@ -94,11 +94,14 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
     long stream_buffer_size,
     long double &rank_init_time, long double &streaming_time,
-    long text_beg,
-    long text_end,
-    long supertext_length,
-    std::string supertext_filename,
-    multifile *tail_gt_begin_reversed) {
+    long /*text_beg*/,
+    long /*text_end*/,
+    long /*supertext_length*/,
+    std::string /*supertext_filename*/,
+    multifile * /*tail_gt_begin_reversed*/,
+    long **block_rank_matrix,
+    long lrange_beg, long lrange_end,
+    long /*rrange_beg*/, long rrange_end) {
 
 
   //----------------------------------------------------------------------------
@@ -145,18 +148,15 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
   // 3.a
   //
-  // Compute the last starting position. This
-  // in the current form may require accessing disk.
+  // Compute the last starting position using the matrix of initial ranks.
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_bwtsa_type;
   long last_stream_block_beg = right_block_beg + (n_threads - 1) * max_stream_block_size;
   long last_stream_block_end = right_block_end;
 
-  compute_last_starting_position<pagearray_bwtsa_type>(text, text_length, left_block_beg, left_block_end,
-      last_stream_block_end, std::ref(bwtsa), std::ref(initial_ranks[n_threads - 1]), text_beg,
-      text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+  initial_ranks[n_threads - 1] = 0L;
+  for (long j = lrange_beg; j < lrange_end; ++j)
+    initial_ranks[n_threads - 1] += block_rank_matrix[j][rrange_end - 1];
 
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
-  start = utils::wclock();
 
   // 3.b
   //

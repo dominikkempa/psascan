@@ -9,12 +9,6 @@
 
 namespace inmem_sascan_private {
 
-bool lcp_compare3(unsigned char *text, long length, long i, long j) {
-  long lcp = 0L;
-  while (i + lcp < length && text[i + lcp] == text[j + lcp]) ++lcp;
-  return !(i + lcp == length || text[i + lcp] < text[j + lcp]);
-}
-
 
 //==============================================================================
 // Return true iff text[i..length) < text[j..length). To speed up the
@@ -30,20 +24,6 @@ int lcp_compare(unsigned char *text, long i, long j, long maxlcp, long &lcp) {
   if (lcp == maxlcp) return 0;
   else if (text[i + lcp] < text[j + lcp]) return -1;
   else return 1;
-}
-
-// Return true iff text[i..) (but we always stop the comparison at text_length)
-// is smaller than pat[0..pat_length).
-bool lcp_compare2(unsigned char *text, long text_length, pattern &pat, long pat_length, long pat_absolute_beg,
-    long supertext_length, long j, multifile_bit_stream_reader &reader) {
-  long lcp = 0;
-  while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
-
-  return (
-      (lcp == pat_length) ||
-      (j + lcp < text_length && pat[lcp] < text[j + lcp]) ||
-      (j + lcp == text_length && !(reader.access(supertext_length - pat_absolute_beg - lcp)))
-  );
 }
 
 template<typename pagearray_type>
@@ -151,54 +131,6 @@ void compute_other_starting_position(unsigned char *text, long block_beg, long b
 
   ret = std::make_pair(lower_bound, upper_bound);
 }
-
-
-
-template<typename pagearray_type>
-void compute_last_starting_position(unsigned char *text, long text_length,
-    long block_beg, long block_end, long suf_start,
-    const pagearray_type &partial_bwtsa, long &ret,
-    long text_beg, long text_end, long supertext_length,
-    std::string supertext_filename, multifile *tail_gt_begin_reversed) {
-
-  bool has_tail = (text_end != supertext_length);
-  long block_size = block_end - block_beg;
-
-  if (!has_tail) {
-    /*ret = 0L;
-    while (ret < block_size && lcp_compare3(text, text_length, suf_start, block_beg + partial_bwtsa[ret].sa))
-      ++ret;*/
-
-    // Invariant: the answer is in the range (left..right].
-    long left = -1, right = block_size;
-    while (left + 1 != right) {
-      long mid = (left + right) / 2;
-      if (lcp_compare3(text, text_length, suf_start, block_beg + partial_bwtsa[mid].sa))
-        left = mid;
-      else right = mid;
-    }
-
-    ret = right;
-  } else {
-    suf_start += text_beg; // suf_start is now absolute wrt. to supertext.
-    pattern pat(supertext_filename, suf_start);
-    long pat_length = supertext_length - suf_start;
-
-    multifile_bit_stream_reader reader(tail_gt_begin_reversed);
-
-    long left = -1L, right = block_end - block_beg;
-    while (left + 1 != right) {
-      long mid = (left + right) / 2;
-
-      if (lcp_compare2(text, text_length, pat, pat_length, suf_start, supertext_length,
-            block_beg + partial_bwtsa[mid].sa, reader)) right = mid;
-      else left = mid;
-    }
-
-    ret = right;
-  }
-}
-
 
 }  // namespace inmem_sascan
 

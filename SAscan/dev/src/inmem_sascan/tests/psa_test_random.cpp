@@ -157,7 +157,7 @@ void test_random(int testcases, long max_length, int max_sigma) {
 
     // Generate string.
     long supertext_length = utils::random_long(1, max_length);
-    int sigma = utils::random_int(2, max_sigma);
+    int sigma = utils::random_int(1, max_sigma);
     if (max_sigma <= 26) utils::fill_random_letters(supertext, supertext_length, sigma);
     else utils::fill_random_string(supertext, supertext_length, sigma);
     long max_threads = utils::random_long(1, 50);
@@ -191,44 +191,32 @@ int main() {
   dup2(redir, 2);
   close(redir);
   
-  test_random<int, 1>(1000, 300, 5);
-  test_random<int, 1>(1000, 300, 128);
-  test_random<int, 3>(1000, 300, 5);
-  test_random<int, 3>(1000, 300, 128);
-  test_random<int, 5>(1000, 300, 5);
-  test_random<int, 5>(1000, 300, 128);
-  test_random<int, 12>(1000, 300, 5);
-  test_random<int, 12>(1000, 300, 128);
-  test_random<int, 1>(1000, 300, 255);
-  test_random<int, 3>(1000, 300, 255);
-  test_random<int, 5>(1000, 300, 255);
-  test_random<int, 12>(1000, 300, 255);
 
-  test_random<int, 1>(100, 1000, 5);
-  test_random<int, 1>(100, 1000, 128);
-  test_random<int, 3>(100, 1000, 5);
-  test_random<int, 3>(100, 1000, 128);
-  test_random<int, 5>(100, 1000, 5);
-  test_random<int, 5>(100, 1000, 128);
-  test_random<int, 12>(100, 1000, 5);
-  test_random<int, 12>(100, 1000, 128);
-  test_random<int, 1>(100, 1000, 255);
-  test_random<int, 3>(100, 1000, 255);
-  test_random<int, 5>(100, 1000, 255);
-  test_random<int, 12>(100, 1000, 255);
+  /*test_random<uint40, 2>(1000,   10,      5);
+  test_random<uint40, 5>(1000,   10,      5);
+  test_random<uint40, 8>(1000,   10,      5);
+  test_random<uint40, 2>(1000,   10,    255);
+  test_random<uint40, 5>(1000,   10,    255);
+  test_random<uint40, 8>(1000,   10,    255);
+  test_random<int,    2>(1000,   10,      5);
+  test_random<int,    5>(1000,   10,      5);
+  test_random<int,    8>(1000,   10,      5);
+  test_random<int,    2>(1000,   10,    255);
+  test_random<int,    5>(1000,   10,    255);
+  test_random<int,    8>(1000,   10,    255);*/
 
-  test_random<uint40, 2>(10000,   10,      5);
-  test_random<uint40, 5>(10000,   10,      5);
-  test_random<uint40, 8>(10000,   10,      5);
-  test_random<uint40, 2>(10000,   10,    255);
-  test_random<uint40, 5>(10000,   10,    255);
-  test_random<uint40, 8>(10000,   10,    255);
-  test_random<int,    2>(10000,   10,      5);
-  test_random<int,    5>(10000,   10,      5);
-  test_random<int,    8>(10000,   10,      5);
-  test_random<int,    2>(10000,   10,    255);
-  test_random<int,    5>(10000,   10,    255);
-  test_random<int,    8>(10000,   10,    255);
+  test_random<uint40, 2>(1000,   50,      5);
+  test_random<uint40, 5>(1000,   50,      5);
+  test_random<uint40, 8>(1000,   50,      5);
+  test_random<uint40, 2>(1000,   50,    255);
+  test_random<uint40, 5>(1000,   50,    255);
+  test_random<uint40, 8>(1000,   50,    255);
+  test_random<int,    2>(1000,   50,      5);
+  test_random<int,    5>(1000,   50,      5);
+  test_random<int,    8>(1000,   50,      5);
+  test_random<int,    2>(1000,   50,    255);
+  test_random<int,    5>(1000,   50,    255);
+  test_random<int,    8>(1000,   50,    255);
 
   test_random<uint40, 2>(1000,   100,      5);
   test_random<uint40, 5>(1000,   100,      5);
@@ -255,6 +243,32 @@ int main() {
   test_random<int,    2>(200,   1000,    255);
   test_random<int,    5>(200,   1000,    255);
   test_random<int,    8>(200,   1000,    255);
+
+  test_random<int, 1>(1000, 300, 5);
+  test_random<int, 1>(1000, 300, 128);
+  test_random<int, 3>(1000, 300, 5);
+  test_random<int, 3>(1000, 300, 128);
+  test_random<int, 5>(1000, 300, 5);
+  test_random<int, 5>(1000, 300, 128);
+  test_random<int, 12>(1000, 300, 5);
+  test_random<int, 12>(1000, 300, 128);
+  test_random<int, 1>(1000, 300, 255);
+  test_random<int, 3>(1000, 300, 255);
+  test_random<int, 5>(1000, 300, 255);
+  test_random<int, 12>(1000, 300, 255);
+
+  test_random<int, 1>(100, 1000, 5);
+  test_random<int, 1>(100, 1000, 128);
+  test_random<int, 3>(100, 1000, 5);
+  test_random<int, 3>(100, 1000, 128);
+  test_random<int, 5>(100, 1000, 5);
+  test_random<int, 5>(100, 1000, 128);
+  test_random<int, 12>(100, 1000, 5);
+  test_random<int, 12>(100, 1000, 128);
+  test_random<int, 1>(100, 1000, 255);
+  test_random<int, 3>(100, 1000, 255);
+  test_random<int, 5>(100, 1000, 255);
+  test_random<int, 12>(100, 1000, 255);
 
   test_random<uint40, 2>(20,   1000000,      5);
   test_random<uint40, 5>(20,   1000000,      5);

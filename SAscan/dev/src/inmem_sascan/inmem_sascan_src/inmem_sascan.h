@@ -17,6 +17,7 @@
 #include "bwtsa.h"
 #include "parallel_shrink.h"
 #include "skewed-merge.h"
+#include "inmem_compute_block_rank_matrix.h"
 
 namespace inmem_sascan_private {
 
@@ -38,7 +39,8 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     long supertext_length = 0,
     std::string supertext_filename = "",
     multifile *tail_gt_begin_reversed = NULL,
-    long *i0 = NULL) {
+    long *i0 = NULL,
+    unsigned char *next_block = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
   long double start;
@@ -62,6 +64,11 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   }
 
   bool has_tail = (text_end != supertext_length);
+
+  if (!has_tail && next_block != NULL) {
+    fprintf(stderr, "Error: has_tail == false but next_block != NULL\n");
+    std::exit(EXIT_FAILURE);
+  }
 
 
   // long max_block_size = (text_length + max_blocks - 1) / max_blocks;
@@ -118,6 +125,20 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
   bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
 
+  // Initialize reading of the next block in the background.
+  long tail_length = supertext_length - text_end;
+  long background_block_length = std::min(text_length, tail_length);
+#if 0
+  long chunk_length = utils::random_long(1L, 5L);
+#else
+  long chunk_length = (1L << 20);
+#endif
+
+  background_block_reader *next_block_reader = NULL;
+  if (has_tail && next_block == NULL)
+    next_block_reader = new background_block_reader(supertext_filename, text_end, background_block_length, chunk_length);
+
+
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
   //----------------------------------------------------------------------------
@@ -132,7 +153,30 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
   initial_partial_sufsort(text, text_length, gt_begin, bwtsa, max_block_size, max_threads, has_tail);
-  fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
+  fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
+
+
+  //----------------------------------------------------------------------------
+  // STEP: compute matrix of block ranks.
+  //----------------------------------------------------------------------------
+  fprintf(stderr, "Compute matrix of initial ranks: ");
+  start = utils::wclock();
+  long **block_rank_matrix = new long*[n_blocks];
+  for (long j = 0; j < n_blocks; ++j)
+    block_rank_matrix[j] = new long[n_blocks];
+  compute_block_rank_matrix<saidx_t>(text, text_length, bwtsa,
+      max_block_size, text_beg, supertext_length, supertext_filename,
+      tail_gt_begin_reversed, next_block_reader, next_block, block_rank_matrix);
+
+  // Stop reading next block in the background or free memory taken by next block.
+  if (has_tail) {
+    if (next_block_reader != NULL) {
+      next_block_reader->stop();
+      delete next_block_reader;
+    } else free(next_block);
+  }
+
+  fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
 
 
   //----------------------------------------------------------------------------
@@ -181,7 +225,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = balanced_merge<saidx_t, pagesize_log>(text,
         text_length, bwtsa, gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
         compute_bwt, i0_result, schedule, text_beg, text_end, supertext_length, supertext_filename,
-        tail_gt_begin_reversed, i0_array);
+        tail_gt_begin_reversed, i0_array, block_rank_matrix);
     if (i0) *i0 = i0_result;
 
     // Permute SA to plain array.
@@ -195,6 +239,9 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     if (i0) *i0 = i0_array[0];
   }
   delete[] i0_array;
+  for (long j = 0; j < n_blocks; ++j)
+    delete[] block_rank_matrix[j];
+  delete[] block_rank_matrix;
 
   if (!compute_gt_begin && (n_blocks > 1 || has_tail)) {
     delete gt_begin;

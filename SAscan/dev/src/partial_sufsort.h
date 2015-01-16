@@ -132,6 +132,7 @@ void process_block(long block_beg, long block_end,
   // consideration is the last block of text.
   //----------------------------------------------------------------------------
   multifile *right_block_gt_begin_rev = NULL;
+  unsigned char *right_block = NULL;
 
   if (right_block_size > 0) {
     fprintf(stderr, "  Process right half-block:\n");
@@ -140,7 +141,7 @@ void process_block(long block_beg, long block_end,
     //
     // Read the right half-block from disk.
     fprintf(stderr, "    Read: ");
-    unsigned char *right_block = (unsigned char *)malloc(right_block_size);
+    right_block = (unsigned char *)malloc(right_block_size);
     long double right_block_read_start = utils::wclock();
     utils::read_block(text_filename, right_block_beg, right_block_size, right_block);
     block_last_symbol = right_block[right_block_size - 1];
@@ -194,7 +195,6 @@ void process_block(long block_beg, long block_end,
           right_block_psa_ptr, text_filename, block_initial_ranks, max_threads, block_tail_beg, block_tail_end);
       fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_first_term_start);
     }
-    free(right_block);
 
     // 1.d
     //
@@ -283,7 +283,7 @@ void process_block(long block_beg, long block_end,
   // Run in-memory SAscan.
   inmem_sascan<block_offset_type>(left_block, left_block_size, left_block_sabwt, max_threads,
       (right_block_size > 0), !first_block, left_block_gt_begin_rev_bv, -1, left_block_beg,
-      left_block_end, text_length, text_filename, right_block_gt_begin_rev, &left_block_i0);
+      left_block_end, text_length, text_filename, right_block_gt_begin_rev, &left_block_i0, right_block);
 
   // Restore stderr.
   std::fflush(stderr);
