@@ -28,7 +28,7 @@ void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
     // but compare not more than left_block_size symbols (we have gt
     // to resolve the long comparisons).
     while (block_beg + i + el < block_end && txt[i + el] == pat[el])
-      next(pat, ++el, s, p);
+      update_ms(pat, ++el, s, p);
 
     if (((block_beg + i + el != block_end && txt[i + el] > pat[el]) ||
          (block_beg + i + el == block_end && !gt->get(rev_end - i))))

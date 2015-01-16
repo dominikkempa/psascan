@@ -40,7 +40,7 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     std::string supertext_filename = "",
     multifile *tail_gt_begin_reversed = NULL,
     long *i0 = NULL,
-    unsigned char *next_block = NULL) {
+    unsigned char *tail_prefix_preread = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
   long double start;
@@ -65,8 +65,8 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
   bool has_tail = (text_end != supertext_length);
 
-  if (!has_tail && next_block != NULL) {
-    fprintf(stderr, "Error: has_tail == false but next_block != NULL\n");
+  if (!has_tail && tail_prefix_preread != NULL) {
+    fprintf(stderr, "Error: has_tail == false but tail_prefix_preread != NULL\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -125,18 +125,18 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
   bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
 
-  // Initialize reading of the next block in the background.
+  // Initialize reading of the tail prefix in the background.
   long tail_length = supertext_length - text_end;
-  long background_block_length = std::min(text_length, tail_length);
+  long tail_prefix_length = std::min(text_length, tail_length);
 #if 0
   long chunk_length = utils::random_long(1L, 5L);
 #else
   long chunk_length = (1L << 20);
 #endif
 
-  background_block_reader *next_block_reader = NULL;
-  if (has_tail && next_block == NULL)
-    next_block_reader = new background_block_reader(supertext_filename, text_end, background_block_length, chunk_length);
+  background_block_reader *tail_prefix_background_reader = NULL;
+  if (has_tail && tail_prefix_preread == NULL)
+    tail_prefix_background_reader = new background_block_reader(supertext_filename, text_end, tail_prefix_length, chunk_length);
 
 
   //----------------------------------------------------------------------------
@@ -145,8 +145,9 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   if (n_blocks > 1 || compute_gt_begin || has_tail) {
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
-    compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size, max_threads,
-        text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed);
+    compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size,
+        max_threads, text_beg, text_end, supertext_length, tail_gt_begin_reversed,
+        tail_prefix_background_reader, tail_prefix_preread);
     fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
   }
 
@@ -166,14 +167,15 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
     block_rank_matrix[j] = new long[n_blocks];
   compute_block_rank_matrix<saidx_t>(text, text_length, bwtsa,
       max_block_size, text_beg, supertext_length, supertext_filename,
-      tail_gt_begin_reversed, next_block_reader, next_block, block_rank_matrix);
+      tail_gt_begin_reversed, tail_prefix_background_reader,
+      tail_prefix_preread, block_rank_matrix);
 
   // Stop reading next block in the background or free memory taken by next block.
   if (has_tail) {
-    if (next_block_reader != NULL) {
-      next_block_reader->stop();
-      delete next_block_reader;
-    } else free(next_block);
+    if (tail_prefix_background_reader != NULL) {
+      tail_prefix_background_reader->stop();
+      delete tail_prefix_background_reader;
+    } else free(tail_prefix_preread);
   }
 
   fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);

@@ -90,9 +90,15 @@ void test(unsigned char *supertext, long supertext_length,
   long max_blocks = -1; // -1 is setting max_blocks := max_threads
   if (utils::random_long(0, 1)) max_blocks = utils::random_long(1L, 50L);
   bool compute_bwt = (bool)utils::random_long(0L, 1L);
+  long tail_prefix_length = std::min(text_length, tail_length);
+  unsigned char *tail_prefix = NULL;
+  if (utils::random_long(0L, 1L) && tail_length > 0) {
+    tail_prefix = (unsigned char *)malloc(tail_prefix_length);
+    std::copy(tail, tail + tail_prefix_length, tail_prefix);
+  }
   inmem_sascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, compute_bwt,
       false, NULL, max_blocks, text_beg, text_end, supertext_length, supertext_filename,
-      tail_gt_begin_reversed_multifile);
+      tail_gt_begin_reversed_multifile, NULL, tail_prefix);
 
 
 
@@ -192,7 +198,7 @@ int main() {
   close(redir);
   
 
-  /*test_random<uint40, 2>(1000,   10,      5);
+  test_random<uint40, 2>(1000,   10,      5);
   test_random<uint40, 5>(1000,   10,      5);
   test_random<uint40, 8>(1000,   10,      5);
   test_random<uint40, 2>(1000,   10,    255);
@@ -203,7 +209,7 @@ int main() {
   test_random<int,    8>(1000,   10,      5);
   test_random<int,    2>(1000,   10,    255);
   test_random<int,    5>(1000,   10,    255);
-  test_random<int,    8>(1000,   10,    255);*/
+  test_random<int,    8>(1000,   10,    255);
 
   test_random<uint40, 2>(1000,   50,      5);
   test_random<uint40, 5>(1000,   50,      5);

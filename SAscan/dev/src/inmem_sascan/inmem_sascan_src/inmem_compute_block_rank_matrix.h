@@ -15,36 +15,6 @@
 namespace inmem_sascan_private {
 
 
-#ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
-// Return true iff text[i..length) > text[j..length).
-// We access text via pattern class.
-bool em_suffix_compare(std::string filename, long length, long i, long j) {
-  pattern isuf(filename, i);
-  pattern jsuf(filename, j);
-
-  long lcp = 0L;
-  while (i + lcp < length && j + lcp < length && isuf[lcp] == jsuf[lcp])
-    ++lcp;
-
-  return (j + lcp == length || (i + lcp < length && isuf[lcp] > jsuf[lcp]));
-}
-
-// Return true iff text[i..length) > text[j..length).
-// i > j
-bool compare_suffixes(unsigned char *text, long text_length, long i, long j,
-    long text_beg, long supertext_length, std::string supertext_filename) {
-  long text_end = text_beg + text_length;
-  bool has_tail = (text_end != supertext_length);
-  long lcp = 0L;
-  while (i + lcp < text_length && text[i + lcp] == text[j + lcp]) ++lcp;
-
-  if (i + lcp == text_length)
-    return (has_tail && em_suffix_compare(supertext_filename, supertext_length, text_end, text_beg + j + lcp));
-  else return text[i + lcp] > text[j + lcp];
-}
-#endif
-
-
 inline int lcp_compare_2(unsigned char *text, long text_length, unsigned char *pat, long pat_length,
     long gt_begin_length, long j, multifile_bit_stream_reader &rev_gt_begin_reader, long &lcp) {
   while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
@@ -824,36 +794,6 @@ void compute_block_rank_matrix(unsigned char *text, long text_length,
   }
   delete[] primary_range;
   delete[] secondary_range;
-
-#if 0
-  // Check the correctness of all computed elements of the matrix.
-  for (long row = 0; row < n_blocks; ++row) {
-    long block_end = text_length - (n_blocks - 1 - row) * max_block_size;
-    long block_beg = std::max(0L, block_end - max_block_size);
-    long block_size = block_end - block_beg;
-    bwtsa_t<saidx_t> *block_psa = bwtsa + block_beg;
-
-    for (long column = row + 1; column < n_blocks; ++column) {
-      long suf_start = text_length - (n_blocks - 1 - column) * max_block_size;
-
-      long left = -1;
-      long right = block_size;
-      while (left + 1 != right) {
-        // Invariant: the answer is in the range (left, right].
-        long mid = (left + right) / 2;
-        if (compare_suffixes(text, text_length, suf_start, block_beg + block_psa[mid].sa,
-              text_beg, supertext_length, supertext_filename)) left = mid;
-        else right = mid;
-      }
-
-      if (right != block_rank_matrix[row][column]) {
-        fprintf(stdout, "\nError: block_rank_matrix[%ld][%ld] is incorrect!\n", row, column);
-        std::fflush(stdout);
-        std::exit(EXIT_FAILURE);
-      }
-    }
-  }
-#endif
 }
 
 }  // inmem_sascan_private

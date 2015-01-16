@@ -9,7 +9,7 @@
 #include "srank_aux.h"
 #include "../../multifile.h"
 #include "../../multifile_bit_stream_reader.h"
-#include "disk_pattern.h"
+#include "background_block_reader.h"
 
 namespace inmem_sascan_private {
 
@@ -24,40 +24,80 @@ namespace inmem_sascan_private {
 //==============================================================================
 void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
     long end, long max_lcp, bitvector *gt, bitvector *undecided, bool &all_decided,
-    long text_end,
-    long supertext_length,
-    std::string supertext_filename,
-    multifile *tail_gt_begin_reversed) {
+    long text_end, long supertext_length, multifile *tail_gt_begin_reversed,
+    background_block_reader *tail_prefix_background_reader, unsigned char *tail_prefix_preread) {
   bool res = true;
   all_decided = true;
-
   long revbeg = text_length - end;
 
   if (end == text_length) {
-    // handling of the last block.
-    multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed); // ok with NULL.
-    pattern *pat = NULL;
-    if (supertext_filename != "")
-      pat = new pattern(supertext_filename, text_end);
-
-    long i = 0, el = 0;
-    unsigned char *txt = text + begin;
+    multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);  // ok if tail_gt_begin_reversed is NULL
     long tail_length = supertext_length - text_end;
     long range_size = end - begin;
+    long tail_prefix_length = std::min(text_length, tail_length);
+    long tail_prefix_fetched = 0;
 
-    while (i < range_size) {
-      while (i + el < range_size && el < tail_length && txt[i + el] == (*pat)[el]) ++el;
-      if ((el == tail_length) || 
-          (i + el < range_size && txt[i + el] > (*pat)[el]) || 
-          ((i + el == range_size) && (!tail_gt_begin_reversed_reader.access(tail_length - el))))
-        gt->set(revbeg + i);
-  
-      // XXX implement this more efficiently.
-      el = 0;
-      ++i;
+    unsigned char *txt = text + begin;
+    unsigned char *tail_prefix = NULL;
+
+    if (tail_prefix_length > 0) {
+      if (tail_prefix_preread != NULL) {
+        // Whole tail prefix is already in memory.
+        tail_prefix = tail_prefix_preread;
+        tail_prefix_fetched = tail_prefix_length;
+      } else {
+        // Tail prefix will be fetched asynchronously in the background.
+        tail_prefix = tail_prefix_background_reader->m_data;
+        tail_prefix_fetched = 0;
+      }
     }
 
-    delete pat;
+    long i = 0, el = 0, s = 0, p = 0;
+    long i_max = 0, el_max = 0, s_max = 0, p_max = 0;
+
+    while (i < range_size) {
+      while (i + el < range_size && el < tail_length) {
+        if (el == tail_prefix_fetched) {
+          long next_chunk = std::min(tail_prefix_background_reader->get_chunk_size(), tail_prefix_length - tail_prefix_fetched);
+          tail_prefix_fetched += next_chunk;
+          tail_prefix_background_reader->wait(tail_prefix_fetched);
+        }
+        while (i + el < range_size && el < tail_length && el < tail_prefix_fetched && txt[i + el] == tail_prefix[el])
+          update_ms(tail_prefix, ++el, s, p);
+        if (el < tail_prefix_fetched) break;
+      }
+
+      if ((el == tail_length) || (i + el == range_size && tail_gt_begin_reversed_reader.access(tail_length - el) == false) ||
+          (i + el < range_size && txt[i + el] > tail_prefix[el])) gt->set(revbeg + i);
+
+      long j = i_max;
+      if (el > el_max) {
+        std::swap(el, el_max);
+        std::swap(s, s_max);
+        std::swap(p, p_max);
+        i_max = i;
+      }
+
+      if (el < 100) {
+        ++i;
+        el = 0;
+      } else if (p > 0 && (p << 2) <= el && !memcmp(tail_prefix, tail_prefix + p, s)) {
+        long maxk = std::min(p, range_size - i);
+        for (long k = 1; k < maxk; ++k)
+          if (gt->get(revbeg + j + k)) gt->set(revbeg + i + k);
+        i += p;
+        el -= p;
+      } else {
+        long h = (el >> 2) + 1;
+        long maxk = std::min(h, range_size - i);
+        for (long k = 1; k < maxk; ++k)
+          if (gt->get(revbeg + j + k)) gt->set(revbeg + i + k);
+        i += h;
+        el = 0;
+        p = 0;
+        s = 0;
+      }
+    }
   } else {
     long i = 0, el = 0, s = 0, p = 0;
     long i_max = 0, el_max = 0, s_max = 0, p_max = 0;
@@ -68,7 +108,7 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
 
     while (i < range_size) {
       while (el < max_lcp && txt[i + el] == pat[el])
-        next(pat, ++el, s, p);
+        update_ms(pat, ++el, s, p);
 
       if (el < max_lcp) {
         if (txt[i + el] > pat[el]) gt->set(revbeg + i);
@@ -183,8 +223,9 @@ void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
     bitvector* &gt, long max_block_size, long max_threads, long,
     long text_end,
     long supertext_length,
-    std::string supertext_filename,
-    multifile *tail_gt_begin_reversed) {
+    multifile *tail_gt_begin_reversed,
+    background_block_reader *tail_prefix_background_reader,
+    unsigned char *tail_prefix_preread) {
 
   long double start;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -217,7 +258,8 @@ void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
     threads[i] = new std::thread(compute_partial_gt_end,
         text, text_length, block_beg, block_end, max_block_size, gt,
         undecided, std::ref(all_decided[i]), text_end, supertext_length,
-        supertext_filename, tail_gt_begin_reversed);
+        tail_gt_begin_reversed, tail_prefix_background_reader,
+        tail_prefix_preread);
   }
 
   // Wait for the threads to finish and clean up.
