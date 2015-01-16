@@ -11,13 +11,14 @@
 #include "initial_partial_sufsort.h"
 #include "change_gt_reference_point.h"
 #include "inmem_compute_gap.h"
+#include "inmem_compute_initial_ranks.h"
 #include "parallel_merge.h"
 #include "balanced_merge.h"
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
 #include "skewed-merge.h"
-#include "inmem_compute_block_rank_matrix.h"
+
 
 namespace inmem_sascan_private {
 

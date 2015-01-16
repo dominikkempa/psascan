@@ -75,7 +75,7 @@
 #include "rank.h"
 #include "buffer.h"
 #include "inmem_gap_array.h"
-#include "inmem_smaller_suffixes.h"
+#include "inmem_compute_initial_ranks.h"
 #include "inmem_stream.h"
 #include "inmem_update.h"
 #include "inmem_bwt_from_sa.h"
@@ -92,17 +92,10 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long left_block_size, long right_block_size,
     const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
-    long stream_buffer_size,
-    long double &rank_init_time, long double &streaming_time,
-    long /*text_beg*/,
-    long /*text_end*/,
-    long /*supertext_length*/,
-    std::string /*supertext_filename*/,
-    multifile * /*tail_gt_begin_reversed*/,
-    long **block_rank_matrix,
-    long lrange_beg, long lrange_end,
-    long /*rrange_beg*/, long rrange_end) {
-
+    long stream_buffer_size, long double &rank_init_time, long double &streaming_time,
+    long **block_rank_matrix, long lrange_beg, long lrange_size, long rrange_size) {
+  long lrange_end = lrange_beg + lrange_size;
+  long rrange_end = lrange_end + rrange_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: build rank data structure over BWT.
@@ -167,10 +160,11 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long stream_block_beg = right_block_beg + i * max_stream_block_size;
     long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
     long stream_block_size = stream_block_end - stream_block_beg;
+    unsigned char *pat = text + stream_block_end;
 
     // i-th thread streams text[stream_block_beg[i]..stream_block_end[i]), right-to-left.
-    threads[i] = new std::thread(compute_other_starting_position<pagearray_bwtsa_type>,
-        text, left_block_beg, left_block_end, stream_block_end, prev_stream_block_size,
+    threads[i] = new std::thread(compute_range<pagearray_bwtsa_type>,
+        text, left_block_beg, left_block_size, pat, prev_stream_block_size,
         std::ref(bwtsa), std::ref(initial_ranges[i]));
 
     prev_stream_block_size = stream_block_size;
@@ -183,7 +177,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
 
   bool nontrivial_range = false;
   for (long j = 0; j < n_threads - 1; ++j)
-    if (initial_ranges[j].first + 1 != initial_ranges[j].second)
+    if (initial_ranges[j].first != initial_ranges[j].second)
       nontrivial_range = true;
 
   if (nontrivial_range) {
@@ -212,25 +206,26 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
       long left = initial_ranges[i].first;
       long right = initial_ranges[i].second;
 
-      // Invariant: the answer is in the range (beg..end].
-      while (left + 1 < right) {
+      // Keep refining the range [left..right) until it's empty.
+      while (left != right) {
+        // Valid values for mid are in [left..right).
         long mid = (left + right) / 2;
 
         // Check if suffix starting at position stream_block_end is larger
         // than the one starting at block_beg + bwtsa[ret].sa in the text.
         // We know they have a common prefix of length prev_stream_block_size.
         if ((long)bwtsa[mid].sa + prev_stream_block_size >= left_block_size) {
-          if (gt->get(text_length - 1 - (suf_start + left_block_size - bwtsa[mid].sa - 1))) left = mid;
+          if (gt->get(text_length - 1 - (suf_start + left_block_size - (long)bwtsa[mid].sa - 1))) left = mid + 1;
           else right = mid;
         } else {
           long j = bwtsa[mid].sa + prev_stream_block_size;
-          if (sp_isa->query(j) < prev_rank) left = mid;
+          if (sp_isa->query(j) < prev_rank) left = mid + 1;
           else right = mid;
         }
       }
 
-      initial_ranks[i] = right;
-      prev_rank = right;
+      initial_ranks[i] = left;
+      prev_rank = left;
       prev_stream_block_size = stream_block_size;
     }
 
@@ -238,7 +233,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     fprintf(stderr, "%.3Lf ", utils::wclock() - start);
   } else {
     for (long j = 0; j + 1 < n_threads; ++j)
-      initial_ranks[j] = initial_ranges[j].second;
+      initial_ranks[j] = initial_ranges[j].first;
   }
   fprintf(stderr, "\n");
 

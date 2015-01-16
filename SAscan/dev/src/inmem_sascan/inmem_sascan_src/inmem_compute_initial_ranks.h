@@ -1,11 +1,12 @@
-#ifndef __INMEM_COMPUTE_BLOCK_RANK_MATRIX
-#define __INMEM_COMPUTE_BLOCK_RANK_MATRIX
+#ifndef __INMEM_COMPUTE_INITIAL_RANKS_H_INCLUDED
+#define __INMEM_COMPUTE_INITIAL_RANKS_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 
 #include "bwtsa.h"
+#include "pagearray.h"
 #include "background_block_reader.h"
 #include "../../multifile.h"
 
@@ -15,7 +16,7 @@
 namespace inmem_sascan_private {
 
 
-inline int lcp_compare_2(unsigned char *text, long text_length, unsigned char *pat, long pat_length,
+inline int lcp_compare(unsigned char *text, long text_length, unsigned char *pat, long pat_length,
     long gt_begin_length, long j, multifile_bit_stream_reader &rev_gt_begin_reader, long &lcp) {
   while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
   if (j + lcp >= text_length) {
@@ -28,12 +29,97 @@ inline int lcp_compare_2(unsigned char *text, long text_length, unsigned char *p
   }
 }
 
-inline int lcp_compare_2_simple(unsigned char *text, unsigned char *pat, long pat_length, long j, long &lcp) {
+inline int lcp_compare(unsigned char *text, unsigned char *pat, long pat_length, long j, long &lcp) {
   while (lcp < pat_length && pat[lcp] == text[j + lcp]) ++lcp;
   if (lcp == pat_length) return 0;
   else if (pat[lcp] < text[j + lcp]) return -1;
   else return 1;
 }
+
+
+//------------------------------------------------------------------------------
+// Find the range [left..right) of suffixes started inside the block
+// that are prefixed with text[suf_start..suf_start + maxlcp).
+// In case there is no such suffix, left == right and they both point
+// to the first suffix larger than the pattern (of length maxlcp).
+//------------------------------------------------------------------------------
+template<typename pagearray_type>
+void compute_range(unsigned char *text, long block_beg, long block_size, unsigned char *pat,
+    long pat_length, const pagearray_type &bwtsa, std::pair<long, long> &ret) {
+#ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
+  static const long min_discrepancy = utils::random_long(0L, 10L);
+  static const long balancing_factor = utils::random_long(1L, 10L);
+#else
+  static const long min_discrepancy = (1L << 16);
+  static const long balancing_factor = 64L;
+#endif
+
+  // Find left.
+  long low = -1L, high = block_size;
+  long llcp = 0, rlcp = 0;
+  while (low + 1 != high) {
+    // Invariant: left is in the range (low..high].
+    long lcp = std::min(llcp, rlcp);
+
+    // Compute mid.
+    // Valid values for mid are: low + 1, .., high - 1.
+    long mid = 0L;
+    if (llcp + min_discrepancy < rlcp) {
+      // Choose the pivot that split the range into two
+      // parts of sizes with ratio equal to logd / d.
+      long d = rlcp - llcp;
+      long logd = utils::log2ceil(d);
+      mid = low + 1 + ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
+    } else if (rlcp + min_discrepancy < llcp) {
+      long d = llcp - rlcp;
+      long logd = utils::log2ceil(d);
+      mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
+    } else  // Discrepancy is too small, use standard binary search.
+      mid = (low + high) / 2;
+
+    if (lcp_compare(text, pat, pat_length, block_beg + (long)bwtsa[mid].sa, lcp) <= 0) {
+      high = mid;
+      rlcp = lcp;
+    } else {
+      low = mid;
+      llcp = lcp;
+    }
+  }
+  long left = high;
+
+  // Find right.
+  if (rlcp == pat_length) {
+    high = block_size;
+    rlcp = 0;
+
+    while (low + 1 != high) {
+      // Invariant: right is in the range (low..high].
+      long lcp = std::min(llcp, rlcp);
+      long mid = 0L;
+      if (llcp + min_discrepancy < rlcp) {
+        long d = rlcp - llcp;
+        long logd = utils::log2ceil(d);
+        mid = low + 1 + ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
+      } else if (rlcp + min_discrepancy < llcp) {
+        long d = llcp - rlcp;
+        long logd = utils::log2ceil(d);
+        mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
+      } else mid = (low + high) / 2;
+
+      if (lcp_compare(text, pat, pat_length, block_beg + (long)bwtsa[mid].sa, lcp) < 0) {
+        high = mid;
+        rlcp = lcp;
+      } else {
+        low = mid;
+        llcp = lcp;
+      }
+    }
+  }
+  long right = high;
+
+  ret = std::make_pair(left, right);
+}
+
 
 
 //------------------------------------------------------------------------------
@@ -65,13 +151,8 @@ void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_p
   while (low + 1 != high) {
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
-
-    // Compute mid.
-    // Valid values for mid are: low + 1, .., high - 1.
     long mid = 0L;
     if (llcp + min_discrepancy < rlcp) {
-      // Choose the pivot that split the range into two
-      // parts of sizes with ratio equal to logd / d.
       long d = rlcp - llcp;
       long logd = utils::log2ceil(d);
       mid = low + 1 + ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
@@ -79,10 +160,9 @@ void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_p
       long d = llcp - rlcp;
       long logd = utils::log2ceil(d);
       mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
-    } else  // Discrepancy is too small, use standard binary search.
-      mid = (low + high) / 2;
+    } else mid = (low + high) / 2;
 
-    if (lcp_compare_2_simple(text, pat, pat_length, block_beg + block_psa[mid].sa, lcp) <= 0) {
+    if (lcp_compare(text, pat, pat_length, block_beg + block_psa[mid].sa, lcp) <= 0) {
       high = mid;
       rlcp = lcp;
     } else {
@@ -90,11 +170,10 @@ void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_p
       llcp = lcp;
     }
   }
-
   newleft = high;
 
-  if (rlcp < pat_length) newright = newleft;
-  else {
+
+  if (rlcp >= pat_length) {
     high = right;
     rlcp = old_pat_length;
 
@@ -112,7 +191,7 @@ void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_p
         mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
       } else mid = (low + high) / 2;
 
-      if (lcp_compare_2_simple(text, pat, pat_length, block_beg + block_psa[mid].sa, lcp) < 0) {
+      if (lcp_compare(text, pat, pat_length, block_beg + block_psa[mid].sa, lcp) < 0) {
         high = mid;
         rlcp = lcp;
       } else {
@@ -120,9 +199,8 @@ void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_p
         llcp = lcp;
       }
     }
-
-    newright = high;
   }
+  newright = high;
 }
 
 
@@ -175,7 +253,7 @@ void refine_range(unsigned char *text, long text_length, long tail_gt_begin_reve
       mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
     } else mid = (low + high) / 2;
 
-    if (lcp_compare_2(text, text_length, pat, pat_length, tail_gt_begin_reversed_length,
+    if (lcp_compare(text, text_length, pat, pat_length, tail_gt_begin_reversed_length,
           block_beg + block_psa[mid].sa, reader, lcp) <= 0) {
       high = mid;
       rlcp = lcp;
@@ -186,8 +264,8 @@ void refine_range(unsigned char *text, long text_length, long tail_gt_begin_reve
   }
   newleft = high;
 
-  if (rlcp < pat_length) newright = newleft;
-  else {
+
+  if (rlcp >= pat_length) {
     high = right;
     rlcp = old_pat_length;
 
@@ -205,7 +283,7 @@ void refine_range(unsigned char *text, long text_length, long tail_gt_begin_reve
         mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
       } else mid = (low + high) / 2;
 
-      if (lcp_compare_2(text, text_length, pat, pat_length, tail_gt_begin_reversed_length,
+      if (lcp_compare(text, text_length, pat, pat_length, tail_gt_begin_reversed_length,
             block_beg + block_psa[mid].sa, reader, lcp) < 0) {
         high = mid;
         rlcp = lcp;
@@ -214,8 +292,8 @@ void refine_range(unsigned char *text, long text_length, long tail_gt_begin_reve
         llcp = lcp;
       }
     }
-    newright = high;
   }
+  newright = high;
 }
 
 
@@ -798,4 +876,4 @@ void compute_block_rank_matrix(unsigned char *text, long text_length,
 
 }  // inmem_sascan_private
 
-#endif  // __INMEM_COMPUTE_BLOCK_RANK_MATRIX
+#endif  // __INMEM_COMPUTE_INITIAL_RANKS_H_INCLUDED

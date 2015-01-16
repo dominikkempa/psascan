@@ -106,8 +106,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
   long double start1 = utils::wclock();
   inmem_compute_gap<saidx_t, pagesize_log>(text, text_length, lbeg, lsize, rsize,
       *l_bwtsa, gt, gap, max_threads, need_gt, left_i0, (1L << 21), rank_init_time, streaming_time,
-      text_beg, text_end, supertext_length, supertext_filename, tail_gt_begin_reversed, block_rank_matrix,
-      lrange_beg, lrange_end, rrange_beg, rrange_end);
+      block_rank_matrix, lrange_beg, lrange_size, rrange_size);
   fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
 
 
