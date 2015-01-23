@@ -15,7 +15,8 @@ void usage(int status) {
 "\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n"
-"  -o, --output=OUTFILE    specify output file (default: FILE.sa5)\n",
+"  -o, --output=OUTFILE    specify output file (default: FILE.sa5)\n"
+"  -g, --gap=GAPFILE       specify gap array file (default: along with output)\n",
     program_name);
 
   std::exit(status);
@@ -27,15 +28,17 @@ int main(int argc, char **argv) {
   static struct option long_options[] = {
     {"mem",    required_argument, NULL, 'm'},
     {"output", required_argument, NULL, 'o'},
+    {"gap",    required_argument, NULL, 'g'},
     {NULL, 0, NULL, 0}
   };
 
   long ram_use = 3072L << 20;
   std::string out_fname("");
+  std::string gap_fname("");
 
   // Parse command-line options.
   int c;
-  while ((c = getopt_long(argc, argv, "m:o:", long_options, NULL)) != -1) {
+  while ((c = getopt_long(argc, argv, "m:o:g:", long_options, NULL)) != -1) {
     switch(c) {
       case 'm':
         ram_use = std::atol(optarg) << 20;
@@ -46,6 +49,9 @@ int main(int argc, char **argv) {
         break;
       case 'o':
         out_fname = std::string(optarg);
+        break;
+      case 'g':
+        gap_fname = std::string(optarg);
         break;
       default:
         usage(EXIT_FAILURE);
@@ -67,6 +73,10 @@ int main(int argc, char **argv) {
   // Set default output filename (if not provided).
   if (out_fname.empty())
     out_fname = text_fname + ".sa5";
+
+  // Set default gap filename (if not provided).
+  if (gap_fname.empty())
+    gap_fname = out_fname;
 
   // Check if input exists.
   if (!utils::file_exists(text_fname)) {
@@ -103,5 +113,5 @@ int main(int argc, char **argv) {
   // NOTE: the number of threads can (?) be obtained using STL method:
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
   //----------------------------------------------------------------------------
-  SAscan(text_fname, out_fname, ram_use, 24);
+  SAscan(text_fname, out_fname, gap_fname, ram_use, 24);
 }

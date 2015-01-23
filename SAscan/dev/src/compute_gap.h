@@ -29,7 +29,7 @@ template<typename block_offset_type>
 void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
     long tail_begin, long tail_end, long text_length, long max_threads,
     long block_isa0, long stream_bufsize, unsigned char block_last_symbol,
-    std::vector<long> initial_ranks, std::string text_filename,
+    std::vector<long> initial_ranks, std::string text_filename, std::string output_filename,
     multifile *tail_gt_begin_rev, multifile *newtail_gt_begin_rev) {
 
   long tail_length = tail_end - tail_begin;
@@ -74,7 +74,7 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
     long stream_block_beg = tail_begin + t * stream_max_block_size;
     long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
 
-    gt_filenames[t] = text_filename + ".gt_tail." + utils::random_string_hash();
+    gt_filenames[t] = output_filename + ".gt_tail." + utils::random_string_hash();
     newtail_gt_begin_rev->add_file(text_length - stream_block_end, text_length - stream_block_beg, gt_filenames[t]);
 
     streamers[t] = new std::thread(parallel_stream<block_offset_type>, full_buffers, empty_buffers, stream_block_beg,

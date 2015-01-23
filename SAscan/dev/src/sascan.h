@@ -14,8 +14,8 @@
 #include "half_block_info.h"
 
 
-void SAscan(std::string input_filename, std::string output_filename, long ram_use, long max_threads,
-    long stream_buffer_size = (1L << 21)) {
+void SAscan(std::string input_filename, std::string output_filename, std::string gap_filename,
+    long ram_use, long max_threads, long stream_buffer_size = (1L << 21)) {
   long n_stream_buffers = 2 * max_threads;
   if (ram_use < 6L) {
     fprintf(stderr, "Error: not enough memory to run SAscan.\n");
@@ -25,9 +25,11 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
   // Turn paths absolute.
   input_filename = utils::absolute_path(input_filename);
   output_filename = utils::absolute_path(output_filename);
+  gap_filename = utils::absolute_path(gap_filename);
   long length = utils::file_size(input_filename);
   fprintf(stderr, "Input filename = %s\n", input_filename.c_str());
   fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
+  fprintf(stderr, "Gap filename = %s\n", gap_filename.c_str());
   fprintf(stderr, "Input length = %ld (%.1LfMiB)\n", length, 1.L * length / (1L << 20));
   fprintf(stderr, "\n");
 
@@ -60,11 +62,11 @@ void SAscan(std::string input_filename, std::string output_filename, long ram_us
   long double start = utils::wclock();
   if (max_block_size < (1L << 31)) {  // XXX (1L << 32)?
     std::vector<half_block_info<int> > hblock_info = partial_sufsort<int>(input_filename,
-        output_filename, length, max_block_size, ram_use, max_threads, stream_buffer_size);
+        output_filename, gap_filename, length, max_block_size, ram_use, max_threads, stream_buffer_size);
     merge<int>(output_filename, ram_use, hblock_info);
   } else {
     std::vector<half_block_info<uint40> > hblock_info = partial_sufsort<uint40>(input_filename,
-        output_filename, length, max_block_size, ram_use, max_threads, stream_buffer_size);
+        output_filename, gap_filename, length, max_block_size, ram_use, max_threads, stream_buffer_size);
     merge<uint40>(output_filename, ram_use, hblock_info);
   }
   long double total_time = utils::wclock() - start;

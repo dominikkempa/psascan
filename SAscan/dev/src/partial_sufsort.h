@@ -65,7 +65,7 @@
 template<typename block_offset_type>
 void process_block(long block_beg, long block_end,
     long text_length, long ram_use, long max_threads, long stream_buffer_size,
-    std::string text_filename, std::string output_filename,
+    std::string text_filename, std::string output_filename, std::string gap_filename,
     multifile *newtail_gt_begin_rev, multifile *tail_gt_begin_rev,
     std::vector<half_block_info<block_offset_type> > &hblock_info) {
 
@@ -409,10 +409,10 @@ void process_block(long block_beg, long block_end,
     //
     // Compute gap array of the left half-block wrt to the right half-block.
     // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
-    left_block_gap = new buffered_gap_array(left_block_size + 1, output_filename);
+    left_block_gap = new buffered_gap_array(left_block_size + 1, gap_filename);
     compute_gap<block_offset_type>(left_block_rank, left_block_gap, right_block_beg, right_block_end,
         text_length, max_threads, left_block_i0, stream_buffer_size, left_block_last,
-        initial_ranks2, text_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
+        initial_ranks2, text_filename, output_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
     delete left_block_rank;
     delete right_block_gt_begin_rev;
 
@@ -429,7 +429,7 @@ void process_block(long block_beg, long block_end,
     //   the gap of the left half-block wrt to the whole tail and right_block_size > 0.
     // What we should do in this situation, is to write the gap to disk
     // and update the information about the gap array filename in info_left.
-    info_left.gap_filename = output_filename + ".gap." + utils::random_string_hash();
+    info_left.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
     left_block_gap->save_to_file(info_left.gap_filename);
     left_block_gap->erase_disk_excess();
     delete left_block_gap;
@@ -524,7 +524,7 @@ void process_block(long block_beg, long block_end,
   // Write left_block_gap_bv to disk.
   fprintf(stderr, "    Write left block gap bitvector to disk: ");
   long double write_left_gap_bv_start = utils::wclock();
-  std::string left_block_gap_bv_filename = output_filename + ".left_block_gap_bv";
+  std::string left_block_gap_bv_filename = gap_filename + ".left_block_gap_bv";
   left_block_gap_bv->save(left_block_gap_bv_filename);
   delete left_block_gap_bv;
   long double write_left_gap_bv_time = utils::wclock() - write_left_gap_bv_start;
@@ -554,7 +554,7 @@ void process_block(long block_beg, long block_end,
   long double whole_block_rank_build_io = (block_size / (1024.L * 1024)) / whole_block_rank_build_time;
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", whole_block_rank_build_time, whole_block_rank_build_io);
 
-  buffered_gap_array *block_gap = new buffered_gap_array(block_size + 1, output_filename);
+  buffered_gap_array *block_gap = new buffered_gap_array(block_size + 1, gap_filename);
 
   // 5.b
   //
@@ -563,7 +563,7 @@ void process_block(long block_beg, long block_end,
   // RAM: block_rank, block_gap_array, block_gap.
   compute_gap<block_offset_type>(block_rank, block_gap, block_tail_beg, block_tail_end, text_length,
       max_threads, block_i0, stream_buffer_size, block_last_symbol, block_initial_ranks, text_filename,
-      tail_gt_begin_rev, newtail_gt_begin_rev);
+      output_filename, tail_gt_begin_rev, newtail_gt_begin_rev);
   delete block_rank;
 
   block_gap->flush_excess_to_disk();
@@ -590,8 +590,8 @@ void process_block(long block_beg, long block_end,
   // directly to disk and after we're done we update the information about the
   // location of gap arrays into info_left and info_right structures.
   //----------------------------------------------------------------------------
-  info_left.gap_filename = output_filename + ".gap." + utils::random_string_hash();
-  info_right.gap_filename = output_filename + ".gap." + utils::random_string_hash();
+  info_left.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
+  info_right.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
 
   gap_array_2n *block_gap_2n = new gap_array_2n(block_gap, max_threads);
   delete block_gap;
@@ -617,7 +617,7 @@ void process_block(long block_beg, long block_end,
 //=============================================================================
 template<typename block_offset_type>
 std::vector<half_block_info<block_offset_type> > partial_sufsort(std::string text_filename, std::string output_filename,
-    long text_length, long max_block_size, long ram_use, long max_threads, long stream_buffer_size) {
+    std::string gap_filename, long text_length, long max_block_size, long ram_use, long max_threads, long stream_buffer_size) {
   fprintf(stderr, "sizeof(block_offset_type) = %lu\n\n", sizeof(block_offset_type));
 
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -631,7 +631,7 @@ std::vector<half_block_info<block_offset_type> > partial_sufsort(std::string tex
 
     multifile *newtail_gt_begin_reversed = new multifile();
     process_block<block_offset_type>(block_beg, block_end, text_length, ram_use, max_threads, stream_buffer_size,
-        text_filename, output_filename, newtail_gt_begin_reversed, tail_gt_begin_reversed, hblock_info);
+        text_filename, output_filename, gap_filename, newtail_gt_begin_reversed, tail_gt_begin_reversed, hblock_info);
 
     delete tail_gt_begin_reversed;
     tail_gt_begin_reversed = newtail_gt_begin_reversed;
