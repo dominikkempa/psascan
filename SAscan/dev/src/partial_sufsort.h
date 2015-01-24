@@ -201,7 +201,7 @@ void process_block(long block_beg, long block_end,
     // Write the partial SA of the right half-block to disk.
     fprintf(stderr, "    Write partial SA to disk: ");
     long double right_psa_save_start = utils::wclock();
-    long right_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 10L);
+    long right_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 20L);
     info_right.psa = new distributed_file<block_offset_type>(output_filename,
         right_psa_max_part_length, right_block_psa_ptr, right_block_psa_ptr + right_block_size);
     long double right_psa_save_time = utils::wclock() - right_psa_save_start;
@@ -314,7 +314,7 @@ void process_block(long block_beg, long block_end,
   // Write the partial SA of the left half-block to disk.
   fprintf(stderr, "    Write partial SA to disk: ");
   long double left_psa_save_start = utils::wclock();
-  long left_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 10L);
+  long left_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 20L);
   info_left.psa = new distributed_file<block_offset_type>(output_filename,
       left_psa_max_part_length, left_block_psa_ptr, left_block_psa_ptr + left_block_size);
   long double left_psa_save_time = utils::wclock() - left_psa_save_start;
