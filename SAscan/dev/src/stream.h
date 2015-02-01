@@ -94,9 +94,9 @@ void parallel_stream(
 
         stdout_mutex.lock();
         fprintf(stderr, "\r    Stream: %.2Lf%%. Time: %.2Lf. Threads: %ld. "
-            "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)",
+            "Speed: %.2LfMiB/s (total)",
             (total_streamed * 100.L) / info->m_tostream, elapsed,
-            info->m_thread_count, speed / info->m_thread_count, speed);
+            info->m_thread_count, speed);
         stdout_mutex.unlock();
       }
       info->m_mutex.unlock();

@@ -26,9 +26,11 @@
 #include "bwt_merge.h"
 #include "compute_gap.h"
 #include "compute_initial_ranks.h"
-
 #include "compute_right_gap.h"
 #include "compute_left_gap.h"
+
+
+extern bool verbose;
 
 
 //=============================================================================
@@ -159,16 +161,18 @@ void process_block(long block_beg, long block_end,
     unsigned char *right_block_bwt = (unsigned char *)(right_block_psa_ptr + right_block_size);
     bitvector *right_block_gt_begin_rev_bv = new bitvector(right_block_size);
     fprintf(stderr, "    Internal memory sufsort: ");
+    if (verbose) fprintf(stderr, "\n%s\n", std::string(60, '*').c_str());
     long double right_block_sascan_start = utils::wclock();
 
-    // Close stderr.
-    int stderr_backup;
-    int stderr_temp;
-    std::fflush(stderr);
-    stderr_backup = dup(2);
-    stderr_temp = open("/dev/null", O_WRONLY);
-    dup2(stderr_temp, 2);
-    close(stderr_temp);
+    // Vlose stderr.
+    int stderr_backup = 0;
+    if (!verbose) {
+      std::fflush(stderr);
+      stderr_backup = dup(2);
+      int stderr_temp = open("/dev/null", O_WRONLY);
+      dup2(stderr_temp, 2);
+      close(stderr_temp);
+    }
 
     // Run in-memory SAscan.
     inmem_sascan<block_offset_type>(right_block, right_block_size, right_block_sabwt, max_threads,
@@ -176,13 +180,16 @@ void process_block(long block_beg, long block_end,
         text_filename, tail_gt_begin_rev, &right_block_i0);
 
     // Restore stderr.
-    std::fflush(stderr);
-    dup2(stderr_backup, 2);
-    close(stderr_backup);
+    if (!verbose) {
+      std::fflush(stderr);
+      dup2(stderr_backup, 2);
+      close(stderr_backup);
+    }
 
     // Print summary.
     long double right_block_sascan_time = utils::wclock() - right_block_sascan_start;
     long double right_block_sascan_speed = (right_block_size / (1024.L * 1024)) / right_block_sascan_time;
+    if (verbose) fprintf(stderr, "%s\n", std::string(60, '*').c_str());
     fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", right_block_sascan_time, right_block_sascan_speed);
  
     // 1.c
@@ -269,16 +276,18 @@ void process_block(long block_beg, long block_end,
   bitvector *left_block_gt_begin_rev_bv = NULL;
   if (!first_block) left_block_gt_begin_rev_bv = new bitvector(left_block_size);  
   fprintf(stderr, "    Internal memory sufsort: ");
+  if (verbose) fprintf(stderr, "\n%s\n", std::string(60, '*').c_str());
   long double left_block_sascan_start = utils::wclock();
 
   // Close stderr.
-  int stderr_backup;
-  int stderr_temp;
-  std::fflush(stderr);
-  stderr_backup = dup(2);
-  stderr_temp = open("/dev/null", O_WRONLY);
-  dup2(stderr_temp, 2);
-  close(stderr_temp);
+  int stderr_backup = 0;
+  if (!verbose) {
+    std::fflush(stderr);
+    stderr_backup = dup(2);
+    int stderr_temp = open("/dev/null", O_WRONLY);
+    dup2(stderr_temp, 2);
+    close(stderr_temp);
+  }
 
   // Run in-memory SAscan.
   inmem_sascan<block_offset_type>(left_block, left_block_size, left_block_sabwt, max_threads,
@@ -286,13 +295,16 @@ void process_block(long block_beg, long block_end,
       left_block_end, text_length, text_filename, right_block_gt_begin_rev, &left_block_i0, right_block);
 
   // Restore stderr.
-  std::fflush(stderr);
-  dup2(stderr_backup, 2);
-  close(stderr_backup);
+  if (!verbose) {
+    std::fflush(stderr);
+    dup2(stderr_backup, 2);
+    close(stderr_backup);
+  }
 
   // Print summary.
   long double left_block_sascan_time = utils::wclock() - left_block_sascan_start;
   long double left_block_sascan_speed = (left_block_size / (1024.L * 1024)) / left_block_sascan_time;
+  if (verbose) fprintf(stderr, "%s\n", std::string(60, '*').c_str());
   fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", left_block_sascan_time, left_block_sascan_speed);
 
   // 2.c
@@ -627,7 +639,7 @@ std::vector<half_block_info<block_offset_type> > partial_sufsort(std::string tex
   for (long block_id = n_blocks - 1; block_id >= 0; --block_id) {
     long block_beg = max_block_size * block_id;
     long block_end = std::min(block_beg + max_block_size, text_length);
-    fprintf(stderr, "Processing block %ld/%ld [%ld..%ld):\n", n_blocks - block_id, n_blocks, block_beg, block_end);
+    fprintf(stderr, "Process block %ld/%ld [%ld..%ld):\n", n_blocks - block_id, n_blocks, block_beg, block_end);
 
     multifile *newtail_gt_begin_reversed = new multifile();
     process_block<block_offset_type>(block_beg, block_end, text_length, ram_use, max_threads, stream_buffer_size,

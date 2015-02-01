@@ -22,3 +22,9 @@ Ordered roughly by priority (from the most urgent):
 * Add an option for computing BWT rather than SA or both
 
 * Add support for full byte alphabet
+
+* Fix this bug (if still present)
+  dkempa@whx-15:~/saca-code/SAscan/dev/src$ ./sascan ~/data/countries.4G
+  -m 3200 --output=~/data/sa5.correct.countries.4G
+  ~/data/sa5.correct.countries.4G: No such file or directory
+  Possible solution: I think we should resolve the paths first.

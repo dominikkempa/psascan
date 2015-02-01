@@ -103,8 +103,8 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
   long double stream_time = utils::wclock() - stream_start;
   long double speed = (tail_length / (1024.L * 1024)) / stream_time;
   fprintf(stderr,"\r    Stream: 100.0%%. Time: %.2Lf. Threads: %ld. "
-      "Speed: %.2LfMiB/s (avg), %.2LfMiB/s (total)\n",
-      stream_time, info.m_thread_count, speed / n_threads, speed);
+      "Speed: %.2LfMiB/s (total)\n",
+      stream_time, info.m_thread_count, speed);
 }
 
 

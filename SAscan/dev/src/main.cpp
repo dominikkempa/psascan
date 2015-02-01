@@ -7,6 +7,7 @@
 #include "sascan.h"
 
 char *program_name;
+bool verbose;
 
 void usage(int status) {
   printf(
@@ -16,7 +17,8 @@ void usage(int status) {
 "Mandatory arguments to long options are mandatory for short options too.\n"
 "  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n"
 "  -o, --output=OUTFILE    specify output file (default: FILE.sa5)\n"
-"  -g, --gap=GAPFILE       specify gap array file (default: along with output)\n",
+"  -g, --gap=GAPFILE       specify gap array file (default: along with output)\n"
+"  -v, --verbose           print detailed information during internal sufsort\n",
     program_name);
 
   std::exit(status);
@@ -24,11 +26,13 @@ void usage(int status) {
 
 int main(int argc, char **argv) {
   program_name = argv[0];
+  verbose = false;
 
   static struct option long_options[] = {
-    {"mem",    required_argument, NULL, 'm'},
-    {"output", required_argument, NULL, 'o'},
-    {"gap",    required_argument, NULL, 'g'},
+    {"verbose", no_argument,       NULL, 'v'},
+    {"mem",     required_argument, NULL, 'm'},
+    {"output",  required_argument, NULL, 'o'},
+    {"gap",     required_argument, NULL, 'g'},
     {NULL, 0, NULL, 0}
   };
 
@@ -38,7 +42,7 @@ int main(int argc, char **argv) {
 
   // Parse command-line options.
   int c;
-  while ((c = getopt_long(argc, argv, "m:o:g:", long_options, NULL)) != -1) {
+  while ((c = getopt_long(argc, argv, "vm:o:g:", long_options, NULL)) != -1) {
     switch(c) {
       case 'm':
         ram_use = std::atol(optarg) << 20;
@@ -52,6 +56,9 @@ int main(int argc, char **argv) {
         break;
       case 'g':
         gap_fname = std::string(optarg);
+        break;
+      case 'v':
+        verbose = true;
         break;
       default:
         usage(EXIT_FAILURE);
