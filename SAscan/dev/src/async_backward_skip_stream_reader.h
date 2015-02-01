@@ -35,7 +35,7 @@ struct async_backward_skip_stream_reader {
         reader->m_passive_buf_filled = std::fread(reader->m_passive_buf, sizeof(T), toread, reader->m_file);
       }
 
-      // Let the caller know what the I/O thread finished reading.
+      // Let the caller know that the I/O thread finished reading.
       lk.lock();
       reader->m_avail = false;
       lk.unlock();

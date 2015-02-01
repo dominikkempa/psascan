@@ -1,11 +1,24 @@
-The algorithm is supposed to be inplace -- meaning that the space allocated for
-the output should be used for temp files. Currently this is not the case, as
-names of all temp files are created based on the filename of input text, meaning
-they will always be created along with the input file.
+Ordered roughly by priority (from the most urgent):
 
-gt_eof bitvector should probably be deleted rather than kept in memory, when the
-peak occurrs.
+* Fix the problems with the merging on 1TiB file
 
-rare_trunk computation should be first simulated, so know exactly how much memory
-to allocate and we don't have to use vector (which can be two times larger than
-necesary -- this shows quite significantly when using large RAM sizes).
+* Fix the computation of starting positions for EM streaming in pSAscan
+
+* Use O_DIRECT for I/O to prevent caching: for starters, implement the
+  O_DIRECT version of stream_reader and use during streaming; disk pages will
+  still be cached in RAM (due to the use of async_multifile_bitstream_reader
+  accessing the gt bitvector), but should do so much slower
+
+* Add an option for running sequentially or parallel (e.g., -j 6)
+
+* Solve the so called "interface issue" in internal pSAscan
+
+* Try the new, 2n-byte rank and implement more generic half-block
+  processing (allowing more than two half-blocks)
+
+* Try the possibility of using some wavelet-tree-like data structure in place
+  of 4n (or 2n) - byte rank and check if its faster on DNA
+
+* Add an option for computing BWT rather than SA or both
+
+* Add support for full byte alphabet
