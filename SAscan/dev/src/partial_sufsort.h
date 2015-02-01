@@ -21,6 +21,9 @@
 #include "sascan.h"
 
 
+//#define DROP_CACHE
+
+
 //==============================================================================
 // Compute partial SA of B[0..block_size) and store on disk.
 //==============================================================================
@@ -77,6 +80,10 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
       *BWT = B;
       fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
     } else delete[] B;
+
+#ifdef DROP_CACHE
+    utils::drop_cache();
+#endif
     
     delete[] SA;
   } else {
@@ -120,6 +127,10 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
       fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
     } else  delete[] B;
     delete[] SA;
+
+#ifdef DROP_CACHE
+    utils::drop_cache();
+#endif
   }
 
   return result;
@@ -155,6 +166,10 @@ void compute_gap(
     count[j] = s;
     s += t;
   }
+
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 
   fprintf(stderr, "  Stream:\r");
   long double stream_start = utils::wclock();
@@ -198,6 +213,10 @@ void compute_gap(
 
   delete text_streamer;
   delete gt_out;
+
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 }
 
 template<typename block_offset_type>
@@ -209,6 +228,10 @@ distributed_file<block_offset_type> *process_block(long block_beg,
   long block_id = block_beg / max_block_size;
   bool last_block = (block_end == text_length);
   bool first_block = (block_beg == 0);
+
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 
   // Read current block.
   fprintf(stderr, "  Read block: ");
@@ -263,6 +286,10 @@ distributed_file<block_offset_type> *process_block(long block_beg,
   distributed_file<block_offset_type> *result = compute_partial_sa_and_bwt<block_offset_type>(
       block, block_size, ram_use,  sa_fname, !last_block, &bwt, whole_suffix_rank);
 
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
+
   if (!last_block) {
     // Build the rank support for BWT.
     fprintf(stderr, "  Build rank over bwt: ");
@@ -283,6 +310,10 @@ distributed_file<block_offset_type> *process_block(long block_beg,
     gap->save_to_file(output_filename + ".gap." + utils::intToStr(block_id));
     delete gap;
   }
+
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 
   return result;
 }
