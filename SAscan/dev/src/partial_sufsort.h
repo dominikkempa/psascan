@@ -30,7 +30,7 @@
 #include "compute_left_gap.h"
 
 
-#define DROP_CACHE
+//#define DROP_CACHE
 
 extern bool verbose;
 
