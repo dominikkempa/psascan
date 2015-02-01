@@ -15,9 +15,10 @@ void usage(int status) {
 "Construct the suffix array for text stored in FILE.\n"
 "\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
+"  -g, --gap=GAPFILE       specify gap array file (default: along with output)\n"
+"  -h, --help              display this help and exit\n"
 "  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n"
 "  -o, --output=OUTFILE    specify output file (default: FILE.sa5)\n"
-"  -g, --gap=GAPFILE       specify gap array file (default: along with output)\n"
 "  -v, --verbose           print detailed information during internal sufsort\n",
     program_name);
 
@@ -29,6 +30,7 @@ int main(int argc, char **argv) {
   verbose = false;
 
   static struct option long_options[] = {
+    {"help",    no_argument,       NULL, 'h'},
     {"verbose", no_argument,       NULL, 'v'},
     {"mem",     required_argument, NULL, 'm'},
     {"output",  required_argument, NULL, 'o'},
@@ -42,7 +44,7 @@ int main(int argc, char **argv) {
 
   // Parse command-line options.
   int c;
-  while ((c = getopt_long(argc, argv, "vm:o:g:", long_options, NULL)) != -1) {
+  while ((c = getopt_long(argc, argv, "hvm:o:g:", long_options, NULL)) != -1) {
     switch(c) {
       case 'm':
         ram_use = std::atol(optarg) << 20;
@@ -60,6 +62,8 @@ int main(int argc, char **argv) {
       case 'v':
         verbose = true;
         break;
+      case 'h':
+        usage(EXIT_FAILURE);
       default:
         usage(EXIT_FAILURE);
     }

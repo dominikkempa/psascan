@@ -30,6 +30,8 @@
 #include "compute_left_gap.h"
 
 
+#define DROP_CACHE
+
 extern bool verbose;
 
 
@@ -164,7 +166,7 @@ void process_block(long block_beg, long block_end,
     if (verbose) fprintf(stderr, "\n%s\n", std::string(60, '*').c_str());
     long double right_block_sascan_start = utils::wclock();
 
-    // Vlose stderr.
+    // Close stderr.
     int stderr_backup = 0;
     if (!verbose) {
       std::fflush(stderr);
@@ -241,6 +243,10 @@ void process_block(long block_beg, long block_end,
     long double right_gt_begin_rev_save_time = utils::wclock() - right_gt_begin_rev_save_start;
     long double right_gt_begin_rev_save_io = (right_block_size / (8.L * (1 << 20))) / right_gt_begin_rev_save_time;
     fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_gt_begin_rev_save_time, right_gt_begin_rev_save_io);
+
+#ifdef DROP_CACHE
+    utils::drop_cache();
+#endif
   }
 
 
@@ -363,6 +369,10 @@ void process_block(long block_beg, long block_end,
     fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_gt_begin_rev_save_time, left_gt_begin_rev_save_io);
   }
 
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
+
 
   //----------------------------------------------------------------------------
   // STEP 3: Compute the partial SA of the block.
@@ -417,6 +427,10 @@ void process_block(long block_beg, long block_end,
     long double left_block_rank_build_speed = (left_block_size / (1024.L * 1024)) / left_block_rank_build_time;
     fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
 
+#ifdef DROP_CACHE
+    utils::drop_cache();
+#endif
+
     // 3.c
     //
     // Compute gap array of the left half-block wrt to the right half-block.
@@ -427,6 +441,10 @@ void process_block(long block_beg, long block_end,
         initial_ranks2, text_filename, output_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
     delete left_block_rank;
     delete right_block_gt_begin_rev;
+
+#ifdef DROP_CACHE
+    utils::drop_cache();
+#endif
 
 
   //----------------------------------------------------------------------------
@@ -450,6 +468,10 @@ void process_block(long block_beg, long block_end,
     hblock_info.push_back(info_right);
     return;
   }
+
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 
 
   //----------------------------------------------------------------------------
@@ -497,6 +519,9 @@ void process_block(long block_beg, long block_end,
   left_block_gap->erase_disk_excess();
   delete left_block_gap;
 
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 
   // 4.b
   //
@@ -543,6 +568,9 @@ void process_block(long block_beg, long block_end,
   long double write_left_gap_bv_io = ((block_size / 8.L) / (1 << 20)) / write_left_gap_bv_time;
   fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", write_left_gap_bv_time, write_left_gap_bv_io);
 
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 
   //----------------------------------------------------------------------------
   // STEP 5: Compute the gap array of the block.
@@ -620,6 +648,10 @@ void process_block(long block_beg, long block_end,
   
   hblock_info.push_back(info_left);
   hblock_info.push_back(info_right);
+
+#ifdef DROP_CACHE
+  utils::drop_cache();
+#endif
 }
 
 
