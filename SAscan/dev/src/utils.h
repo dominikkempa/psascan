@@ -13,6 +13,8 @@ namespace utils {
 
 /******************************* SYSTEM CALLS *********************************/
 void execute(std::string cmd);
+void unsafe_execute(std::string cmd);
+void drop_cache();
 
 /****************************** MEASURING TIME ********************************/
 long double wclock();

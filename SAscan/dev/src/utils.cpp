@@ -45,6 +45,25 @@ void execute(std::string cmd) {
   }
 }
 
+void unsafe_execute(std::string cmd) {
+  int system_ret = system(cmd.c_str());
+  if (system_ret) {
+    fprintf(stderr, "\nError: executing command [%s] returned %d.\n",
+        cmd.c_str(), system_ret);
+  }
+}
+
+void drop_cache() {
+  long double start = utils::wclock();
+  fprintf(stderr, "  Clearing cache: ");
+  fprintf(stderr, "Before:\n");
+  utils::unsafe_execute("free -m");
+  utils::unsafe_execute("echo 3 | tee /proc/sys/vm/drop_caches");
+  fprintf(stderr, "After:\n");
+  utils::unsafe_execute("free -m");
+  fprintf(stderr, "Clearing time: %.2Lf\n", utils::wclock() - start);
+}
+
 /****************************** MEASURING TIME ********************************/
 long double wclock() {
   timeval tim;
