@@ -195,7 +195,12 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
 
 
   float rl_ratio = 10.L; // estimated empirically
-  int max_left_size = std::max(1, (int)floor(n_blocks * (2.L - (2.125L + sizeof(saidx_t)) / 5.L)));
+  // Note that 9n for the 32-bit version and 10n for 40-bit version are the most reasonable
+  // space usages we can get. In the worst case there are two blocks, thus during the
+  // merging the rank + gap array for the left block will take 2.5n. This added to the 7.125n
+  // (for 40-bit) and 6.125n (for 32-bit) gives 9.6125n and 8.625n space usages.
+  long max_ram_usage_per_input_byte = 10L;  // peak ram usage = 10n
+  int max_left_size = std::max(1, (int)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(saidx_t))) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
   fprintf(stderr, "Max left size = %d\n", max_left_size);
   fprintf(stderr, "Peak memory usage during last merging = %.3Lfn\n",
