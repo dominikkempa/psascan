@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   long max_blocks = std::atol(argv[2]);
 
   for (long i = 3; i < argc; ++i) {
-    test_file<uint40>(argv[i], max_threads, max_blocks, 1);
-    test_file<int>(argv[i], max_threads, max_blocks, 1);
+    test_file<uint40>(argv[i], max_threads, max_blocks, 3);
+    test_file<int>(argv[i], max_threads, max_blocks, 3);
   }
 }
