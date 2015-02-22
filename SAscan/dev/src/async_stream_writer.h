@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <thread>
-#include <future>
 #include <mutex>
 #include <condition_variable>
 #include <algorithm>

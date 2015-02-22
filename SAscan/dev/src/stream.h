@@ -12,7 +12,6 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <future>
 #include <algorithm>
 
 #include "utils.h"

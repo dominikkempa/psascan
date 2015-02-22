@@ -1,6 +1,7 @@
 #ifndef __INMEM_SASCAN_FINAL_INMEM_SUFSORT_H
 #define __INMEM_SASCAN_FINAL_INMEM_SUFSORT_H
 
+#include <cmath>
 #include <vector>
 #include <limits>
 

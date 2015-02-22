@@ -123,7 +123,6 @@ struct pagearray {
 
   static void permute_to_plain_array_aux(pagearray_type &a,
       std::mutex *mutexes, long &selector, std::mutex &selector_mutex) {
-    static const unsigned pagesize = (1U << pagesize_log);
     long n_pages = (a.m_length + pagesize - 1) / pagesize;
 
     // Invariant: at all times, index[i] for any i points
