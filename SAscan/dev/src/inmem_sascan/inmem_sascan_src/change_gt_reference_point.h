@@ -85,7 +85,6 @@ void gt_end_to_gt_begin(unsigned char *text, long text_length,
   //----------------------------------------------------------------------------
   for (long i = 0; i < n_blocks; ++i) {
     long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-    long block_beg = std::max(0L, block_beg - max_block_size);
     long rev_beg = text_length - block_end;
     gt->flip(rev_beg);
   }

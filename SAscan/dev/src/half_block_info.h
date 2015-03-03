@@ -1,6 +1,11 @@
 #ifndef __HALF_BLOCK_INFO_H_INCLUDED
 #define __HALF_BLOCK_INFO_H_INCLUDED
 
+#include <string>
+
+#include "distributed_file.h"
+
+
 // Stores the information about half-blocks.
 template<typename block_offset_type>
 struct half_block_info {
