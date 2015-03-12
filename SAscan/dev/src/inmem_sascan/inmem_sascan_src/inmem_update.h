@@ -16,7 +16,7 @@ namespace inmem_sascan_private {
 // This object creates a given number of threads that will perform gap array
 // updates. Most of the time all threads are sleeping on a conditional variable.
 // Once the buffer is available for processing, they are all woken up and
-// perform the update in parallel. The caller wakes until all threads are
+// perform the update in parallel. The caller waits until all threads are
 // finished and puts the buffer in the poll of empty buffers.
 //
 // Only one object of this class should exist.
@@ -112,10 +112,10 @@ struct gap_parallel_updater {
       m_avail[i] = true;
     lk.unlock();
 
-    // Wake up all buffers, they will now perform the update.
+    // Wake up all threads, they will now perform the update.
     m_avail_cv.notify_all();
 
-    // Wait untill all threads report that they are done.
+    // Wait until all threads report that they are done.
     std::unique_lock<std::mutex> lk2(m_finished_mutex);
     while (m_finished != m_threads_cnt)
       m_finished_cv.wait(lk2);
@@ -141,7 +141,7 @@ private:
 
   // The mutex below is to protect m_finished. The condition
   // variable allows the caller to wait (and be notified when done)
-  // until threads finish processing they section of buffer.
+  // until threads finish processing their section of buffer.
   int m_finished;
   std::mutex m_finished_mutex;
   std::condition_variable m_finished_cv;
@@ -162,8 +162,8 @@ void inmem_gap_updater(buffer_poll<block_offset_type> *full_buffers,
       full_buffers->m_cv.wait(lk);
 
     if (!full_buffers->available() && full_buffers->finished()) {
-      // All workers finished. We're exiting, but before, we're letting
-      // other updating threads know that they also should check for exit.
+      // All workers finished -- exit, but before, let let other
+      // updating threads know that they also should check for exit.
       lk.unlock();
       full_buffers->m_cv.notify_one();
       break;
@@ -173,7 +173,7 @@ void inmem_gap_updater(buffer_poll<block_offset_type> *full_buffers,
     lk.unlock();
     full_buffers->m_cv.notify_one(); // let others know they should try
 
-    // Process buffer
+    // Process buffer.
     updater->update(b);
 
     // Add the buffer to the poll of empty buffers and notify waiting thread.
