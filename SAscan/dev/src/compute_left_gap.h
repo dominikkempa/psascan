@@ -2,7 +2,8 @@
 #define __COMPUTE_LEFT_GAP_H_INCLUDED
 
 #include <cstdio>
-#include <vector>
+#include <cstdlib>
+
 #include <thread>
 #include <mutex>
 #include <condition_variable>

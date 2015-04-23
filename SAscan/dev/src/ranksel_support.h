@@ -6,6 +6,7 @@
 
 #include "bitvector.h"
 
+
 struct ranksel_support {
   //============================================================================
   // Compute sparse_rank[group_beg..group_end).
@@ -32,7 +33,6 @@ struct ranksel_support {
     //
     // Compute chunk size and allocate spase rank.
     m_chunk_size = std::min((1L << 20), (m_length + max_threads - 1) / max_threads);
-    //m_chunk_size = (m_length + max_threads - 1) / max_threads;
     n_chunks = m_length / m_chunk_size;  // we exclude the last partial chunk
     m_sparse_rank = (long *)malloc((n_chunks + 1) * sizeof(long));
 
@@ -58,8 +58,7 @@ struct ranksel_support {
     
     // 3
     //
-    // Compute cumulative sum of sparse_rank. From now on we can quickly
-    // answer rank and select queries on the bitvector.
+    // Compute cumulative sum of sparse_rank.
     long ones = 0L;
     for (long i = 0; i < n_chunks; ++i) {
       long temp = m_sparse_rank[i];
@@ -76,7 +75,7 @@ struct ranksel_support {
   // 0 <= i < number of 0-bits in bv.
   //============================================================================
   inline long select0(long i) const {
-    // Fast forward through chunks preceding the chunk with the answer.
+    // Fast-forward through chunks preceding the chunk with the answer.
     long j = 0L;
     while (j < n_chunks && ((j + 1) * m_chunk_size) - m_sparse_rank[j + 1] <= i)
       ++j;
@@ -147,7 +146,6 @@ struct ranksel_support {
   long m_length;      // length of bitvector
   long m_chunk_size;  // chunk size
   long n_chunks;      // number of chunks
-  long m_ones;        // number of 1-bits, used for checking
   long *m_sparse_rank;
 
   bitvector *m_bv;

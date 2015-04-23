@@ -1,7 +1,9 @@
-#ifndef __INMEM_SASCAN_COMPUTE_INITIAL_GT_BITVECTORS_H
-#define __INMEM_SASCAN_COMPUTE_INITIAL_GT_BITVECTORS_H
+#ifndef __INMEM_SASCAN_PRIVATE_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED
+#define __INMEM_SASCAN_PRIVATE_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED
 
+#include <cstdio>
 #include <cstring>
+
 #include <algorithm>
 #include <thread>
 
@@ -11,8 +13,8 @@
 #include "../../multifile_bit_stream_reader.h"
 #include "background_block_reader.h"
 
-namespace inmem_sascan_private {
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // Compute bitvectors bv[0..ref_pos) and undecided[0..ref_pos), where:
@@ -316,4 +318,4 @@ void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
 }  // namespace inmem_sascan
 
 
-#endif  // __COMPUTE_INITIAL_GT_BITVECTORS_H
+#endif  // __INMEM_SASCAN_PRIVATE_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED

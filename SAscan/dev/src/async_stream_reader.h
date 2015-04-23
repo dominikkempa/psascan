@@ -1,13 +1,13 @@
 #ifndef __ASYNC_STREAM_READER_H_INCLUDED
 #define __ASYNC_STREAM_READER_H_INCLUDED
 
-#include <cstdio>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <algorithm>
 
 #include "utils.h"
+
 
 template<typename value_type>
 struct async_stream_reader {
@@ -26,11 +26,11 @@ struct async_stream_reader {
       }
       lk.unlock();
 
-      // Safely read the data to disk.
-      reader->m_passive_buf_filled = fread(reader->m_passive_buf,
+      // Safely read the data from disk.
+      reader->m_passive_buf_filled = std::fread(reader->m_passive_buf,
           sizeof(T), reader->m_buf_size, reader->m_file);
 
-      // Let the caller know what the I/O thread finished reading.
+      // Let the caller know that the I/O thread finished reading.
       lk.lock();
       reader->m_avail = false;
       lk.unlock();
@@ -53,7 +53,7 @@ struct async_stream_reader {
 
     m_finished = false;
     
-    // Start the I/O thread and immediatelly start reading.
+    // Start the I/O thread and immediately start reading.
     m_avail = true;
     m_thread = new std::thread(io_thread_code<value_type>, this);
   }
@@ -65,7 +65,7 @@ struct async_stream_reader {
     lk.unlock();
     m_cv.notify_one();
 
-    // Wait for the thread to actually finish.
+    // Wait for the thread to finish.
     m_thread->join();
     
     // Clean up.
@@ -77,7 +77,7 @@ struct async_stream_reader {
 
   // This function checks if the reading thread has already
   // prefetched the next buffer (the request should have been
-  // done before), and waits if the prefetching was not
+  // issued before), and waits if the prefetching was not
   // completed yet.
   void receive_new_buffer() {
     // Wait until the I/O thread finishes reading the previous

@@ -1,7 +1,5 @@
-#ifndef __COMPUTE_INITIAL_RANKS_H
-#define __COMPUTE_INITIAL_RANKS_H
-
-#include <cstdio>
+#ifndef __COMPUTE_INITIAL_RANKS_H_INCLUDED
+#define __COMPUTE_INITIAL_RANKS_H_INCLUDED
 
 #include <string>
 #include <thread>
@@ -26,9 +24,9 @@ void compute_initial_ranks(unsigned char *block, long block_beg,
     long stream_block_beg = tail_begin + t * stream_max_block_size;
     long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
 
-    threads[t] = new std::thread(parallel_smaller_suffixes2<saidx_t>, block, block_beg, block_end,
-        text_length, block_partial_sa,
-        text_filename, stream_block_end, std::ref(result[t]));
+    threads[t] = new std::thread(parallel_smaller_suffixes2<saidx_t>, block,
+        block_beg, block_end, text_length, block_partial_sa, text_filename,
+        stream_block_end, std::ref(result[t]));
   }
 
   for (int t = 0; t < n_threads; ++t) threads[t]->join();
@@ -37,4 +35,4 @@ void compute_initial_ranks(unsigned char *block, long block_beg,
 }
 
 
-#endif  // __COMPUTE_INITIAL_RANKS_H
+#endif  // __COMPUTE_INITIAL_RANKS_H_INCLUDED

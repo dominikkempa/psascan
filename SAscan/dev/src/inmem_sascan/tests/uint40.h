@@ -19,8 +19,8 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  *****************************************************************************/
 
-#ifndef __UINT40_H
-#define __UINT40_H
+#ifndef __UINT40_H_INCLUDED
+#define __UINT40_H_INCLUDED
 
 #include <inttypes.h>
 #include <stdint.h>
@@ -167,4 +167,4 @@ public:
 
 }
 
-#endif // __UINT40_H
+#endif  // __UINT40_H_INCLUDED

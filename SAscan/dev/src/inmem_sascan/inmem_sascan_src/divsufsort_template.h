@@ -1,5 +1,5 @@
-#ifndef __INMEM_SASCAN_DIVSUFSORT_TEMPLATE_H
-#define __INMEM_SASCAN_DIVSUFSORT_TEMPLATE_H
+#ifndef __INMEM_SASCAN_PRIVATE_DIVSUFSORT_TEMPLATE_H_INCLUDED
+#define __INMEM_SASCAN_PRIVATE_DIVSUFSORT_TEMPLATE_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -7,8 +7,8 @@
 #include "divsufsort.h"
 #include "divsufsort64.h"
 
-namespace inmem_sascan_private {
 
+namespace inmem_sascan_private {
 
 template<typename T>
 void run_divsufsort(unsigned char *, T*, T) {
@@ -27,6 +27,7 @@ void run_divsufsort(unsigned char *text, long *sa, long length) {
   divsufsort64(text, sa, length);
 }
 
-}  // namespace inmem_sascan
+}  // namespace inmem_sascan_private
 
-#endif  // __DIVSUFSORT_TEMPLATE_H
+
+#endif  // __INMEM_SASCAN_PRIVATE_DIVSUFSORT_TEMPLATE_H_INCLUDED

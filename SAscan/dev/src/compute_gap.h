@@ -1,5 +1,5 @@
-#ifndef __COMPUTE_GAP_H
-#define __COMPUTE_GAP_H
+#ifndef __COMPUTE_GAP_H_INCLUDED
+#define __COMPUTE_GAP_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -61,7 +61,7 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
   buffer_poll<block_offset_type> *empty_buffers = new buffer_poll<block_offset_type>();
   buffer_poll<block_offset_type> *full_buffers = new buffer_poll<block_offset_type>(n_threads);
 
-  // Add empty buffers to empty poll.
+  // Add all buffers to empty poll.
   for (long i = 0L; i < n_stream_buffers; ++i)
     empty_buffers->add(buffers[i]);
 
@@ -108,4 +108,4 @@ void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
 }
 
 
-#endif  // __COMPUTE_GAP_H
+#endif  // __COMPUTE_GAP_H_INCLUDED

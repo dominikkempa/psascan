@@ -255,7 +255,7 @@ struct buffered_gap_array {
   // of suffixes.
   //
   // Nevertheless, to optimize the computation, we provie the sum of values
-  // in the gap array. This allows to immediatelly allocate the bitvector of
+  // in the gap array. This allows to immediately allocate the bitvector of
   // correct size.
   //
   // "Compute the bitvector representation of the gap array in parallel".
@@ -355,7 +355,7 @@ struct buffered_gap_array {
   }
   
 
-  static const int k_excess_limit = (1 << 22); // XXX: isn't that too big? that surely causes the problems with swapping.
+  static const long k_excess_limit = (1L << 22); // XXX: isn't that too big? that surely causes the problems with swapping.
 
   unsigned char *m_count;
   long m_length;
@@ -540,4 +540,4 @@ struct gap_array_2n {
   std::vector<long> m_excess;  // all excess values are in RAM
 };
 
-#endif // __GAP_ARRAY_H_INCLUDED
+#endif  // __GAP_ARRAY_H_INCLUDED

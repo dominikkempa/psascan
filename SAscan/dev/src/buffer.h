@@ -8,12 +8,13 @@
 #include <condition_variable>
 #include <mutex>
 
-template<typename T>
+
+template<typename value_type>
 struct buffer {  
   buffer(long size_bytes, long n_increasers)
       : m_filled(0L),
-        m_size(size_bytes / sizeof(T)) {
-    m_content = new T[m_size];
+        m_size(size_bytes / sizeof(value_type)) {
+    m_content = new value_type[m_size];
 
     sblock_size = new long[n_increasers];
     sblock_beg = new long[n_increasers];
@@ -26,21 +27,23 @@ struct buffer {
   }
 
   long m_filled, m_size;
-  T *m_content;
+  value_type *m_content;
 
   long *sblock_size;
   long *sblock_beg;
 };
 
 // Same class for the poll of empty and full buffers.  
-template<typename T>
+template<typename value_type>
 struct buffer_poll {
+  typedef buffer<value_type> buffer_type;
+
   buffer_poll(long worker_threads = 0L) {
     m_worker_threads = worker_threads; // unused for the poll of empty buffers.
     m_worker_threads_finished = 0L;
   }
   
-  void add(buffer<T> *b) {
+  void add(buffer_type *b) {
     m_queue.push(b);
   }
   
@@ -48,13 +51,13 @@ struct buffer_poll {
     return m_queue.size() > 0;
   }
 
-  buffer<T> *get() {
+  buffer_type *get() {
     if (m_queue.empty()) {
       fprintf(stderr, "\nError: requesting a buffer from empty poll!\n");
       std::exit(EXIT_FAILURE);
     }
 
-    buffer<T> *ret = m_queue.front();
+    buffer_type *ret = m_queue.front();
     m_queue.pop();
 
     return ret;
@@ -72,10 +75,10 @@ struct buffer_poll {
   std::mutex m_mutex;
 
 private:
-  long m_worker_threads; // used to detect that worker threads are done
-  long m_worker_threads_finished;
+  long m_worker_threads;
+  long m_worker_threads_finished;  // to detect when all threads finished
 
-  std::queue<buffer<T>* > m_queue;
+  std::queue<buffer_type*> m_queue;
 };
 
-#endif
+#endif  // __BUFFER_H_INCLUDED

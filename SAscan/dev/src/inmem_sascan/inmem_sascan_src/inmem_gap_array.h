@@ -177,4 +177,4 @@ struct inmem_gap_array {
 
 }  // namespace inmem_sascan
 
-#endif // __INMEM_GAP_ARRAY_H_INCLUDED
+#endif  // __INMEM_GAP_ARRAY_H_INCLUDED

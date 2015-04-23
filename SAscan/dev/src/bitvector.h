@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "io_streamer.h"
 
+
 struct bitvector {
   bitvector(std::string filename) {
     utils::read_objects_from_file<unsigned char>(m_data, m_alloc_bytes, filename);
@@ -68,5 +69,5 @@ struct bitvector {
   unsigned char *m_data;
 };
 
-#endif // __BITVECTOR_H_INCLUDED
+#endif  // __BITVECTOR_H_INCLUDED
 

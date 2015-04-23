@@ -25,7 +25,7 @@
 //
 // NEWS:
 //   - changed the construction, so that it need 5n bytes (rather than
-//     the old 4n) since immediatelly after building rank we allocate
+//     the old 4n) since immediately after building rank we allocate
 //     n-bytes gap array, so the peak does not change.
 //
 //==============================================================================
@@ -817,4 +817,4 @@ template<typename saidx_t, unsigned pagesize_log, unsigned k_sblock_size_log, un
 
 }  // namespace inmem_sascan
 
-#endif // __RANK4N_H_INCLUDED
+#endif  // __RANK4N_H_INCLUDED

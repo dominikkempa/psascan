@@ -44,14 +44,9 @@ void next(pattern *T, long n, long &s, long &p, long &r) {
 }
 
 
-void compute_block_gt_end(
-    unsigned char * block,
-    long block_beg,
-    long block_end,
-    long text_length,
-    std::string text_filename,
-    multifile *tail_gt_begin_reversed,
-    bitvector *block_gt_end) {
+void compute_block_gt_end(unsigned char *block, long block_beg, long block_end,
+    long text_length, std::string text_filename,
+    multifile *tail_gt_begin_reversed, bitvector *block_gt_end) {
   long block_size = block_end - block_beg;
 
   multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);
@@ -75,12 +70,8 @@ void compute_block_gt_end(
 
 
 // Inplace transformation.
-void compute_block_gt_begin_reversed_from_block_gt_end(
-    unsigned char *block,
-    long block_beg,
-    long block_end,
-    bitvector *gt) {
-    
+void compute_block_gt_begin_reversed_from_block_gt_end(unsigned char *block,
+    long block_beg, long block_end, bitvector *gt) {
   long block_size = block_end - block_beg;
     
   gt->flip(0);
@@ -105,20 +96,16 @@ void compute_block_gt_begin_reversed_from_block_gt_end(
 // the beginning of the block (which means that the maximal value is
 // block_size - 1.
 //==============================================================================
-long compute_block_gt_begin_reversed(
-    unsigned char *block,
-    long block_beg,
-    long block_end,
-    long text_length,
-    std::string text_filename,
-    multifile *tail_gt_begin_reversed,
-    bitvector *block_gt_begin_reversed) {
+long compute_block_gt_begin_reversed(unsigned char *block, long block_beg,
+    long block_end, long text_length, std::string text_filename,
+    multifile *tail_gt_begin_reversed, bitvector *block_gt_begin_reversed) {
   long block_size = block_end - block_beg;
 
-  compute_block_gt_end(
-      block, block_beg, block_end, text_length, text_filename, tail_gt_begin_reversed, block_gt_begin_reversed);
-  compute_block_gt_begin_reversed_from_block_gt_end(
-      block, block_beg, block_end, block_gt_begin_reversed);
+  compute_block_gt_end(block, block_beg, block_end, text_length, text_filename,
+                       tail_gt_begin_reversed, block_gt_begin_reversed);
+  compute_block_gt_begin_reversed_from_block_gt_end(block, block_beg,
+                                                    block_end,
+                                                    block_gt_begin_reversed);
 
   long result = block_size - 1;
   for (long i = 1; i < block_size; ++i)
@@ -128,4 +115,4 @@ long compute_block_gt_begin_reversed(
 }
 
 
-#endif // __SRANK_H_INCLUDED
+#endif  // __SRANK_H_INCLUDED

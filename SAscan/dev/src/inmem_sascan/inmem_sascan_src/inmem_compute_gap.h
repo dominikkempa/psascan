@@ -20,7 +20,7 @@
 // --------------------------------
 //
 //  * The algorithm deals with two substrings of text called left and right
-//    block. Right block start immediatelly after left block and has size
+//    block. Right block start immediately after left block and has size
 //    right_block_size. Left block starts at left_block_size and has length
 //    left_block_size. Formally:
 //    - left block  = text[left_block_beg . .left_block_beg + left_block_size)

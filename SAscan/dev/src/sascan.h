@@ -78,4 +78,4 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
 }
 
 
-#endif // __SASCAN_H_INCLUDED
+#endif  // __SASCAN_H_INCLUDED

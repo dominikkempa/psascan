@@ -1,13 +1,13 @@
 #ifndef __ASYNC_STREAM_WRITER_H_INCLUDED
 #define __ASYNC_STREAM_WRITER_H_INCLUDED
 
-#include <cstdio>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
 #include <algorithm>
 
 #include "utils.h"
+
 
 template<typename value_type>
 struct async_stream_writer {
@@ -30,7 +30,7 @@ struct async_stream_writer {
       utils::add_objects_to_file(writer->m_passive_buf,
           writer->m_passive_buf_filled, writer->m_file);
 
-      // Let the caller know what the I/O thread finished writing.
+      // Let the caller know that the I/O thread finished writing.
       lk.lock();
       writer->m_avail = false;
       lk.unlock();
@@ -69,7 +69,7 @@ struct async_stream_writer {
     lk.unlock();
     m_cv.notify_one();
 
-    // Wait for the thread to actually finish.
+    // Wait for the thread to finish.
     m_thread->join();
     
     // Clean up.
@@ -80,7 +80,7 @@ struct async_stream_writer {
   }
 
   // Passes on the active buffer (full, unless it's the last one,
-  // partially filled buffer passed from destructor) to the I/O thread.
+  // partially filled, buffer passed from destructor) to the I/O thread.
   void send_active_buf_to_write() {
     // Wait until the I/O thread finishes writing the previous buffer.
     std::unique_lock<std::mutex> lk(m_mutex);
@@ -102,7 +102,7 @@ struct async_stream_writer {
     m_active_buf[m_active_buf_filled++] = x;
     
     // If the active buffer was full, send it to I/O thread.
-    // This function may wait a bit untill the I/O thread
+    // This function may wait a bit until the I/O thread
     // finishes writing the previous passive buffer.
     if (m_active_buf_filled == m_buf_size)
       send_active_buf_to_write();

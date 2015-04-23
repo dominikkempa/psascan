@@ -1,5 +1,5 @@
-#ifndef __INMEM_SASCAN_FINAL_INMEM_SUFSORT_H
-#define __INMEM_SASCAN_FINAL_INMEM_SUFSORT_H
+#ifndef __INMEM_SASCAN_PRIVATE_INMEM_SASCAN_H_INCLUDED
+#define __INMEM_SASCAN_PRIVATE_INMEM_SASCAN_H_INCLUDED
 
 #include <cmath>
 #include <vector>
@@ -291,6 +291,6 @@ void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
   fprintf(stderr, "Speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_sascan_time);
 }
 
-}  // namespace inmem_sascan
+}  // namespace inmem_sascan_private
 
-#endif  // __FINAL_INMEM_SUFSORT_H
+#endif  // __INMEM_SASCAN_PRIVATE_INMEM_SASCAN_H_INCLUDED

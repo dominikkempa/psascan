@@ -19,7 +19,7 @@ long double wclock();
 void execute(std::string cmd);
 void unsafe_execute(std::string cmd);
 void drop_cache();
-FILE *open_file(std::string fname, std::string mode);
+std::FILE *open_file(std::string fname, std::string mode);
 long file_size(std::string fname);
 bool file_exists(std::string fname);
 void file_delete(std::string fname);
@@ -60,7 +60,7 @@ void read_block(std::FILE *f, long beg, long length, unsigned char *b);
 
 template<typename T>
 void read_objects_from_file(T* tab, long length, std::FILE *f) {
-  size_t fread_ret = fread(tab, sizeof(T), length, f);
+  size_t fread_ret = std::fread(tab, sizeof(T), length, f);
   if ((long)fread_ret != length) {
     fprintf(stderr, "\nError: fread in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fread_ret);
@@ -118,4 +118,4 @@ struct is_same_type<T, T> {
 
 } // namespace utils
 
-#endif // __UTILS_H_INCLUDED
+#endif  // __UTILS_H_INCLUDED

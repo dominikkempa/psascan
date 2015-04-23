@@ -1,9 +1,6 @@
 #ifndef __ASYNC_MULTIFILE_BIT_STREAM_READER_H_INCLUDED
 #define __ASYNC_MULTIFILE_BIT_STREAM_READER_H_INCLUDED
 
-#include <cstdio>
-#include <cstdlib>
-#include <string>
 #include <thread>
 #include <mutex>
 #include <vector>
@@ -13,8 +10,10 @@
 #include "utils.h"
 #include "multifile.h"
 
+
 struct async_multifile_bit_stream_reader {
-  async_multifile_bit_stream_reader(multifile *m, long start_pos = 0L, long bufsize = (4L << 20)) {
+  async_multifile_bit_stream_reader(multifile *m, long start_pos = 0L,
+      long bufsize = (4L << 20)) {
     m_files_info = m->files_info;
   
     long items = std::max(2L, bufsize);
@@ -150,7 +149,7 @@ struct async_multifile_bit_stream_reader {
   }
 
   void receive_new_buffer() {
-    // Wait until the I/O thread finishes reading the revious
+    // Wait until the I/O thread finishes reading the previous
     // buffer. Most of the time this step is instantaneous.
     std::unique_lock<std::mutex> lk(m_mutex);
     while (m_avail == true)
@@ -163,7 +162,7 @@ struct async_multifile_bit_stream_reader {
     m_cur_byte = 0;
     m_cur_bit = 0;
 
-    // Let the I/O thead know that it can now
+    // Let the I/O thread know that it can now
     // prefetch another buffer.
     m_avail = true;
     lk.unlock();

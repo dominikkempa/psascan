@@ -26,7 +26,7 @@ struct async_backward_skip_stream_reader {
       }
       lk.unlock();
 
-      // Safely read the data to disk.
+      // Safely read the data from disk.
       long filepos = std::ftell(reader->m_file) / sizeof(T);
       long toread = std::min(reader->m_buf_size, filepos - reader->m_active_buf_filled);
       if (toread > 0) {
@@ -59,7 +59,7 @@ struct async_backward_skip_stream_reader {
 
     m_finished = false;
     
-    // Start the I/O thread and immediatelly start reading.
+    // Start the I/O thread and immediately start reading.
     m_avail = true;
     m_thread = new std::thread(io_thread_code<value_type>, this);
   }
@@ -71,7 +71,7 @@ struct async_backward_skip_stream_reader {
     lk.unlock();
     m_cv.notify_one();
 
-    // Wait for the thread to actually finish.
+    // Wait for the thread to finish.
     m_thread->join();
     
     // Clean up.
@@ -83,11 +83,11 @@ struct async_backward_skip_stream_reader {
 
   // This function checks if the reading thread has already
   // prefetched the next buffer (the request should have been
-  // done before), and waits if the prefetching was not
+  // issued before), and waits in case the prefetching was not
   // completed yet.
   void receive_new_buffer() {
     // Wait until the I/O thread finishes reading the previous
-    // buffer. Most of the time this step is instantaneous.
+    // buffer. In most cases this step is instantaneous.
     std::unique_lock<std::mutex> lk(m_mutex);
     while (m_avail == true)
       m_cv.wait(lk);
@@ -111,8 +111,8 @@ struct async_backward_skip_stream_reader {
       // buffer. The request to read that passive buffer should
       // have been scheduled long time ago, so hopefully the
       // buffer is now available. We check for that, but we
-      // also might wait a little, if the reading has not yet
-      // been finished. At this point we also already schedule
+      // also might wait, if the reading has not yet been
+      // finished. At this point we also already schedule
       // the next read.
       receive_new_buffer();
     }

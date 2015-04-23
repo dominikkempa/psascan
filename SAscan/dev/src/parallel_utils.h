@@ -1,8 +1,6 @@
 #ifndef __PARALLEL_UTILS_H_INCLUDED
 #define __PARALLEL_UTILS_H_INCLUDED
 
-#include <cstdio>
-#include <vector>
 #include <thread>
 #include <algorithm>
 

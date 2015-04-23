@@ -1,5 +1,5 @@
-#ifndef __INMEM_SASCAN_INITIAL_PARTIAL_SUFSORT_H
-#define __INMEM_SASCAN_INITIAL_PARTIAL_SUFSORT_H
+#ifndef __INMEM_SASCAN_PRIVATE_INITIAL_PARTIAL_SUFSORT_H_INCLUDED
+#define __INMEM_SASCAN_PRIVATE_INITIAL_PARTIAL_SUFSORT_H_INCLUDED
 
 #include <algorithm>
 #include <thread>
@@ -238,4 +238,4 @@ void initial_partial_sufsort(unsigned char *text, long text_length, bitvector* &
 }  // namespace inmem_sascan
 
 
-#endif  // __INITIAL_PARTIAL_SUFSORT_H
+#endif  // __INMEM_SASCAN_PRIVATE_INITIAL_PARTIAL_SUFSORT_H_INCLUDED

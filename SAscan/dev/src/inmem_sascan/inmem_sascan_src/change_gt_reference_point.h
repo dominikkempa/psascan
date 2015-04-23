@@ -1,5 +1,5 @@
-#ifndef __INMEM_SASCAN_CHANGE_GT_REFERENCE_POINT_H
-#define __INMEM_SASCAN_CHANGE_GT_REFERENCE_POINT_H
+#ifndef __INMEM_SASCAN_PRIVATE_CHANGE_GT_REFERENCE_POINT_H_INCLUDED
+#define __INMEM_SASCAN_PRIVATE_CHANGE_GT_REFERENCE_POINT_H_INCLUDED
 
 #include <cstring>
 #include <algorithm>
@@ -109,4 +109,4 @@ void gt_end_to_gt_begin(unsigned char *text, long text_length,
 
 }  // namespace inmem_sascan
 
-#endif  // __CHANGE_GT_REFERENCE_POINT_H
+#endif  // __INMEM_SASCAN_PRIVATE_CHANGE_GT_REFERENCE_POINT_H_INCLUDED

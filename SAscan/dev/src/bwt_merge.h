@@ -1,7 +1,7 @@
 // XXX The merge_bwt function should probably be tested more thoroughly.
 
-#ifndef __BWT_MERGE_H
-#define __BWT_MERGE_H
+#ifndef __BWT_MERGE_H_INCLUDED
+#define __BWT_MERGE_H_INCLUDED
 
 #include <thread>
 #include <algorithm>
@@ -101,4 +101,4 @@ long merge_bwt(unsigned char *left_bwt, unsigned char *right_bwt,
 }
 
 
-#endif  // __BWT_MERGE_H
+#endif  // __BWT_MERGE_H_INCLUDED

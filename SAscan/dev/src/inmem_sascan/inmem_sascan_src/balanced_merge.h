@@ -1,5 +1,5 @@
-#ifndef __INMEM_SASCAN_BALANCED_MERGE_H
-#define __INMEM_SASCAN_BALANCED_MERGE_H
+#ifndef __INMEM_SASCAN_BALANCED_MERGE_H_INCLUDED
+#define __INMEM_SASCAN_BALANCED_MERGE_H_INCLUDED
 
 #include <vector>
 
@@ -12,6 +12,7 @@
 #include "bwtsa.h"
 #include "skewed-merge.h"
 #include "../../multifile.h"
+
 
 namespace inmem_sascan_private {
 
@@ -146,4 +147,4 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
 
 }  // namespace inmem_sascan
 
-#endif  // __INMEM_SASCAN_BALANCED_MERGE_H
+#endif  // __INMEM_SASCAN_BALANCED_MERGE_H_INCLUDED

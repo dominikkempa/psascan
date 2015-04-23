@@ -20,6 +20,7 @@
 
 #include "utils.h"
 
+
 template<typename T>
 void find_index_0(T *tab, long beg, long end, long *answer) {
   *answer = -1;
@@ -182,4 +183,4 @@ long bwt_from_sa_replace_text(T *SA, unsigned char *text, long length,
   return i0;
 }
 
-#endif
+#endif  // __AUX_PARALLEL_H_INCLUDED

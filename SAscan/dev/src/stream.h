@@ -1,4 +1,3 @@
-// Parallel backward search.
 #ifndef __STREAM_H_INCLUDED
 #define __STREAM_H_INCLUDED
 
@@ -6,12 +5,8 @@
 #include <cstdlib>
 #include <cstring>
 
-#include <iostream>
-#include <queue>
 #include <string>
-#include <thread>
 #include <mutex>
-#include <condition_variable>
 #include <algorithm>
 
 #include "utils.h"
@@ -25,6 +20,7 @@
 #include "async_multifile_bit_stream_reader.h"
 #include "async_backward_skip_stream_reader.h"
 #include "async_bit_stream_writer.h"
+
 
 std::mutex stdout_mutex;
 

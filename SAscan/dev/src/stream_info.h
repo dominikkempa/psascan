@@ -6,6 +6,7 @@
 
 #include "utils.h"
 
+
 //=============================================================================
 // Used to store progress information for different threads during streaming.
 //=============================================================================
@@ -42,4 +43,4 @@ struct stream_info {
   std::mutex m_mutex;
 };
 
-#endif // __STREAM_INFO_H_INCLUDED
+#endif  // __STREAM_INFO_H_INCLUDED

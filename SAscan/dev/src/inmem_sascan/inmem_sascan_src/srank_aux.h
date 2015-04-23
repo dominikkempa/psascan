@@ -1,5 +1,5 @@
-#ifndef __INMEM_SASCAN_SRANK_AUX_H
-#define __INMEM_SASCAN_SRANK_AUX_H
+#ifndef __INMEM_SASCAN_PRIVATE_SRANK_AUX_H_INCLUDED
+#define __INMEM_SASCAN_PRIVATE_SRANK_AUX_H_INCLUDED
 
 
 namespace inmem_sascan_private {
@@ -33,4 +33,4 @@ inline void update_ms(unsigned char *text, T length, T &s, T &p) {
 }  // namespace inmem_sascan
 
 
-#endif  // __SRANK_AUX_H
+#endif  // __INMEM_SASCAN_PRIVATE_SRANK_AUX_H_INCLUDED

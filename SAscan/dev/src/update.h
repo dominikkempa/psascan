@@ -16,8 +16,8 @@
 // This object creates a given number of threads that will perform gap array
 // updates. Most of the time all threads are sleeping on a conditional variable.
 // Once the buffer is available for processing, they are all woken up and
-// perform the update in parallel. The caller waits until all threads are
-// finished and puts the buffer in the poll of empty buffers.
+// perform the update in parallel. The caller then waits until all threads are
+// finished and then puts the buffer in the poll of empty buffers.
 //
 // Only one object of this class should exist.
 //==============================================================================
@@ -28,13 +28,13 @@ struct gap_parallel_updater {
   static void parallel_update(gap_parallel_updater<T> *updater, int id) {
     while (true) {
       // Wait until there is a buffer available or the
-      // notification 'no more buffers' arrives (in that case exit).
+      // message 'no more buffers' arrives.
       std::unique_lock<std::mutex> lk(updater->m_avail_mutex);
       while (!(updater->m_avail[id]) && !(updater->m_avail_no_more))
         updater->m_avail_cv.wait(lk);
 
       if (!(updater->m_avail[id]) && updater->m_avail_no_more) {
-        // The msg was that there won't be more buffers -- exit.
+        // No more buffers -- exit.
         lk.unlock();
         return;
       }
@@ -82,19 +82,19 @@ struct gap_parallel_updater {
     std::fill(m_avail, m_avail + m_threads_cnt, false);
     m_threads = new std::thread*[m_threads_cnt];
 
-    // After this threads immediatelly hang up on m_avail_cv.
+    // After this, threads immediately hang up on m_avail_cv.
     for (int i = 0; i < m_threads_cnt; ++i)
       m_threads[i] = new std::thread(parallel_update<block_offset_type>, this, i);
   }
 
   ~gap_parallel_updater() {
-    // Signal to all threads to finish.
+    // Signal all threads to finish.
     std::unique_lock<std::mutex> lk(m_avail_mutex);
     m_avail_no_more = true;
     lk.unlock();
     m_avail_cv.notify_all();
 
-    // Wait until they actually finish and release memory.
+    // Wait until all threads finish and release memory.
     for (int i = 0; i < m_threads_cnt; ++i) {
       m_threads[i]->join();
       delete m_threads[i];
@@ -112,7 +112,7 @@ struct gap_parallel_updater {
       m_avail[i] = true;
     lk.unlock();
 
-    // Wake up all threads, they will now perform the update.
+    // Wake up all buffers to perform the update.
     m_avail_cv.notify_all();
 
     // Wait until all threads report that they are done.
@@ -140,8 +140,8 @@ private:
   bool m_avail_no_more;
 
   // The mutex below is to protect m_finished. The condition
-  // variable allows the caller to wait (and be notified when done)
-  // until threads finish processing their section of buffer.
+  // variable allows the caller to wait (and to be notified when done)
+  // until threads complete processing their section of the buffer.
   int m_finished;
   std::mutex m_finished_mutex;
   std::condition_variable m_finished_cv;
@@ -162,8 +162,7 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
       full_buffers->m_cv.wait(lk);
 
     if (!full_buffers->available() && full_buffers->finished()) {
-      // All workers finished -- exit, but before, let let other
-      // updating threads know that they also should check for exit.
+      // There will be no more full buffers -- exit.
       lk.unlock();
       full_buffers->m_cv.notify_one();
       break;
@@ -176,7 +175,8 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
     // Process buffer.
     updater->update(b);
 
-    // Add the buffer to the poll of empty buffers and notify waiting thread.
+    // Add the buffer to the poll of empty buffers and notify
+    // the waiting thread.
     std::unique_lock<std::mutex> lk2(empty_buffers->m_mutex);
     empty_buffers->add(b);
     lk2.unlock();
@@ -186,4 +186,4 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
   delete updater;
 }
 
-#endif // __UPDATE_H_INCLUDED
+#endif  // __UPDATE_H_INCLUDED

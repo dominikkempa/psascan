@@ -1,15 +1,16 @@
 #ifndef __MULTIFILE_BIT_STREAM_READER_H_INCLUDED
 #define __MULTIFILE_BIT_STREAM_READER_H_INCLUDED
 
+#include <cstdio>
 #include <vector>
-#include <string>
 
 #include "utils.h"
 #include "multifile.h"
 
+
 struct multifile_bit_stream_reader {
 private:
-  static const int k_bufsize = 1048576;
+  static const long k_bufsize = (1L << 20);
 
   // info for currently accessed file.
   std::FILE *m_file;

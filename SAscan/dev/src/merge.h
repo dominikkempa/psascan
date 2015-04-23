@@ -49,7 +49,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
     gap_head[i] = gap[i]->read();
   gap_head[n_block - 1] = 0;
 
-  fprintf(stderr, "Merging:\r");
+  fprintf(stderr, "Merge:\r");
   long double merge_start = utils::wclock();
   for (long i = 0, dbg = 0; i < length; ++i, ++dbg) {
     if (dbg == (1 << 23)) {
@@ -60,7 +60,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
       long tot_vol = inp_vol + out_vol;
       long double tot_vol_m = tot_vol / (1024.L * 1024);
       long double io_speed = tot_vol_m / elapsed;
-      fprintf(stderr, "Merging: %.1Lf%%, time = %.2Lfs (%.3Lfs/MiB), io = %2.LfMiB/s\r",
+      fprintf(stderr, "Merge: %.1Lf%%, time = %.2Lfs (%.3Lfs/MiB), io = %2.LfMiB/s\r",
           (100.L * i) / length, elapsed, elapsed / scanned_m, io_speed);
       dbg = 0;
     }
@@ -74,7 +74,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
     output->write(SA_i);
   }
   long double merge_time = utils::wclock() - merge_start;
-  fprintf(stderr, "Merging: 100.0%%. Time: %.2Lfs\n", merge_time);
+  fprintf(stderr, "Merge: 100.0%%. Time: %.2Lfs\n", merge_time);
 
   // Clean up.
   delete output;
@@ -93,5 +93,5 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
 }
 
 
-#endif // __MERGE_H_INCLUDED
+#endif  // __MERGE_H_INCLUDED
 

@@ -74,7 +74,7 @@ std::string absolute_path(std::string fname) {
     created = true;
   }
   if (!realpath(fname.c_str(), path)) {
-    fprintf(stderr, "Error: realpath failed for %s\n", fname.c_str());
+    fprintf(stderr, "\nError: realpath failed for %s\n", fname.c_str());
     std::exit(EXIT_FAILURE);
   }
 
