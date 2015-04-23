@@ -25,14 +25,14 @@ struct async_vbyte_stream_reader {
       }
       lk.unlock();
 
-      // Safely read the data to disk.
+      // Safely read the data from disk.
       long count = std::fread(reader->m_passive_buf, 1, reader->m_buf_size + 128, reader->m_file);
       if (count > reader->m_buf_size) {
         reader->m_passive_buf_filled = reader->m_buf_size;
         std::fseek(reader->m_file, reader->m_buf_size - count, SEEK_CUR);
       } else reader->m_passive_buf_filled = count;
  
-      // Let the caller know what the I/O thread finished reading.
+      // Let the caller know that the I/O thread finished reading.
       lk.lock();
       reader->m_avail = false;
       lk.unlock();
@@ -40,7 +40,7 @@ struct async_vbyte_stream_reader {
     }
   }
 
-  async_vbyte_stream_reader(std::string filename, long bufsize = (4 << 20)) {
+  async_vbyte_stream_reader(std::string filename, long bufsize = (4L << 20)) {
     m_file = utils::open_file(filename.c_str(), "r");
 
     // Initialize buffers.
@@ -55,11 +55,11 @@ struct async_vbyte_stream_reader {
 
     m_finished = false;
     
-    // Start the I/O thread and immediatelly start reading.
+    // Start the I/O thread and immediately start reading.
     m_avail = true;
     m_thread = new std::thread(io_thread_code, this);
   }
-  
+
   ~async_vbyte_stream_reader() {
     // Let the I/O thread know that we're done.
     std::unique_lock<std::mutex> lk(m_mutex);
@@ -67,9 +67,9 @@ struct async_vbyte_stream_reader {
     lk.unlock();
     m_cv.notify_one();
 
-    // Wait for the thread to actually finish.
+    // Wait for the thread to finish.
     m_thread->join();
-    
+
     // Clean up.
     delete m_thread;
     free(m_active_buf);
@@ -79,11 +79,11 @@ struct async_vbyte_stream_reader {
 
   // This function checks if the reading thread has already
   // prefetched the next buffer (the request should have been
-  // done before), and waits if the prefetching was not
+  // issued before), and waits in case the prefetching was not
   // completed yet.
   void receive_new_buffer(long skipped_bytes) {
     // Wait until the I/O thread finishes reading the previous
-    // buffer. Most of the time this step is instantaneous.
+    // buffer. In most cases, this step is instantaneous.
     std::unique_lock<std::mutex> lk(m_mutex);
     while (m_avail == true)
       m_cv.wait(lk);
@@ -107,19 +107,18 @@ struct async_vbyte_stream_reader {
       // buffer. The request to read that passive buffer should
       // have been scheduled long time ago, so hopefully the
       // buffer is now available. We check for that, but we
-      // also might wait a little, if the reading has not yet
-      // been finished. At this point we also already schedule
-      // the next read.
+      // also might wait, if the reading has not yet been finished.
+      // At this point we also already schedule the next read.
       receive_new_buffer(m_active_buf_pos - m_active_buf_filled);
     }
 
     value_type result = 0L;
     long offset = 0L;
     while (m_active_buf[m_active_buf_pos] & 0x80) {
-      result |= ((m_active_buf[m_active_buf_pos++] & 0x7F) << offset);
+      result |= (((value_type)m_active_buf[m_active_buf_pos++] & 0x7F) << offset);
       offset += 7;
     }
-    result |= (m_active_buf[m_active_buf_pos++] << offset);
+    result |= ((value_type)m_active_buf[m_active_buf_pos++] << offset);
 
     return result;
   }
