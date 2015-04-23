@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <getopt.h>
+#include <unistd.h>
 
 #include <string>
 
@@ -26,6 +28,7 @@ void usage(int status) {
 }
 
 int main(int argc, char **argv) {
+  srand(time(0) + getpid());
   program_name = argv[0];
   verbose = false;
 

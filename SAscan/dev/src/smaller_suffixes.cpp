@@ -29,7 +29,7 @@
 //     iff
 //
 //   The suffix of text of length i + 1 is lexicographically larger than
-//   the suffix of text starting immediatelly after the 'block' in the text.
+//   the suffix of text starting immediately after the 'block' in the text.
 //-----------------------------------------------------------------------------
 // The function requires random access to the block (which is in memory). In
 // addition, it allocates only 3 disk blocks (currently each block is 1MiB) of
@@ -167,7 +167,7 @@ struct GS_sets {
     utils::read_block(filename, pat_start, pat_length, data);
   }
 
-  inline unsigned char operator[] (int i) const {
+  inline unsigned char operator[] (long i) const {
     return data[i];
   }
   

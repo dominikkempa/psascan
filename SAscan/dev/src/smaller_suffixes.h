@@ -115,7 +115,7 @@ private:
     delete[] data;
   }
 
-  inline bool operator[] (int i) const {
+  inline bool operator[] (long i) const {
     long byte_idx = i >> 3;
     long bit_idx = i & 7;
     
@@ -232,4 +232,4 @@ void parallel_smaller_suffixes2(
 }
 
 
-#endif // __SMALLER_SUFFIXES_H_INCLUDED
+#endif  // __SMALLER_SUFFIXES_H_INCLUDED

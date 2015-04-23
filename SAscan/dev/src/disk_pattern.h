@@ -24,7 +24,7 @@
     utils::read_block(filename, pat_start, pat_length, data);
   }
 
-  inline unsigned char operator[] (int i) const {
+  inline unsigned char operator[] (long i) const {
     return data[i];
   }
   

@@ -16,7 +16,7 @@ long double wclock();
 
 /**************************** FILE MANIPULATION *******************************/
 // Basic routines.
-FILE *open_file(std::string fname, std::string mode);
+std::FILE *open_file(std::string fname, std::string mode);
 long file_size(std::string fname);
 bool file_exists(std::string fname);
 void file_delete(std::string fname);

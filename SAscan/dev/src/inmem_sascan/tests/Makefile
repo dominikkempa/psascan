@@ -1,7 +1,7 @@
 BSHELL = /bin/sh
 
 CC = g++
-CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x
+CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x -march=native
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x
 
 all: sa_test_file sa_test_random psa_test_file psa_test_random bwt_test_file bwt_test_random pbwt_test_file pbwt_test_random gt_test_file gt_test_random pgt_test_file pgt_test_random multi_test_file

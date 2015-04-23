@@ -547,7 +547,7 @@ class rank4n {
         // Compute the distance from i to the closest reference point on the left.
         long lookup_bits = (m_cblock_header2[(cblock_id << k_sigma_log) + c] & 31);
         long refpoint_dist_log = 31 - lookup_bits;
-        long refpoint_disk_mask = (1 << refpoint_dist_log) - 1;
+        long refpoint_disk_mask = (1L << refpoint_dist_log) - 1;
         long i_refpoint_offset = (cblock_i & refpoint_disk_mask);
 
         // 3
@@ -556,7 +556,7 @@ class rank4n {
         // The threshold is a small power of two that is >= max block size,
         // where max block size is the maximal block size for symbol c in
         // the current cblock.
-        long threshold = (1 << (k_cblock_size_log - lookup_bits + 1));
+        long threshold = (1L << (k_cblock_size_log - lookup_bits + 1));
 
         // 4
         //
@@ -568,7 +568,7 @@ class rank4n {
         // 5
         //
         // Extract the lookup table entry.
-        long lookup_mask = (1 << lookup_bits) - 1;
+        long lookup_mask = (1L << lookup_bits) - 1;
         long begin = (m_freq_trunk[cblock_beg + list_beg + approx] & lookup_mask);
 
         // Empty block optimization.
@@ -620,7 +620,7 @@ class rank4n {
             // Block occurrences were encoded wrt to the previous
             // ref point -> we increase i_refpoint_offset by
             // refpoint_dist and proceed as before.
-            i_refpoint_offset += (1 << refpoint_dist_log);
+            i_refpoint_offset += (1L << refpoint_dist_log);
             while (begin < next_block_begin && (m_freq_trunk[cblock_beg + list_beg + begin] >> lookup_bits) < i_refpoint_offset)
               ++begin;
 
@@ -705,11 +705,11 @@ class rank4n {
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
   const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
-  ::k_cblock_size = (1 << k_cblock_size_log);
+  ::k_cblock_size = (1L << k_cblock_size_log);
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
   const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
-  ::k_cblock_size_mask = (1 << k_cblock_size_log) - 1;
+  ::k_cblock_size_mask = (1L << k_cblock_size_log) - 1;
   
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
   const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
@@ -729,7 +729,7 @@ template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigm
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
   const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
-  ::k_cblock_size_mask_neg = ~((1 << k_cblock_size_log) - 1);
+  ::k_cblock_size_mask_neg = ~((1L << k_cblock_size_log) - 1);
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
   const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
@@ -751,4 +751,4 @@ template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigm
   const unsigned rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sblock_size_mask = (1 << k_sblock_size_log) - 1;
 
-#endif // __RANK4N_H_INCLUDED
+#endif  // __RANK4N_H_INCLUDED
