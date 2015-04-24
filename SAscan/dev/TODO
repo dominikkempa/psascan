@@ -1,7 +1,5 @@
 Ordered roughly by priority (from the most urgent):
 
-* Fix the problems with the merging on 1TiB file
-
 * Fix the computation of starting positions for EM streaming in pSAscan
 
 * Remove the merging phase from the case where there is only one half-block
