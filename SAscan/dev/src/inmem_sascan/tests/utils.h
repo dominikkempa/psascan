@@ -57,7 +57,7 @@ void read_block(std::FILE *f, long beg, long length, unsigned char *b);
 
 template<typename T>
 void read_objects_from_file(T* tab, long length, std::FILE *f) {
-  size_t fread_ret = fread(tab, sizeof(T), length, f);
+  size_t fread_ret = std::fread(tab, sizeof(T), length, f);
   if ((long)fread_ret != length) {
     fprintf(stderr, "Error: fread in line %s of %s returned %ld\n",
         STR(__LINE__), STR(__FILE__), fread_ret);

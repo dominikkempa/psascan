@@ -4,10 +4,12 @@
 
 #include <cstdio>
 #include <cstdlib>
+
 #include <algorithm>
 #include <string>
 
 #include "utils.h"
+
 
 namespace inmem_sascan_private {
 

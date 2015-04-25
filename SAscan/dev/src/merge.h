@@ -1,31 +1,33 @@
 #ifndef __MERGE_H_INCLUDED
 #define __MERGE_H_INCLUDED
 
+#include <cstdio>
+#include <cmath>
+
 #include <string>
 #include <vector>
 #include <algorithm>
 
 #include "utils.h"
-#include "io_streamer.h"
 #include "uint40.h"
 #include "distributed_file.h"
 #include "half_block_info.h"
 
-#include "async_stream_reader.h"
 #include "async_stream_writer.h"
 #include "async_vbyte_stream_reader.h"
 
 
 // Merge partial suffix arrays into final suffix array.
 // INVARIANT: 5.2 * length <= ram_use.
+// XXX write a separate tests for the new mering.
 template<typename block_offset_type>
 void merge(std::string output_filename, long ram_use, std::vector<half_block_info<block_offset_type> > &hblock_info) {
   long n_block = (long)hblock_info.size();
-  long length = 0;
+  long text_length = 0;
 
   std::sort(hblock_info.begin(), hblock_info.end());
   for (size_t j = 0; j < hblock_info.size(); ++j)
-    length += hblock_info[j].end - hblock_info[j].beg;
+    text_length += hblock_info[j].end - hblock_info[j].beg;
 
   long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
   long buffer_size = (ram_use + pieces - 1) / pieces;
@@ -49,9 +51,30 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
     gap_head[i] = gap[i]->read();
   gap_head[n_block - 1] = 0;
 
+  long tmp = (long)sqrtl((long double)n_block);
+  long sblock_size = 1L;
+  long sblock_size_log = 0;
+  while (sblock_size * 2L <= tmp) {
+    sblock_size *= 2L;
+    ++sblock_size_log;
+  }
+
+  long n_sblocks = (n_block + sblock_size - 1) / sblock_size;
+  std::pair<long, long> *sblock_info = new std::pair<long, long>[n_sblocks];
+
+  for (long i = 0; i < n_sblocks; ++i) {
+    long sblock_beg = i * sblock_size;
+    long sblock_end = std::min(n_block, sblock_beg + sblock_size);
+
+    sblock_info[i].second = 0;
+    sblock_info[i].first = gap_head[sblock_beg];
+    for (long j = sblock_beg + 1; j < sblock_end; ++j)
+      sblock_info[i].first = std::min(sblock_info[i].first, gap_head[j]);
+  }
+
   fprintf(stderr, "Merge:\r");
   long double merge_start = utils::wclock();
-  for (long i = 0, dbg = 0; i < length; ++i, ++dbg) {
+  for (long i = 0, dbg = 0; i < text_length; ++i, ++dbg) {
     if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
       long double scanned_m = i / (1024.L * 1024);
@@ -61,16 +84,45 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
       long double tot_vol_m = tot_vol / (1024.L * 1024);
       long double io_speed = tot_vol_m / elapsed;
       fprintf(stderr, "Merge: %.1Lf%%, time = %.2Lfs (%.3Lfs/MiB), io = %2.LfMiB/s\r",
-          (100.L * i) / length, elapsed, elapsed / scanned_m, io_speed);
+          (100.L * i) / text_length, elapsed, elapsed / scanned_m, io_speed);
       dbg = 0;
     }
 
-    // XXX can the method for finding k be too slow with many blocks?
-    // What are other, practically faster, options.
+    // Find the superblock containing gap head equal to zero.
     long k = 0;
-    while (gap_head[k]) --gap_head[k++];
-    if (k != n_block - 1) gap_head[k] = gap[k]->read();
-    long SA_i = hblock_info[k].psa->read() + hblock_info[k].beg;
+    while (sblock_info[k].first != 0) {
+      sblock_info[k].first--;
+      sblock_info[k].second++;
+      ++k;
+    }
+
+    // Find the block with the gap head equal to zero.
+    long sblock_beg = (k << sblock_size_log);
+    long sblock_end = std::min(n_block, sblock_beg + sblock_size);
+
+    long new_min = text_length;
+    long j = sblock_beg;
+    while (gap_head[j] != sblock_info[k].second) {
+      gap_head[j] -= (sblock_info[k].second + 1);
+      new_min = std::min(new_min, gap_head[j]);
+      ++j;
+    }
+
+    long SA_i = hblock_info[j].psa->read() + hblock_info[j].beg;
+
+    if (j != n_block - 1) gap_head[j] = gap[j]->read();
+    new_min = std::min(new_min, gap_head[j]);
+    ++j;
+
+    while (j < sblock_end) {
+      gap_head[j] -= sblock_info[k].second;
+      new_min = std::min(new_min, gap_head[j]);
+      ++j;
+    }
+
+    sblock_info[k].first = new_min;
+    sblock_info[k].second = 0;
+
     output->write(SA_i);
   }
   long double merge_time = utils::wclock() - merge_start;
