@@ -164,13 +164,11 @@ void gap_updater(buffer_poll<block_offset_type> *full_buffers,
     if (!full_buffers->available() && full_buffers->finished()) {
       // There will be no more full buffers -- exit.
       lk.unlock();
-      full_buffers->m_cv.notify_one();
       break;
     }
 
     buffer<block_offset_type> *b = full_buffers->get();
     lk.unlock();
-    full_buffers->m_cv.notify_one(); // let others know they should try
 
     // Process buffer.
     updater->update(b);
