@@ -1,12 +1,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-#include <getopt.h>
-#include <unistd.h>
 
 #include <string>
 
+#include <getopt.h>
+#include <unistd.h>
+#include <omp.h>
+
 #include "sascan.h"
+
 
 char *program_name;
 bool verbose;
@@ -127,5 +130,6 @@ int main(int argc, char **argv) {
   // NOTE: the number of threads can (?) be obtained using STL method:
   // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
   //----------------------------------------------------------------------------
-  SAscan(text_fname, out_fname, gap_fname, ram_use, 24);
+  long max_threads = (long)omp_get_max_threads();
+  SAscan(text_fname, out_fname, gap_fname, ram_use, max_threads);
 }
