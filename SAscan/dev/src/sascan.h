@@ -3,9 +3,12 @@
 
 #include <cstdio>
 #include <cstdlib>
+
 #include <string>
 #include <vector>
 #include <algorithm>
+
+#include <sys/resource.h>
 
 #include "partial_sufsort.h"
 #include "merge.h"
@@ -58,6 +61,21 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
   fprintf(stderr, "  streaming threads = %ld\n", max_threads);
   fprintf(stderr, "  stream buffer size = %ld\n", stream_buffer_size);
   fprintf(stderr, "  #stream buffers = %ld\n\n", n_stream_buffers);
+
+  // Check if the maximum number of open files
+  // is large enough for the merging to work.
+  long n_half_blocks_estimated = 2L * (length / max_block_size + 1);
+  long merge_max_open_files_estimated = 2L * n_half_blocks_estimated;
+  rlimit rlimit_res;
+  if (!getrlimit(RLIMIT_NOFILE, &rlimit_res) &&
+      (long)rlimit_res.rlim_cur < merge_max_open_files_estimated) {
+    fprintf(stderr,
+"\nError: the limit on the maximum number of open files is too small to perform\n"
+"the merging (current limit = %ld, required limit = %ld). See the README for\n"
+"more information.\n",
+        (long)rlimit_res.rlim_cur, merge_max_open_files_estimated);
+    std::exit(EXIT_FAILURE);
+  }
 
   long double start = utils::wclock();
   if (max_block_size < (1L << 31)) {  // XXX (1L << 32)?
