@@ -151,7 +151,7 @@ void process_block(long block_beg, long block_end,
     block_last_symbol = right_block[right_block_size - 1];
     long double right_block_read_time = utils::wclock() - right_block_read_start;
     long double right_block_read_io = (right_block_size / (1024.L * 1024)) / right_block_read_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_block_read_time, right_block_read_io);
+    fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_block_read_time, right_block_read_io);
  
     // 1.b
     //
@@ -192,7 +192,7 @@ void process_block(long block_beg, long block_end,
     long double right_block_sascan_time = utils::wclock() - right_block_sascan_start;
     long double right_block_sascan_speed = (right_block_size / (1024.L * 1024)) / right_block_sascan_time;
     if (verbose) fprintf(stderr, "%s\n", std::string(60, '*').c_str());
-    fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", right_block_sascan_time, right_block_sascan_speed);
+    fprintf(stderr, "%.2Lfs. Speed: %.2LfMiB/s\n", right_block_sascan_time, right_block_sascan_speed);
  
     // 1.c
     //
@@ -202,7 +202,7 @@ void process_block(long block_beg, long block_end,
       long double initial_ranks_first_term_start = utils::wclock();
       compute_initial_ranks<block_offset_type>(right_block, right_block_beg, right_block_end, text_length,
           right_block_psa_ptr, text_filename, block_initial_ranks, max_threads, block_tail_beg, block_tail_end);
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_first_term_start);
+      fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_first_term_start);
     }
 
     // 1.d
@@ -215,7 +215,7 @@ void process_block(long block_beg, long block_end,
         right_psa_max_part_length, right_block_psa_ptr, right_block_psa_ptr + right_block_size);
     long double right_psa_save_time = utils::wclock() - right_psa_save_start;
     long double right_psa_save_io = ((right_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / right_psa_save_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_psa_save_time, right_psa_save_io);
+    fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_psa_save_time, right_psa_save_io);
 
     // 1.e
     //
@@ -226,7 +226,7 @@ void process_block(long block_beg, long block_end,
       utils::write_objects_to_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
       long double right_bwt_save_time = utils::wclock() - right_bwt_save_start;
       long double right_bwt_save_io = (right_block_size / (1024.L * 1024)) / right_bwt_save_time;
-      fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_bwt_save_time, right_bwt_save_io);
+      fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_bwt_save_time, right_bwt_save_io);
     }
     free(right_block_sabwt);
 
@@ -242,7 +242,7 @@ void process_block(long block_beg, long block_end,
     delete right_block_gt_begin_rev_bv;
     long double right_gt_begin_rev_save_time = utils::wclock() - right_gt_begin_rev_save_start;
     long double right_gt_begin_rev_save_io = (right_block_size / (8.L * (1 << 20))) / right_gt_begin_rev_save_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", right_gt_begin_rev_save_time, right_gt_begin_rev_save_io);
+    fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_gt_begin_rev_save_time, right_gt_begin_rev_save_io);
 
 #ifdef DROP_CACHE
     utils::drop_cache();
@@ -269,7 +269,7 @@ void process_block(long block_beg, long block_end,
   unsigned char left_block_last = left_block[left_block_size - 1];
   long double left_block_read_time = utils::wclock() - left_block_read_start;
   long double left_block_read_io = (left_block_size / (1024.L * 1024)) / left_block_read_time;
-  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_block_read_time, left_block_read_io);
+  fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", left_block_read_time, left_block_read_io);
 
   // 2.b
   //
@@ -311,7 +311,7 @@ void process_block(long block_beg, long block_end,
   long double left_block_sascan_time = utils::wclock() - left_block_sascan_start;
   long double left_block_sascan_speed = (left_block_size / (1024.L * 1024)) / left_block_sascan_time;
   if (verbose) fprintf(stderr, "%s\n", std::string(60, '*').c_str());
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", left_block_sascan_time, left_block_sascan_speed);
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", left_block_sascan_time, left_block_sascan_speed);
 
   // 2.c
   //
@@ -324,7 +324,7 @@ void process_block(long block_beg, long block_end,
         text_filename, block_initial_ranks_second_term, max_threads, block_tail_beg, block_tail_end);
     for (size_t j = 0; j < block_initial_ranks_second_term.size(); ++j)
       block_initial_ranks[j] += block_initial_ranks_second_term[j];
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_second_term_start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_second_term_start);
   }
 
   // 2.d
@@ -337,7 +337,7 @@ void process_block(long block_beg, long block_end,
       left_psa_max_part_length, left_block_psa_ptr, left_block_psa_ptr + left_block_size);
   long double left_psa_save_time = utils::wclock() - left_psa_save_start;
   long double left_psa_save_io = ((left_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / left_psa_save_time;
-  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_psa_save_time, left_psa_save_io);
+  fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", left_psa_save_time, left_psa_save_io);
 
   // 2.e
   //
@@ -349,7 +349,7 @@ void process_block(long block_beg, long block_end,
     long double left_bwt_copy_start = utils::wclock();
     left_block_bwt = (unsigned char *)malloc(left_block_size);
     std::copy(left_block_bwt_ptr, left_block_bwt_ptr + left_block_size, left_block_bwt);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - left_bwt_copy_start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - left_bwt_copy_start);
   }
 
   // 2.f
@@ -366,7 +366,7 @@ void process_block(long block_beg, long block_end,
     delete left_block_gt_begin_rev_bv;
     long double left_gt_begin_rev_save_time = utils::wclock() - left_gt_begin_rev_save_start;
     long double left_gt_begin_rev_save_io = (left_block_size / (8.L * (1 << 20))) / left_gt_begin_rev_save_time;
-    fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_gt_begin_rev_save_time, left_gt_begin_rev_save_io);
+    fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", left_gt_begin_rev_save_time, left_gt_begin_rev_save_io);
   }
 
 #ifdef DROP_CACHE
@@ -412,7 +412,7 @@ void process_block(long block_beg, long block_end,
     std::vector<long> initial_ranks2;
     compute_initial_ranks<block_offset_type>(left_block, left_block_beg, left_block_end, text_length,
         left_block_psa_ptr, text_filename, initial_ranks2, max_threads, right_block_beg, right_block_end);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_right_half_block_start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_right_half_block_start);
     free(left_block);
     free(left_block_sabwt);
 
@@ -425,7 +425,7 @@ void process_block(long block_beg, long block_end,
     rank4n<> *left_block_rank = new rank4n<>(left_block_bwt, left_block_size, max_threads);
     long double left_block_rank_build_time = utils::wclock() - left_block_rank_build_start;
     long double left_block_rank_build_speed = (left_block_size / (1024.L * 1024)) / left_block_rank_build_time;
-    fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
+    fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
 
 #ifdef DROP_CACHE
     utils::drop_cache();
@@ -513,7 +513,7 @@ void process_block(long block_beg, long block_end,
   bitvector *left_block_gap_bv = left_block_gap->convert_to_bitvector(max_threads);
   long double convert_to_bitvector_time = utils::wclock() - convert_to_bitvector_start;
   long double convert_to_bitvector_speed = (block_size / (1024.L * 1024)) / convert_to_bitvector_time;
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", convert_to_bitvector_time, convert_to_bitvector_speed);
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", convert_to_bitvector_time, convert_to_bitvector_speed);
 
 
   left_block_gap->erase_disk_excess();
@@ -532,7 +532,7 @@ void process_block(long block_beg, long block_end,
   utils::read_objects_from_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
   long double right_block_bwt_read_time = utils::wclock() - right_block_bwt_read_start;
   long double right_block_bwt_read_io = (right_block_size / (1024.L * 1024)) / right_block_bwt_read_time;
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", right_block_bwt_read_time, right_block_bwt_read_io);
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", right_block_bwt_read_time, right_block_bwt_read_io);
 
 
   utils::file_delete(right_block_pbwt_fname);
@@ -550,7 +550,7 @@ void process_block(long block_beg, long block_end,
       left_block_i0, right_block_i0, left_block_last, block_pbwt, left_block_gap_bv, max_threads);
   long double bwt_merge_time = utils::wclock() - bwt_merge_start;
   long double bwt_merge_speed = (block_size / (1024.L * 1024)) / bwt_merge_time;
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", bwt_merge_time, bwt_merge_speed);
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", bwt_merge_time, bwt_merge_speed);
 
   free(left_block_bwt);
   free(right_block_bwt);
@@ -566,7 +566,7 @@ void process_block(long block_beg, long block_end,
   delete left_block_gap_bv;
   long double write_left_gap_bv_time = utils::wclock() - write_left_gap_bv_start;
   long double write_left_gap_bv_io = ((block_size / 8.L) / (1 << 20)) / write_left_gap_bv_time;
-  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", write_left_gap_bv_time, write_left_gap_bv_io);
+  fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", write_left_gap_bv_time, write_left_gap_bv_io);
 
 #ifdef DROP_CACHE
   utils::drop_cache();
@@ -592,7 +592,7 @@ void process_block(long block_beg, long block_end,
   free(block_pbwt);
   long double whole_block_rank_build_time = utils::wclock() - whole_block_rank_build_start;
   long double whole_block_rank_build_io = (block_size / (1024.L * 1024)) / whole_block_rank_build_time;
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", whole_block_rank_build_time, whole_block_rank_build_io);
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", whole_block_rank_build_time, whole_block_rank_build_io);
 
   buffered_gap_array *block_gap = new buffered_gap_array(block_size + 1, gap_filename);
 
@@ -617,7 +617,7 @@ void process_block(long block_beg, long block_end,
   left_block_gap_bv = new bitvector(left_block_gap_bv_filename);
   long double left_block_gap_bv_read_time = utils::wclock() - left_block_gap_bv_read_start;
   long double left_block_gap_bv_read_io = ((block_size / 8.L) / (1 << 20)) / left_block_gap_bv_read_time;
-  fprintf(stderr, "%.2Lf (I/O: %.2LfMiB/s)\n", left_block_gap_bv_read_time, left_block_gap_bv_read_io);
+  fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", left_block_gap_bv_read_time, left_block_gap_bv_read_io);
   utils::file_delete(left_block_gap_bv_filename);
 
   //----------------------------------------------------------------------------

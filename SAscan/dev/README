@@ -34,8 +34,8 @@ For usage, run program without parameters.
 Troubleshooting
 ---------------
 
-1. I am getting "Error: the limit on the maximum number of open
-   "files is too small to perform the merging (...)".
+1. I am getting "Error: the limit on the maximum number of open files
+   is too small (...)".
 
 Solution: The soft limit on the maximum number of opened files can be
 increased with the "ulimit -n newlimit" command. However, the soft limit

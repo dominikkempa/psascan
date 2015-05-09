@@ -19,7 +19,7 @@
 
 // Merge partial suffix arrays into final suffix array.
 // INVARIANT: 5.2 * length <= ram_use.
-// XXX write a separate tests for the new mering.
+// XXX write a separate tests for the new merging.
 template<typename block_offset_type>
 void merge(std::string output_filename, long ram_use, std::vector<half_block_info<block_offset_type> > &hblock_info) {
   long n_block = (long)hblock_info.size();
@@ -32,8 +32,11 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
   long buffer_size = (ram_use + pieces - 1) / pieces;
 
-  fprintf(stderr, "\nBuffer size for merging: %ld\n", buffer_size);
-  fprintf(stderr, "sizeof(output_type) = %ld\n", sizeof(uint40));
+  fprintf(stderr, "\nMerge partial suffix arrays:\n");
+  fprintf(stderr, "  buffer size per block = %ld (%.2LfMiB)\n",
+      sizeof(block_offset_type) * buffer_size,
+      (1.L * sizeof(block_offset_type) * buffer_size) / (1 << 20));
+  fprintf(stderr, "  sizeof(output_type) = %ld\n", sizeof(uint40));
 
   typedef async_vbyte_stream_reader<long> vbyte_reader_type;
   typedef async_stream_writer<uint40> output_writer_type;
@@ -72,19 +75,17 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
       sblock_info[i].first = std::min(sblock_info[i].first, gap_head[j]);
   }
 
-  fprintf(stderr, "Merge:\r");
   long double merge_start = utils::wclock();
   for (long i = 0, dbg = 0; i < text_length; ++i, ++dbg) {
     if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
-      long double scanned_m = i / (1024.L * 1024);
-      long inp_vol = (1L + sizeof(uint40)) * i;
+      long inp_vol = (1L + sizeof(block_offset_type)) * i;
       long out_vol = sizeof(uint40) * i;
       long tot_vol = inp_vol + out_vol;
       long double tot_vol_m = tot_vol / (1024.L * 1024);
       long double io_speed = tot_vol_m / elapsed;
-      fprintf(stderr, "Merge: %.1Lf%%, time = %.2Lfs (%.3Lfs/MiB), io = %2.LfMiB/s\r",
-          (100.L * i) / text_length, elapsed, elapsed / scanned_m, io_speed);
+      fprintf(stderr, "  %.1Lf%%. Time = %.2Lfs. I/O: %2.LfMiB/s\r",
+          (100.L * i) / text_length, elapsed, io_speed);
       dbg = 0;
     }
 
@@ -126,7 +127,9 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
     output->write(SA_i);
   }
   long double merge_time = utils::wclock() - merge_start;
-  fprintf(stderr, "Merge: 100.0%%. Time: %.2Lfs\n", merge_time);
+  long io_volume = (1 + sizeof(block_offset_type) + sizeof(uint40)) * text_length;
+  long double io_speed = (io_volume / (1024.L * 1024)) / merge_time;
+  fprintf(stderr, "  100.0%%. Time: %.2Lfs. I/O: %.2LfMiB/s\n", merge_time, io_speed);
 
   // Clean up.
   delete output;

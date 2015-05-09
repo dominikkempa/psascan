@@ -66,14 +66,16 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
   // is large enough for the merging to work.
   long n_half_blocks_estimated = 2L * (length / max_block_size + 1);
   long merge_max_open_files_estimated = 2L * n_half_blocks_estimated;
+  long stream_max_open_files_estimated = 3L * max_threads + 1;
+  long max_open_files_estimated = std::max(merge_max_open_files_estimated, stream_max_open_files_estimated);
   rlimit rlimit_res;
   if (!getrlimit(RLIMIT_NOFILE, &rlimit_res) &&
-      (long)rlimit_res.rlim_cur < merge_max_open_files_estimated) {
+      (long)rlimit_res.rlim_cur < max_open_files_estimated) {
     fprintf(stderr,
-"\nError: the limit on the maximum number of open files is too small to perform\n"
-"the merging (current limit = %ld, required limit = %ld). See the README for\n"
+"\nError: the limit on the maximum number of open files is too small\n"
+"(current limit = %ld, required limit = %ld). See the README for\n"
 "more information.\n",
-        (long)rlimit_res.rlim_cur, merge_max_open_files_estimated);
+        (long)rlimit_res.rlim_cur, max_open_files_estimated);
     std::exit(EXIT_FAILURE);
   }
 
@@ -89,11 +91,9 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
   }
   long double total_time = utils::wclock() - start;
 
-  fprintf(stderr, "\nTotal time:\n");
-  fprintf(stderr, "\tabsolute: %.2Lf\n", total_time);
-  fprintf(stderr, "\trelative: %.4Lfs/MiB\n", total_time / ((1.L * length) / (1L << 20)));
-  fprintf(stderr, "Speed: %.2LfMiB/s\n", ((1.L * length) / (1L << 20)) / total_time);
+  fprintf(stderr, "\n\nComputation finished. Summary:\n");
+  fprintf(stderr, "  elapsed time: %.2Lfs (%.4Lf/MiB)\n", total_time, total_time / ((1.L * length) / (1L << 20)));
+  fprintf(stderr, "  speed: %.2LfMiB/s\n", ((1.L * length) / (1L << 20)) / total_time);
 }
-
 
 #endif  // __SASCAN_H_INCLUDED

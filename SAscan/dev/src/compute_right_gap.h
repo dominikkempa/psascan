@@ -267,7 +267,7 @@ void compute_right_gap(long left_block_size, long right_block_size,
 
   long double compute_gap_time = utils::wclock() - compute_gap_start;
   long double compute_gap_speed = (block_size / (1024.L * 1024)) / compute_gap_time;
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", compute_gap_time, compute_gap_speed);
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", compute_gap_time, compute_gap_speed);
 }
 
 #endif  // __COMPUTE_RIGHT_GAP_H_INCLUDED
