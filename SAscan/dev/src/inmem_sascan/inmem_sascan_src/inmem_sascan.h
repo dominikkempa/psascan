@@ -33,14 +33,20 @@ namespace inmem_sascan_private {
 // and there is no overhead of running this function over running divsufsort.
 //==============================================================================
 template<typename saidx_t, unsigned pagesize_log = 12>
-void inmem_sascan(unsigned char *text, long text_length, unsigned char *sa_bwt,
-    long max_threads = 1, bool compute_bwt = false, bool compute_gt_begin = false,
-    bitvector *gt_begin = NULL, long max_blocks = -1,
+void inmem_sascan(
+    unsigned char *text,
+    long text_length,
+    unsigned char *sa_bwt,
+    long max_threads = 1,
+    bool compute_bwt = false,
+    bool compute_gt_begin = false,
+    bitvector *gt_begin = NULL,
+    long max_blocks = -1,
     long text_beg = 0,
     long text_end = 0,
     long supertext_length = 0,
     std::string supertext_filename = "",
-    multifile *tail_gt_begin_reversed = NULL,
+    const multifile *tail_gt_begin_reversed = NULL,
     long *i0 = NULL,
     unsigned char *tail_prefix_preread = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);

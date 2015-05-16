@@ -49,7 +49,7 @@ struct distributed_file {
   }
 
   distributed_file(std::string filename_base, long max_bytes,
-      value_type *begin, value_type *end) {
+      const value_type *begin, const value_type *end) {
     m_state = STATE_INIT;
     m_max_items = std::max(1UL, max_bytes / sizeof(value_type));
     m_filename = filename_base + ".distrfile." + utils::random_string_hash();
@@ -72,7 +72,7 @@ struct distributed_file {
     make_new_file();
   }
 
-  void write(value_type *begin, value_type *end) {
+  void write(const value_type *begin, const value_type *end) {
     if (m_state != STATE_WRITING) {
       fprintf(stderr, "\nError: write in state %s\n", state_string().c_str());
       std::exit(EXIT_FAILURE);

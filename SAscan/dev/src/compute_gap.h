@@ -26,11 +26,11 @@
 // more general, and can be used also when processing half-blocks.
 //==============================================================================
 template<typename block_offset_type>
-void compute_gap(rank4n<> *rank, buffered_gap_array *gap,
+void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
     long tail_begin, long tail_end, long text_length, long max_threads,
     long block_isa0, long stream_bufsize, unsigned char block_last_symbol,
     std::vector<long> initial_ranks, std::string text_filename, std::string output_filename,
-    multifile *tail_gt_begin_rev, multifile *newtail_gt_begin_rev) {
+    const multifile *tail_gt_begin_rev, multifile *newtail_gt_begin_rev) {
 
   long tail_length = tail_end - tail_begin;
   long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;

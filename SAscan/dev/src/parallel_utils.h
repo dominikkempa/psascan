@@ -10,7 +10,7 @@ namespace parallel_utils {
 //==============================================================================
 // Encode tab[0..length) using vbyte encoding and write to dest sequentially.
 //==============================================================================
-void encode_vbyte_slab(long *tab, long length, unsigned char *dest) {
+void encode_vbyte_slab(const long *tab, long length, unsigned char *dest) {
   long ptr = 0L;
   for (long j = 0; j < length; ++j) {
     long x = tab[j];
@@ -26,7 +26,7 @@ void encode_vbyte_slab(long *tab, long length, unsigned char *dest) {
 //==============================================================================
 // Compute the size of vbyte encoding of tab[0..length).
 //==============================================================================
-void compute_size_of_vbyte_slab(long *tab, long length, long &result) {
+void compute_size_of_vbyte_slab(const long *tab, long length, long &result) {
   result = 0L;
   for (long j = 0; j < length; ++j) {
     long x = tab[j];
@@ -44,7 +44,7 @@ void compute_size_of_vbyte_slab(long *tab, long length, long &result) {
 // We assume that dest is sufficiently large to hold the output.
 // The function returns the length of the slab.
 //==============================================================================
-long convert_array_to_vbyte_slab(long *tab, long length, unsigned char *dest, long max_threads) {
+long convert_array_to_vbyte_slab(const long *tab, long length, unsigned char *dest, long max_threads) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 
@@ -101,7 +101,7 @@ long convert_array_to_vbyte_slab(long *tab, long length, unsigned char *dest, lo
 // Copy src[0..length) to dest[0..length).
 //==============================================================================
 template<typename T, typename S>
-void parallel_copy_aux(T *src, S *dest, long length) {
+void parallel_copy_aux(const T *src, S *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = (S)src[i];
 }
@@ -112,7 +112,7 @@ void parallel_copy_aux(T *src, S *dest, long length) {
 // Conversion from T to S has to make sense.
 //==============================================================================
 template<typename T, typename S>
-void parallel_copy(T *src, S *dest, long length, long max_threads) {
+void parallel_copy(const T *src, S *dest, long length, long max_threads) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 

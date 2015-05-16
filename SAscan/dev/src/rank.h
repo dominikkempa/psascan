@@ -516,7 +516,7 @@ class rank4n {
       delete[] off;
     }
 
-    inline long rank(long i, unsigned char c) {
+    inline long rank(long i, unsigned char c) const {
       if (i <= 0) return 0L;
       else if ((unsigned long)i >= m_length) return m_count[c];
 

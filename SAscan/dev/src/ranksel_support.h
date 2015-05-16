@@ -12,7 +12,7 @@ struct ranksel_support {
   // Compute sparse_rank[group_beg..group_end).
   //============================================================================
   static void process_group_of_chunks(long group_beg, long group_end,
-      long chunk_size, long *sparse_rank, bitvector *bv) {
+      long chunk_size, long *sparse_rank, const bitvector *bv) {
     for (long chunk_id = group_beg; chunk_id < group_end; ++chunk_id) {
       long chunk_beg = chunk_id * chunk_size;
       long chunk_end = chunk_beg + chunk_size;
@@ -25,7 +25,7 @@ struct ranksel_support {
   //============================================================================
   // Constructor.
   //============================================================================
-  ranksel_support(bitvector *bv, long length, long max_threads) {
+  ranksel_support(const bitvector *bv, long length, long max_threads) {
     m_bv = bv;
     m_length = length;
     
@@ -148,7 +148,7 @@ struct ranksel_support {
   long n_chunks;      // number of chunks
   long *m_sparse_rank;
 
-  bitvector *m_bv;
+  const bitvector *m_bv;
 };
 
 #endif  // __RANKSEL_SUPPORT_H_INCLUDED

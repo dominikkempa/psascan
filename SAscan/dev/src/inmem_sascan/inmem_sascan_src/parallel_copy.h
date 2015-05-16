@@ -10,21 +10,21 @@
 namespace inmem_sascan_private {
 
 template<typename T, typename S>
-void parallel_copy_aux(T *src, S *dest, long length) {
+void parallel_copy_aux(const T *src, S *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = (S)src[i];
 }
 
 // Specilization
 template<>
-void parallel_copy_aux(bwtsa_t<uint40> *src, unsigned char *dest, long length) {
+void parallel_copy_aux(const bwtsa_t<uint40> *src, unsigned char *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = src[i].bwt;
 }
 
 // Specilization
 template<>
-void parallel_copy_aux(bwtsa_t<int> *src, unsigned char *dest, long length) {
+void parallel_copy_aux(const bwtsa_t<int> *src, unsigned char *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = src[i].bwt;
 }
@@ -32,7 +32,7 @@ void parallel_copy_aux(bwtsa_t<int> *src, unsigned char *dest, long length) {
 
 // Conversion from T to S has to make sense.
 template<typename T, typename S>
-void parallel_copy(T *src, S *dest, long length, long max_threads) {
+void parallel_copy(const T *src, S *dest, long length, long max_threads) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 
@@ -53,7 +53,7 @@ void parallel_copy(T *src, S *dest, long length, long max_threads) {
 
 // Specialization
 template<>
-void parallel_copy(bwtsa_t<uint40> *src, unsigned char *dest, long length, long max_threads) {
+void parallel_copy(const bwtsa_t<uint40> *src, unsigned char *dest, long length, long max_threads) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 
@@ -74,7 +74,7 @@ void parallel_copy(bwtsa_t<uint40> *src, unsigned char *dest, long length, long 
 
 // Specialization
 template<>
-void parallel_copy(bwtsa_t<int> *src, unsigned char *dest, long length, long max_threads) {
+void parallel_copy(const bwtsa_t<int> *src, unsigned char *dest, long length, long max_threads) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
 

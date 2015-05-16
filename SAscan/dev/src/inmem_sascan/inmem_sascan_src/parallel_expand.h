@@ -8,7 +8,7 @@ namespace inmem_sascan_private {
 
 
 template<typename T, typename S>
-void parallel_expand_aux(T *src, S *dest, long length) {
+void parallel_expand_aux(const T *src, S *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = (S)src[i];
 }

@@ -17,12 +17,12 @@
 namespace inmem_sascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
-pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(unsigned char *text,
+pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(const unsigned char *text,
     long text_length, bwtsa_t<saidx_t> *bwtsa, bitvector *gt,
     long max_block_size, long range_beg, long range_end, long max_threads,
     bool need_gt, bool need_bwt, long &result_i0, MergeSchedule &schedule,
     long text_beg, long text_end, long supertext_length,
-    std::string supertext_filename, multifile *tail_gt_begin_reversed,
+    std::string supertext_filename, const multifile *tail_gt_begin_reversed,
     long *i0_array, long **block_rank_matrix) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 

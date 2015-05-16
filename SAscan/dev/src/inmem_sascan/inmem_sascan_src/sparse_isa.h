@@ -1,5 +1,5 @@
-#ifndef __SPARSE_ISA_H_INCLUDED
-#define __SPARSE_ISA_H_INCLUDED
+#ifndef __INMEM_SASCAN_SPARSE_ISA_H_INCLUDED
+#define __INMEM_SASCAN_SPARSE_ISA_H_INCLUDED
 
 #include <algorithm>
 #include <thread>
@@ -112,4 +112,4 @@ private:
 
 }  // namespace inmem_sascan
 
-#endif  // __SPARSE_ISA_H_INCLUDED
+#endif  // __INMEM_SASCAN_SPARSE_ISA_H_INCLUDED

@@ -9,7 +9,7 @@ namespace inmem_sascan_private {
 // text[0..length - 1). The result is returned via updated values s, p, r.
 //==============================================================================
 template<typename T>
-inline void update_ms(unsigned char *text, T length, T &s, T &p) {
+inline void update_ms(const unsigned char *text, T length, T &s, T &p) {
   if (length == 1) { s = 0; p = 1; return; }
 
   T i = length - 1;

@@ -26,7 +26,7 @@ void file_delete(std::string fname);
 std::string absolute_path(std::string fname);
 
 template<typename T>
-void write_objects_to_file(T *tab, long length, std::string fname) {
+void write_objects_to_file(const T *tab, long length, std::string fname) {
   std::FILE *f = open_file(fname, "w");
   size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
   if ((long)fwrite_ret != length) {
@@ -39,7 +39,7 @@ void write_objects_to_file(T *tab, long length, std::string fname) {
 }
 
 template<typename T>
-void add_objects_to_file(T *tab, long length, std::FILE *f) {
+void add_objects_to_file(const T *tab, long length, std::FILE *f) {
   size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
   if ((long)fwrite_ret != length) {
     fprintf(stderr, "\nError: fwrite in line %s of %s returned %lu\n",
@@ -49,7 +49,7 @@ void add_objects_to_file(T *tab, long length, std::FILE *f) {
 }
 
 template<typename T>
-void add_objects_to_file(T *tab, long length, std::string fname) {
+void add_objects_to_file(const T *tab, long length, std::string fname) {
   std::FILE *f = utils::open_file(fname.c_str(), "a");
   add_objects_to_file<T>(tab, length, f);
   std::fclose(f);

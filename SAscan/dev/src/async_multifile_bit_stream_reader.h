@@ -12,7 +12,7 @@
 
 
 struct async_multifile_bit_stream_reader {
-  async_multifile_bit_stream_reader(multifile *m, long start_pos = 0L,
+  async_multifile_bit_stream_reader(const multifile *m, long start_pos = 0L,
       long bufsize = (4L << 20)) {
     m_files_info = m->files_info;
   

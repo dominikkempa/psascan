@@ -191,7 +191,7 @@ struct buffered_gap_array {
   }
 
   static void compute_j_aux(long range_beg, long n_chunks, long max_chunk_size,
-      long *sparse_gapsum, long &initial_gap_ptr, long &initial_gapsum_value, buffered_gap_array *gap) {
+      const long *sparse_gapsum, long &initial_gap_ptr, long &initial_gapsum_value, const buffered_gap_array *gap) {
     // Fast forward through as many chunks as possible.
     long j = 0L;
     long gapsum_j = 0L;  // At any time gapsum_j = gap[0] + .. + gap[j - 1].
@@ -221,7 +221,7 @@ struct buffered_gap_array {
 
 
   static void compute_gapsum_for_chunk_group(long group_beg, long group_end, long max_chunk_size,
-      long *sparse_gapsum, buffered_gap_array *gap) {
+      long *sparse_gapsum, const buffered_gap_array *gap) {
     for (long chunk_id = group_beg; chunk_id < group_end; ++chunk_id) {
       long chunk_beg = chunk_id * max_chunk_size;
       long chunk_end = std::min(chunk_beg + max_chunk_size, gap->m_length);
@@ -376,7 +376,7 @@ public:
 
 
 struct gap_array_2n {
-  gap_array_2n(buffered_gap_array *gap, long max_threads) {
+  gap_array_2n(const buffered_gap_array *gap, long max_threads) {
     m_length = gap->m_length;
     m_count = (uint16_t *)malloc(m_length * sizeof(uint16_t));
     parallel_utils::parallel_copy<unsigned char, uint16_t>(gap->m_count, m_count, m_length, max_threads);
@@ -394,7 +394,7 @@ struct gap_array_2n {
       free(m_count);
   }
 
-  static void apply_excess_aux(gap_array_2n *gap, long *tab,
+  static void apply_excess_aux(gap_array_2n *gap, const long *tab,
       long block_beg, long block_end, uint64_t &initial_run_length) {
     long block_size = block_end - block_beg;
 

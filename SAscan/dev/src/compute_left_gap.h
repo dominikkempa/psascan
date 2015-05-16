@@ -19,8 +19,8 @@
 // Compute the range_gap values corresponging to bv[part_beg..part_end).
 //==============================================================================
 void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
-    long *range_gap, gap_array_2n *block_gap, bitvector *bv,
-    ranksel_support *bv_ranksel, long &res_sum, long &res_rank) {
+    long *range_gap, const gap_array_2n *block_gap, const bitvector *bv,
+    const ranksel_support *bv_ranksel, long &res_sum, long &res_rank) {
   size_t excess_ptr = std::lower_bound(block_gap->m_excess.begin(),
       block_gap->m_excess.end(), part_beg) - block_gap->m_excess.begin();
 
@@ -126,7 +126,7 @@ void lblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx
 // parallelized and uses asynchronous I/O as much as possible.
 //==============================================================================
 void compute_left_gap(long left_block_size, long right_block_size,
-    gap_array_2n *block_gap, bitvector *bv, std::string out_filename,
+    const gap_array_2n *block_gap, bitvector *bv, std::string out_filename,
     long max_threads, long ram_budget) {
   long block_size = left_block_size + right_block_size;
   long left_gap_size = left_block_size + 1;

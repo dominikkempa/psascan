@@ -14,15 +14,15 @@
 // Compute bwt[beg..end).
 //==============================================================================
 void merge_bwt_aux(long beg, long end, long left_ptr, long right_ptr,
-    unsigned char *left_bwt, unsigned char *right_bwt, unsigned char *bwt,
-    bitvector *bv) {
+    const unsigned char *left_bwt, const unsigned char *right_bwt, unsigned char *bwt,
+    const bitvector *bv) {
   for (long i = beg; i < end; ++i) {
     if (bv->get(i)) bwt[i] = right_bwt[right_ptr++];
     else bwt[i] = left_bwt[left_ptr++];
   }
 }
 
-void compute_initial_rank(long i, ranksel_support *ranksel, long &result) {
+void compute_initial_rank(long i, const ranksel_support *ranksel, long &result) {
   result = ranksel->rank(i);
 }
 
@@ -30,9 +30,9 @@ void compute_initial_rank(long i, ranksel_support *ranksel, long &result) {
 // Merge partial bwt of half-blocks (of size left_size and right_size) into
 // partial bwt of the whole block.
 //==============================================================================
-long merge_bwt(unsigned char *left_bwt, unsigned char *right_bwt,
+long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
     long left_size, long right_size, long left_block_i0, long right_block_i0,
-    unsigned char left_block_last, unsigned char *bwt, bitvector *bv,
+    unsigned char left_block_last, unsigned char *bwt, const bitvector *bv,
     long max_threads) {
   long block_size = left_size + right_size;
 

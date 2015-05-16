@@ -19,7 +19,7 @@
 
 
 // Update ms-decomposition of T[0..n) from T[0..n-1).
-void next(unsigned char *T, long n, long &s, long &p, long &r) {
+void next(const unsigned char *T, long n, long &s, long &p, long &r) {
   if (n == 1) { s = 0; p = 1; r = 0; return; }
   long i = n - 1;
   while (i < n) {
@@ -44,9 +44,9 @@ void next(pattern *T, long n, long &s, long &p, long &r) {
 }
 
 
-void compute_block_gt_end(unsigned char *block, long block_beg, long block_end,
+void compute_block_gt_end(const unsigned char *block, long block_beg, long block_end,
     long text_length, std::string text_filename,
-    multifile *tail_gt_begin_reversed, bitvector *block_gt_end) {
+    const multifile *tail_gt_begin_reversed, bitvector *block_gt_end) {
   long block_size = block_end - block_beg;
 
   multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);
@@ -70,7 +70,7 @@ void compute_block_gt_end(unsigned char *block, long block_beg, long block_end,
 
 
 // Inplace transformation.
-void compute_block_gt_begin_reversed_from_block_gt_end(unsigned char *block,
+void compute_block_gt_begin_reversed_from_block_gt_end(const unsigned char *block,
     long block_beg, long block_end, bitvector *gt) {
   long block_size = block_end - block_beg;
     
@@ -96,9 +96,9 @@ void compute_block_gt_begin_reversed_from_block_gt_end(unsigned char *block,
 // the beginning of the block (which means that the maximal value is
 // block_size - 1.
 //==============================================================================
-long compute_block_gt_begin_reversed(unsigned char *block, long block_beg,
+long compute_block_gt_begin_reversed(const unsigned char *block, long block_beg,
     long block_end, long text_length, std::string text_filename,
-    multifile *tail_gt_begin_reversed, bitvector *block_gt_begin_reversed) {
+    const multifile *tail_gt_begin_reversed, bitvector *block_gt_begin_reversed) {
   long block_size = block_end - block_beg;
 
   compute_block_gt_end(block, block_beg, block_end, text_length, text_filename,

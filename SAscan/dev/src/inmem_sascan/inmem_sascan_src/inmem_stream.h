@@ -31,17 +31,17 @@ namespace inmem_sascan_private {
 //==============================================================================
 template<typename rank_type, typename block_offset_type>
 void inmem_parallel_stream(
-    unsigned char *text,
+    const unsigned char *text,
     long text_length,
     long stream_block_beg,
     long stream_block_end,
     unsigned char last,
-    long *count,
+    const long *count,
     buffer_poll<block_offset_type> *full_buffers,
     buffer_poll<block_offset_type> *empty_buffers,
     block_offset_type i,
     block_offset_type i0,
-    rank_type *rank,
+    const rank_type *rank,
     long gap_range_size,
     long n_increasers,
     bitvector *gt,

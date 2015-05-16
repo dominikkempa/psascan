@@ -70,7 +70,7 @@ template<typename block_offset_type>
 void process_block(long block_beg, long block_end,
     long text_length, long ram_use, long max_threads, long stream_buffer_size,
     std::string text_filename, std::string output_filename, std::string gap_filename,
-    multifile *newtail_gt_begin_rev, multifile *tail_gt_begin_rev,
+    multifile *newtail_gt_begin_rev, const multifile *tail_gt_begin_rev,
     std::vector<half_block_info<block_offset_type> > &hblock_info) {
 
   long block_size = block_end - block_beg;

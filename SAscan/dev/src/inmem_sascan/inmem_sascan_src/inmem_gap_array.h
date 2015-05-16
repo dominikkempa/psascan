@@ -36,8 +36,8 @@ struct inmem_gap_array {
   //    gapsum[i] = gap[0] + .. + gap[i * block_size - 1].
   //
   //==============================================================================
-  static void answer_single_gap_query(inmem_gap_array *gap, long block_size,
-      long *gapsum, long a, long &b, long &c) {
+  static void answer_single_gap_query(const inmem_gap_array *gap, long block_size,
+      const long *gapsum, long a, long &b, long &c) {
     long n_blocks = (gap->m_length + block_size - 1) / block_size;
 
     // Find the block containing the correct index. To do that  find the largest
@@ -69,7 +69,7 @@ struct inmem_gap_array {
   //==============================================================================
   // Compute gap[0] + gap[1] + .. + gap[j - 1] with the help of gapsum array.
   //==============================================================================
-  static long compute_sum3(inmem_gap_array *gap, long j, long max_block_size, long *gapsum) {
+  static long compute_sum3(const inmem_gap_array *gap, long j, long max_block_size, long *gapsum) {
     long block_id = j / max_block_size;
     long result = gapsum[block_id];
 
@@ -88,7 +88,7 @@ struct inmem_gap_array {
   // Compute sum of gap values for blocks in range [range_beg..range_end).
   // The sum for each block is stored in gapsum array.
   //==============================================================================
-  static void compute_sum2(inmem_gap_array *gap, long range_beg, long range_end,
+  static void compute_sum2(const inmem_gap_array *gap, long range_beg, long range_end,
       long max_block_size, long *gapsum) {
     for (long block_id = range_beg; block_id < range_end; ++block_id) {
       long block_beg = block_id * max_block_size;
@@ -120,8 +120,8 @@ struct inmem_gap_array {
   // the partial sums of gap array at block boundaries to find a good starting
   // point for search and then scans the gap array from there.
   //==============================================================================
-  long answer_queries(long n_queries, long *a, long *b, long *c,
-      long max_threads, long i0) {
+  long answer_queries(long n_queries, const long *a, long *b, long *c,
+      long max_threads, long i0) const {
     //----------------------------------------------------------------------------
     // STEP 1: split gap array into at most max_threads blocks
     // and in parallel compute sum of values inside each block.

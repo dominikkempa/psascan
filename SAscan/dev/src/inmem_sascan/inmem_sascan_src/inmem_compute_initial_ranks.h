@@ -16,7 +16,7 @@
 namespace inmem_sascan_private {
 
 
-inline int lcp_compare(unsigned char *text, long text_length, unsigned char *pat, long pat_length,
+inline int lcp_compare(const unsigned char *text, long text_length, const unsigned char *pat, long pat_length,
     long gt_begin_length, long j, multifile_bit_stream_reader &rev_gt_begin_reader, long &lcp) {
   while (lcp < pat_length && j + lcp < text_length && pat[lcp] == text[j + lcp]) ++lcp;
   if (j + lcp >= text_length) {
@@ -29,7 +29,7 @@ inline int lcp_compare(unsigned char *text, long text_length, unsigned char *pat
   }
 }
 
-inline int lcp_compare(unsigned char *text, unsigned char *pat, long pat_length, long j, long &lcp) {
+inline int lcp_compare(const unsigned char *text, const unsigned char *pat, long pat_length, long j, long &lcp) {
   while (lcp < pat_length && pat[lcp] == text[j + lcp]) ++lcp;
   if (lcp == pat_length) return 0;
   else if (pat[lcp] < text[j + lcp]) return -1;
@@ -44,7 +44,7 @@ inline int lcp_compare(unsigned char *text, unsigned char *pat, long pat_length,
 // to the first suffix larger than the pattern (of length maxlcp).
 //------------------------------------------------------------------------------
 template<typename pagearray_type>
-void compute_range(unsigned char *text, long block_beg, long block_size, unsigned char *pat,
+void compute_range(const unsigned char *text, long block_beg, long block_size, const unsigned char *pat,
     long pat_length, const pagearray_type &bwtsa, std::pair<long, long> &ret) {
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
   static const long min_discrepancy = utils::random_long(0L, 10L);
@@ -131,8 +131,8 @@ void compute_range(unsigned char *text, long block_beg, long block_size, unsigne
 //   common prefix of length `lcp' with the pattern.
 //------------------------------------------------------------------------------
 template<typename saidx_t>
-void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_psa, long left, long right,
-    long old_pat_length, long pat_length, unsigned char *pat, long &newleft, long &newright) {
+void refine_range(const unsigned char *text, long block_beg, const bwtsa_t<saidx_t> *block_psa, long left, long right,
+    long old_pat_length, long pat_length, const unsigned char *pat, long &newleft, long &newright) {
   long low = left - 1;
   long high = right;
   long llcp = old_pat_length;
@@ -218,9 +218,9 @@ void refine_range(unsigned char *text, long block_beg, bwtsa_t<saidx_t> *block_p
 // gt_begin encodes that information.
 //=============================================================================
 template<typename saidx_t>
-void refine_range(unsigned char *text, long text_length, long tail_gt_begin_reversed_length,
-    long block_beg, bwtsa_t<saidx_t> *block_psa, long left, long right, multifile *tail_gt_begin_reversed,
-    long old_pat_length, long pat_length, unsigned char *pat, long &newleft, long &newright) {
+void refine_range(const unsigned char *text, long text_length, long tail_gt_begin_reversed_length,
+    long block_beg, const bwtsa_t<saidx_t> *block_psa, long left, long right, const multifile *tail_gt_begin_reversed,
+    long old_pat_length, long pat_length, const unsigned char *pat, long &newleft, long &newright) {
   multifile_bit_stream_reader reader(tail_gt_begin_reversed);
 
 
@@ -302,15 +302,16 @@ void refine_range(unsigned char *text, long text_length, long tail_gt_begin_reve
 // Variant 1: compute ranges for columns other than the last two.
 //=============================================================================
 template<typename saidx_t>
-void compute_ranges_1(unsigned char *text, long text_length, bwtsa_t<saidx_t> *bwtsa, long max_block_size,
+void compute_ranges_1(const unsigned char *text, long text_length, const bwtsa_t<saidx_t> *bwtsa, long max_block_size,
     std::pair<long, long> **primary_range, std::pair<long, long> **secondary_range, long row, long column) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   long block_end = text_length - (n_blocks - 1 - row) * max_block_size;
   long block_begin = std::max(0L, block_end - max_block_size);
   long block_size = block_end - block_begin;
   long pat_start = text_length - (n_blocks - 1 - column) * max_block_size;
-  unsigned char *pat = text + pat_start;
-  bwtsa_t<saidx_t> *block_psa = bwtsa + block_begin;
+
+  const unsigned char *pat = text + pat_start;
+  const bwtsa_t<saidx_t> *block_psa = bwtsa + block_begin;
 
 
   // Check that 0 <= row < column < n_blocks - 2 and pat_start + 2 * max_block_size <= text_length.
@@ -407,8 +408,8 @@ void compute_ranges_1(unsigned char *text, long text_length, bwtsa_t<saidx_t> *b
 // Variant 2: compute primary and secondary range for second to last column.
 //=============================================================================
 template<typename saidx_t>
-void compute_ranges_2(unsigned char *text, long text_length, long text_beg, long supertext_length,
-    bwtsa_t<saidx_t> *bwtsa, long max_block_size, background_block_reader *reader, unsigned char *next_block,
+void compute_ranges_2(const unsigned char *text, long text_length, long text_beg, long supertext_length,
+    const bwtsa_t<saidx_t> *bwtsa, long max_block_size, background_block_reader *reader, const unsigned char *next_block,
     std::pair<long, long> **primary_range, std::pair<long, long> **secondary_range, long row, long column) {
   long text_end = text_beg + text_length;
   long tail_length = supertext_length - text_end;
@@ -417,8 +418,9 @@ void compute_ranges_2(unsigned char *text, long text_length, long text_beg, long
   long block_begin = std::max(0L, block_end - max_block_size);
   long block_size = block_end - block_begin;
   long pat_start = text_length - (n_blocks - 1 - column) * max_block_size;
-  unsigned char *pat = text + pat_start;
-  bwtsa_t<saidx_t> *block_psa = bwtsa + block_begin;
+
+  const unsigned char *pat = text + pat_start;
+  const bwtsa_t<saidx_t> *block_psa = bwtsa + block_begin;
 
 
   // Check that 0 <= row < column and column == n_blocks - 2 and pat_start + max_block_size == text_length.
@@ -528,8 +530,8 @@ void compute_ranges_2(unsigned char *text, long text_length, long text_beg, long
 // Variant 3: compute primary and secondary range for the last column.
 //=============================================================================
 template<typename saidx_t>
-void compute_ranges_3(unsigned char *text, long text_length, long text_beg, long supertext_length, bwtsa_t<saidx_t> *bwtsa,
-    long max_block_size, multifile *tail_gt_begin_reversed, background_block_reader *reader, unsigned char *next_block,
+void compute_ranges_3(const unsigned char *text, long text_length, long text_beg, long supertext_length, const bwtsa_t<saidx_t> *bwtsa,
+    long max_block_size, const multifile *tail_gt_begin_reversed, background_block_reader *reader, const unsigned char *next_block,
     std::pair<long, long> **primary_range, std::pair<long, long> **secondary_range, long row, long column) {
   long text_end = text_beg + text_length;
   long tail_length = supertext_length - text_end;
@@ -537,7 +539,7 @@ void compute_ranges_3(unsigned char *text, long text_length, long text_beg, long
   long block_end = text_length - (n_blocks - 1 - row) * max_block_size;
   long block_beg = std::max(0L, block_end - max_block_size);
   long block_size = block_end - block_beg;
-  bwtsa_t<saidx_t> *block_psa = bwtsa + block_beg;
+  const bwtsa_t<saidx_t> *block_psa = bwtsa + block_beg;
   long first_range_pat_length = std::min(max_block_size, tail_length);
   long pat_length = std::min(text_length, tail_length);  // length of text stored in next_block (if not NULL)
 
@@ -667,7 +669,7 @@ void compute_ranges_3(unsigned char *text, long text_length, long text_beg, long
 
 
 template<typename saidx_t>
-void task_solver_code(unsigned char *text, long text_length, bwtsa_t<saidx_t> *bwtsa, long max_block_size,
+void task_solver_code(const unsigned char *text, long text_length, const bwtsa_t<saidx_t> *bwtsa, long max_block_size,
     std::pair<long, long> **primary_range, std::pair<long, long> **secondary_range,
     std::vector<std::pair<long, long> > &tasks, std::mutex &tasks_mutex) {
   while (true) {
@@ -692,11 +694,11 @@ void task_solver_code(unsigned char *text, long text_length, bwtsa_t<saidx_t> *b
 
 
 template<typename saidx_t>
-void compute_block_rank_matrix(unsigned char *text, long text_length, 
-    bwtsa_t<saidx_t> *bwtsa, long max_block_size, long text_beg,
+void compute_block_rank_matrix(const unsigned char *text, long text_length, 
+    const bwtsa_t<saidx_t> *bwtsa, long max_block_size, long text_beg,
     long supertext_length, std::string,
-    multifile *tail_gt_begin_reversed,  background_block_reader *reader,
-    unsigned char *next_block, long **block_rank_matrix) {
+    const multifile *tail_gt_begin_reversed,  background_block_reader *reader,
+    const unsigned char *next_block, long **block_rank_matrix) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   long text_end = text_beg + text_length;
   long tail_length = supertext_length - text_end;
@@ -799,8 +801,9 @@ void compute_block_rank_matrix(unsigned char *text, long text_length,
         long shift = max_block_size - cur_block_size;
         long next_block_end = text_length - (n_blocks - 1 - (row + 1)) * max_block_size;
         long next_block_beg = std::max(0L, next_block_end - max_block_size);
-        bwtsa_t<saidx_t> *cur_block_psa = bwtsa + cur_block_beg;
-        bwtsa_t<saidx_t> *next_block_psa = bwtsa + next_block_beg;
+
+        const bwtsa_t<saidx_t> *cur_block_psa = bwtsa + cur_block_beg;
+        const bwtsa_t<saidx_t> *next_block_psa = bwtsa + next_block_beg;
 
         // Compute the ranges.
         long next_primary_range_beg = primary_range[row + 1][col + 1].first;

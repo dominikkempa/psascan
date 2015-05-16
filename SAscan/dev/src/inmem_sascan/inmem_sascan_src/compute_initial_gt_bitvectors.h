@@ -24,10 +24,10 @@ namespace inmem_sascan_private {
 // NOTE: we store the gt bitvector reversed, so that later we can overwrite
 // it with gt_begin in place.
 //==============================================================================
-void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
+void compute_partial_gt_end(const unsigned char *text, long text_length, long begin,
     long end, long max_lcp, bitvector *gt, bitvector *undecided, bool &all_decided,
-    long text_end, long supertext_length, multifile *tail_gt_begin_reversed,
-    background_block_reader *tail_prefix_background_reader, unsigned char *tail_prefix_preread) {
+    long text_end, long supertext_length, const multifile *tail_gt_begin_reversed,
+    background_block_reader *tail_prefix_background_reader, const unsigned char *tail_prefix_preread) {
   bool res = true;
   all_decided = true;
   long revbeg = text_length - end;
@@ -39,8 +39,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
     long tail_prefix_length = std::min(text_length, tail_length);
     long tail_prefix_fetched = 0;
 
-    unsigned char *txt = text + begin;
-    unsigned char *tail_prefix = NULL;
+    const unsigned char *txt = text + begin;
+    const unsigned char *tail_prefix = NULL;
 
     if (tail_prefix_length > 0) {
       if (tail_prefix_preread != NULL) {
@@ -104,8 +104,8 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
     long i = 0, el = 0, s = 0, p = 0;
     long i_max = 0, el_max = 0, s_max = 0, p_max = 0;
 
-    unsigned char *txt = text + begin;
-    unsigned char *pat = text + end;
+    const unsigned char *txt = text + begin;
+    const unsigned char *pat = text + end;
     long range_size = end - begin;
 
     while (i < range_size) {
@@ -164,7 +164,7 @@ void compute_partial_gt_end(unsigned char *text, long text_length, long begin,
 // [mb_beg..mb_end)) of all gt bitvectors to their correct values.
 //==============================================================================
 void compute_final_gt(long text_length, long max_block_size, long mb_beg,
-    long mb_end, bitvector* &gt, bitvector* &undecided, bool *all_decided) {
+    long mb_end, bitvector *gt, const bitvector *undecided, const bool *all_decided) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   // Go through blocks right to left.
@@ -193,7 +193,7 @@ void compute_final_gt(long text_length, long max_block_size, long mb_beg,
 // Update the bits omitted in compute_final_gt.
 //==============================================================================
 void compute_final_gt_last_bits(long text_length, long max_block_size, long mb_beg,
-    long mb_end, bitvector* &gt, bitvector* &undecided, bool *all_decided) {
+    long mb_end, bitvector *gt, const bitvector *undecided, bool *all_decided) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (!all_decided[0]) {
     long block_end = text_length - (n_blocks - 1) * max_block_size;
@@ -221,13 +221,13 @@ void compute_final_gt_last_bits(long text_length, long max_block_size, long mb_b
 //==============================================================================
 // Fully parallel computation of gt bitvectors.
 //==============================================================================
-void compute_initial_gt_bitvectors(unsigned char *text, long text_length,
+void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
     bitvector* &gt, long max_block_size, long max_threads, long,
     long text_end,
     long supertext_length,
-    multifile *tail_gt_begin_reversed,
+    const multifile *tail_gt_begin_reversed,
     background_block_reader *tail_prefix_background_reader,
-    unsigned char *tail_prefix_preread) {
+    const unsigned char *tail_prefix_preread) {
 
   long double start;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;

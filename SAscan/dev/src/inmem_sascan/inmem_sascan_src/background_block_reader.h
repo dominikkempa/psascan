@@ -47,11 +47,7 @@ struct background_block_reader {
 
         long toread = std::min(reader.m_size - fetched, reader.m_chunk_size);
         unsigned char *dest = reader.m_data + fetched;
-        long fread_ret = std::fread(dest, sizeof(unsigned char), toread, reader.m_file);
-        if (fread_ret != toread) {
-          fprintf(stderr, "\nError: fread in backgroud_block_reader failed.\n");
-          std::exit(EXIT_FAILURE);
-        }
+        utils::read_objects_from_file(dest, toread, reader.m_file);
 
         lk.lock();
         reader.m_fetched += toread;

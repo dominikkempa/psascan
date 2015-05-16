@@ -29,7 +29,7 @@ private:
   std::vector<single_file_info> files_info;
 
 public:
-  multifile_bit_stream_reader(multifile *m) {
+  multifile_bit_stream_reader(const multifile *m) {
     m_file = NULL;
     m_file_beg = 0;
     m_file_end = 0;

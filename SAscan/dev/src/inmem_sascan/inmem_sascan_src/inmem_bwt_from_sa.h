@@ -25,7 +25,7 @@ namespace inmem_sascan_private {
 
 
 template<typename saidx_t>
-void bwt_from_sa_into_dest_aux(unsigned char *text, long beg, long end,
+void bwt_from_sa_into_dest_aux(const unsigned char *text, long beg, long end,
     bwtsa_t<saidx_t> *dest, long *i0) {
   *i0 = -1;
   for (long j = beg; j < end; ++j)
@@ -35,7 +35,7 @@ void bwt_from_sa_into_dest_aux(unsigned char *text, long beg, long end,
 
 
 template<typename saidx_t>
-void bwt_from_sa_into_dest(unsigned char *text, long length,
+void bwt_from_sa_into_dest(const unsigned char *text, long length,
   bwtsa_t<saidx_t> *dest, long max_threads, long &result) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;

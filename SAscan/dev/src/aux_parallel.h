@@ -22,14 +22,14 @@
 
 
 template<typename T>
-void find_index_0(T *tab, long beg, long end, long *answer) {
+void find_index_0(const T *tab, long beg, long end, long *answer) {
   *answer = -1;
   for (long j = beg; j < end; ++j)
     if (tab[j] == 0) *answer = j;
 }
 
 template<typename T>
-void bwt_of_range0(T *tab, unsigned char *text, long beg, long end,
+void bwt_of_range0(const T *tab, const unsigned char *text, long beg, long end,
     unsigned char *dest) {
   for (long j = beg; j < end; ++j)
     dest[j] = text[tab[j] - 1];
@@ -40,7 +40,7 @@ void bwt_of_range0(T *tab, unsigned char *text, long beg, long end,
 //    dest[i - beg] := text[sa[i] - 1]
 //==============================================================================
 template<typename T>
-void bwt_of_range(T *sa, unsigned char *text, long range_beg, long range_end,
+void bwt_of_range(const T *sa, const unsigned char *text, long range_beg, long range_end,
     unsigned char *dest, long max_threads) {
   long range_size = range_end - range_beg;
   if (!range_size) return;
@@ -68,7 +68,7 @@ void bwt_of_range(T *sa, unsigned char *text, long range_beg, long range_end,
 // We assume length > 0.
 //==============================================================================
 template<typename T>
-void bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
+void bwt_from_sa_into_dest(const T *sa, const unsigned char *text, long length,
     unsigned char *dest, long max_threads) {
   // First, we find j such that SA[j] = 0 in parallel.
   long block_size = (length + max_threads - 1) / max_threads;
@@ -102,7 +102,7 @@ void bwt_from_sa_into_dest(T *sa, unsigned char *text, long length,
 //******************************************************************************
 
 template<typename T>
-void replace_sa_with_bwt(T *sa, unsigned char *text, long block_beg,
+void replace_sa_with_bwt(T *sa, const unsigned char *text, long block_beg,
     long block_end, long *index_0) {
   *index_0 = -1;
   for (long i = block_beg; i < block_end; ++i) {
@@ -116,7 +116,7 @@ void replace_sa_with_bwt(T *sa, unsigned char *text, long block_beg,
 }
 
 template<typename T>
-void move_bwt_from_sa_to_dest_aux(T *sa, unsigned char *dest, long length) {
+void move_bwt_from_sa_to_dest_aux(const T *sa, unsigned char *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = (unsigned char)sa[i];
 }
@@ -126,7 +126,7 @@ void move_bwt_from_sa_to_dest_aux(T *sa, unsigned char *dest, long length) {
 //    for i = 0, .., length - 1: dest[i] = (unsigned char)sa[i];
 //==============================================================================
 template<typename T>
-void move_bwt_from_sa_to_dest(T *sa, long length, unsigned char *dest,
+void move_bwt_from_sa_to_dest(const T *sa, long length, unsigned char *dest,
     long max_threads) {
   if (!length) return;
   long block_size = (length + max_threads - 1) / max_threads;

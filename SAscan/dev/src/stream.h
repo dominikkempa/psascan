@@ -31,9 +31,9 @@ void parallel_stream(
     long stream_block_beg,
     long stream_block_end,
     block_offset_type i,
-    long *count,
+    const long *count,
     block_offset_type whole_suffix_rank,
-    rank4n<> *rank,
+    const rank4n<> *rank,
     unsigned char last,
     std::string text_filename,
     long length,
@@ -42,7 +42,7 @@ void parallel_stream(
     int thread_id,
     long gap_range_size,
     long stream_buf_size,
-    multifile *tail_gt_begin,
+    const multifile *tail_gt_begin,
     long n_increasers) {
 
   static const int max_buckets = 4092;

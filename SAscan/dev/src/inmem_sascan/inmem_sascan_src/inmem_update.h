@@ -44,7 +44,7 @@ struct gap_parallel_updater {
       lk.unlock();
 
       // Safely perform the update.
-      buffer<T> *buf = updater->m_buffer;
+      const buffer<T> *buf = updater->m_buffer;
       inmem_gap_array *gap = updater->m_gap_array;
       int beg = buf->sblock_beg[id];
       int end = beg + buf->sblock_size[id];
@@ -104,7 +104,7 @@ struct gap_parallel_updater {
     delete[] m_avail;
   }
 
-  void update(buffer<block_offset_type> *buffer) {
+  void update(const buffer<block_offset_type> *buffer) {
     // Prepare a message for each thread that new buffer is available.
     std::unique_lock<std::mutex> lk(m_avail_mutex);
     m_finished = 0;
@@ -132,7 +132,7 @@ private:
   std::thread **m_threads;
   int m_threads_cnt;
 
-  buffer<block_offset_type> *m_buffer;
+  const buffer<block_offset_type> *m_buffer;
 
   // For notifying threads about available buffer.
   std::mutex m_avail_mutex;

@@ -88,7 +88,7 @@
 namespace inmem_sascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
-void inmem_compute_gap(unsigned char *text, long text_length, long left_block_beg,
+void inmem_compute_gap(const unsigned char *text, long text_length, long left_block_beg,
     long left_block_size, long right_block_size,
     const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
@@ -112,7 +112,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
   // STEP 2: compute symbol counts and the last symbol of the left block.
   //----------------------------------------------------------------------------
   long *count = new long[256];
-  unsigned char *left_block = text + left_block_beg;
+  const unsigned char *left_block = text + left_block_beg;
   std::copy(rank->m_count, rank->m_count + 256, count);
   unsigned char last = left_block[left_block_size - 1];
   ++count[last];
@@ -160,7 +160,7 @@ void inmem_compute_gap(unsigned char *text, long text_length, long left_block_be
     long stream_block_beg = right_block_beg + i * max_stream_block_size;
     long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
     long stream_block_size = stream_block_end - stream_block_beg;
-    unsigned char *pat = text + stream_block_end;
+    const unsigned char *pat = text + stream_block_end;
 
     // i-th thread streams text[stream_block_beg[i]..stream_block_end[i]), right-to-left.
     threads[i] = new std::thread(compute_range<pagearray_bwtsa_type>,

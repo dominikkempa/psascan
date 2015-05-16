@@ -361,7 +361,7 @@ private:
 namespace stream {
 
 template<typename T, typename U>
-void write_objects_to_file(T *tab, long length, std::string fname) {
+void write_objects_to_file(const T *tab, long length, std::string fname) {
   if (utils::is_same_type<T, U>::value) {  // same type, just write
     std::FILE *f = utils::open_file(fname, "w");
     size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);

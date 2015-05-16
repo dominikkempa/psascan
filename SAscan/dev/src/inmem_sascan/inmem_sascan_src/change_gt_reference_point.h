@@ -14,10 +14,10 @@ namespace inmem_sascan_private {
 // Compute range [microblock_beg..microblock_end) of bits in the output
 // bitvector gt_out.
 //==============================================================================
-void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
+void gt_end_to_gt_begin_aux(const unsigned char *text, long text_length,
     long block_beg, long block_end, bitvector *gt) {
   long block_size = block_end - block_beg;
-  unsigned char *pat = text + block_beg, *txt = pat;
+  const unsigned char *pat = text + block_beg, *txt = pat;
 
   long i = 1, el = 0L, s = 0L, p = 0L;
   long i_max = i, el_max = 0L, s_max = 0L, p_max = 0L;
@@ -75,7 +75,7 @@ void gt_end_to_gt_begin_aux(unsigned char *text, long text_length,
 //==============================================================================
 // Change gt_end bitvector into gt_begin using string range matching.
 //==============================================================================
-void gt_end_to_gt_begin(unsigned char *text, long text_length,
+void gt_end_to_gt_begin(const unsigned char *text, long text_length,
     bitvector *gt, long max_block_size, long /*max_threads*/) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 

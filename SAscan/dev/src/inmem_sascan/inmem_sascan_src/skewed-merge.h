@@ -6,6 +6,7 @@
 #include <cassert>
 #include <cstdlib>
 
+
 namespace inmem_sascan_private {
 
 class MergeSchedule {
@@ -20,23 +21,23 @@ public:
                 int max_left_size = 0)
   { reset(no_of_blocks, right_left_ratio, max_left_size); }
 
-  int left_size(int n) {
+  int left_size(int n) const {
     assert(n < (long)split.size());
     return split[n];
   }
-  int right_size(int n) {
+  int right_size(int n) const {
     assert(n < (long)split.size());
     return n - split[n];
   }
-  float cost(int n) {
+  float cost(int n) const {
     assert(n < (long)split.size());
     return (left_cost[n] + rl_ratio * right_cost[n]) / n;
   }
-  float n_left_merges(int n) {
+  float n_left_merges(int n) const {
     assert(n < (long)split.size());
     return left_cost[n] / (1.0*n);
   }
-  float n_right_merges(int n) {
+  float n_right_merges(int n) const {
     assert(n < (long)split.size());
     return right_cost[n] / (1.0*n);
   }
@@ -78,7 +79,7 @@ public:
   }
 };
 
-void print_schedule(MergeSchedule & sched, int n, std::string indent) {
+void print_schedule(const MergeSchedule & sched, int n, std::string indent) {
   if (n == 1) {
     std::cerr << "1\n";
     return;
@@ -90,7 +91,7 @@ void print_schedule(MergeSchedule & sched, int n, std::string indent) {
   print_schedule(sched, n-l, indent + "\t");
 }
 
-void print_schedule(MergeSchedule & sched, int n) {
+void print_schedule(const MergeSchedule & sched, int n) {
   std::string intend = "\t";
   print_schedule(sched, n, intend);
 }

@@ -23,10 +23,10 @@ namespace inmem_sascan_private {
 //==============================================================================
 template<typename pagearray_type>
 void parallel_merge_aux(
-    pagearray_type *l_pagearray,
-    pagearray_type *r_pagearray,
+    const pagearray_type *l_pagearray,
+    const pagearray_type *r_pagearray,
     pagearray_type *output,
-    inmem_gap_array *gap,
+    const inmem_gap_array *gap,
     long left_idx, long right_idx,
     long remaining_gap,
     long page_range_beg,
@@ -125,7 +125,7 @@ void parallel_merge_aux(
 
 template<typename pagearray_type>
 pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pagearray,
-    inmem_gap_array *gap, long max_threads, long i0, long &aux_result, long what_to_add) {
+    const inmem_gap_array *gap, long max_threads, long i0, long &aux_result, long what_to_add) {
   static const unsigned pagesize_log = pagearray_type::pagesize_log;
   static const unsigned pagesize = pagearray_type::pagesize;
   typedef typename pagearray_type::value_type value_type;
