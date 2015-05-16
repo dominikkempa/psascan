@@ -31,7 +31,7 @@ struct ranksel_support {
     
     // 1
     //
-    // Compute chunk size and allocate spase rank.
+    // Compute chunk size and allocate m_sparse_rank.
     m_chunk_size = std::min((1L << 20), (m_length + max_threads - 1) / max_threads);
     n_chunks = m_length / m_chunk_size;  // we exclude the last partial chunk
     m_sparse_rank = (long *)malloc((n_chunks + 1) * sizeof(long));
@@ -58,7 +58,7 @@ struct ranksel_support {
     
     // 3
     //
-    // Compute cumulative sum of sparse_rank.
+    // Compute partial (exclusive) sum on m_sparse_rank.
     long ones = 0L;
     for (long i = 0; i < n_chunks; ++i) {
       long temp = m_sparse_rank[i];
@@ -83,7 +83,7 @@ struct ranksel_support {
     long zero_cnt_j = (j * m_chunk_size) - m_sparse_rank[j];
     j *= m_chunk_size;
 
-    // Slowly find the final position in a single chunk.
+    // Find the final position in a single chunk.
     while (zero_cnt_j + (1 - m_bv->get(j)) <= i)
       zero_cnt_j += (1 - m_bv->get(j++));
 
@@ -105,7 +105,7 @@ struct ranksel_support {
     long rank_j = m_sparse_rank[j];
     j *= m_chunk_size;
 
-    // Slowly find the final position in a single chunk.
+    // Find the final position in a single chunk.
     while (rank_j + m_bv->get(j) <= i)
       rank_j += m_bv->get(j++);
 

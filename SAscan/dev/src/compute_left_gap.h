@@ -53,7 +53,7 @@ void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
   }
   if (bv->get(j) == 0) --sum;
 
-  // Store gap[part_beg] + .. + gap[j] and bv.rank(part_beg) (== bv.rank(j)).
+  // Store gap[part_beg] + .. + gap[j] and bv.rank0(part_beg) (== bv.rank0(j)).
   res_sum = sum;
   res_rank = bv_ranksel->rank0(part_beg);
 
@@ -107,7 +107,7 @@ void lblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx
     // Safely write the data to disk.
     utils::add_objects_to_file(slab, length, filename);
 
-    // Let the caller know what the I/O thread finished writing.
+    // Let the caller know that the I/O thread finished writing.
     lk.lock();
     avail = false;
     lk.unlock();
@@ -172,15 +172,15 @@ void compute_left_gap(long left_block_size, long right_block_size,
   bool avail = false;
   bool finished = false;
   
-  // Start the thread doing asynchronius writes.
+  // Start the thread doing asynchronous writes.
   std::thread *async_writer = new std::thread(lblock_async_write_code,
       std::ref(passive_vbyte_slab), std::ref(passive_vbyte_slab_length),
       std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished),
       out_filename);
 
   for (long range_id = 0L; range_id < n_ranges; ++range_id) {
-    // Compute the range [range_beg..range_end) of values in the right gap
-    // (which if indexed [0..right_gap_size)).
+    // Compute the range [range_beg..range_end) of values in the left gap
+    // array (which is indexed [0..left_gap_size)).
     long range_beg = range_id * max_range_size;
     long range_end = std::min(range_beg + max_range_size, left_gap_size);
     long range_size = range_end - range_beg;
@@ -196,7 +196,7 @@ void compute_left_gap(long left_block_size, long right_block_size,
     bv_section_end = bv_ranksel->select0(range_end - 1) + 1;
     long bv_section_size = bv_section_end - bv_section_beg;
 
-    // We split the current bitvector section into
+    // Split the current bitvector section into
     // equal parts. Each thread handles one part.
     long max_part_size = (bv_section_size + max_threads - 1) / max_threads;
     long n_parts = (bv_section_size + max_part_size - 1) / max_part_size;
@@ -234,8 +234,8 @@ void compute_left_gap(long left_block_size, long right_block_size,
 
     // 2.d
     //
-    // Asynchronously schedule the write of the slab.
-    // First, wait for the async I/O thread to finish writing.
+    // Schedule asynchronous write of the slab.
+    // First, wait for the I/O thread to finish writing.
     std::unique_lock<std::mutex> lk(mtx);
     while (avail == true)
       cv.wait(lk);

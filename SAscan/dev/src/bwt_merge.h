@@ -36,8 +36,14 @@ long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
     long max_threads) {
   long block_size = left_size + right_size;
 
+  // 1
+  //
+  // Initialize rank/select queries support for bv.
   ranksel_support *bv_ranksel = new ranksel_support(bv, block_size, max_threads);
 
+  // 2
+  //
+  // Compute range size.
   long max_range_size = (block_size + max_threads - 1) / max_threads;
   long n_ranges = (block_size + max_range_size - 1) / max_range_size;
 
@@ -67,7 +73,7 @@ long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
 
   // 4
   //
-  // Proper computation of bwt.
+  // Merge BWTs in parallel.
   for (long t = 0; t < n_ranges; ++t) {
     long range_beg = max_range_size * t;
     long range_end = std::min(range_beg + max_range_size, block_size);

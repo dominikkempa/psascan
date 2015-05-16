@@ -31,11 +31,15 @@ void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
     long block_isa0, long stream_bufsize, unsigned char block_last_symbol,
     std::vector<long> initial_ranks, std::string text_filename, std::string output_filename,
     const multifile *tail_gt_begin_rev, multifile *newtail_gt_begin_rev) {
-
   long tail_length = tail_end - tail_begin;
   long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
   long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
 
+  fprintf(stderr, "    Stream:");
+  long double stream_start = utils::wclock();
+
+  // 1
+  //
   // Get symbol counts of a block and turn into exclusive partial sum.
   long *count = new long[256];
   std::copy(rank->m_count, rank->m_count + 256, count);
@@ -47,25 +51,29 @@ void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
     s += t;
   }
 
-  // Allocate the gap array, do the streaming and store gap to disk.
-  fprintf(stderr, "    Stream:");
-  long double stream_start = utils::wclock();
-
+  // 2
+  //
   // Allocate buffers.
   long n_stream_buffers = 2 * max_threads;
   buffer<block_offset_type> **buffers = new buffer<block_offset_type>*[n_stream_buffers];
   for (long i = 0L; i < n_stream_buffers; ++i)
     buffers[i] = new buffer<block_offset_type>(stream_bufsize, max_threads);
 
+  // 3
+  //
   // Create poll of empty and full buffers.
   buffer_poll<block_offset_type> *empty_buffers = new buffer_poll<block_offset_type>();
   buffer_poll<block_offset_type> *full_buffers = new buffer_poll<block_offset_type>(n_threads);
 
-  // Add all buffers to empty poll.
+  // 4
+  //
+  // Add all buffers to the poll of empty buffers.
   for (long i = 0L; i < n_stream_buffers; ++i)
     empty_buffers->add(buffers[i]);
 
-  // Start workers.
+  // 5
+  //
+  // Start threads doing the backward search.
   stream_info info(n_threads, tail_length);
   std::thread **streamers = new std::thread*[n_threads];
   std::vector<std::string> gt_filenames(n_threads);
@@ -82,14 +90,20 @@ void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
         std::ref(gt_filenames[t]), &info, t, gap->m_length, stream_bufsize, tail_gt_begin_rev, max_threads);
   }
 
-  // Start updaters.
+  // 6
+  //
+  // Start threads doing the gap array updates.
   std::thread *updater = new std::thread(gap_updater<block_offset_type>,
         full_buffers, empty_buffers, gap, max_threads);
 
+  // 7
+  //
   // Wait for all threads to finish.
   for (long i = 0L; i < n_threads; ++i) streamers[i]->join();
   updater->join();
 
+  // 8
+  //
   // Clean up.
   for (long i = 0L; i < n_threads; ++i) delete streamers[i];
   for (long i = 0L; i < n_stream_buffers; ++i) delete buffers[i];
@@ -100,6 +114,9 @@ void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
   delete full_buffers;
   delete[] count;
 
+  // 9
+  //
+  // Print summary and exit.
   long double stream_time = utils::wclock() - stream_start;
   long double speed = (tail_length / (1024.L * 1024)) / stream_time;
   fprintf(stderr,"\r    Stream: 100.0%%. Time: %.2Lfs. Speed: %.2LfMiB/s\n",

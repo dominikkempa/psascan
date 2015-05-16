@@ -106,7 +106,7 @@ void rblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx
     // Safely write the data to disk.
     utils::add_objects_to_file(slab, length, filename);
 
-    // Let the caller know what the I/O thread finished writing.
+    // Let the caller know that the I/O thread finished writing.
     lk.lock();
     avail = false;
     lk.unlock();
@@ -171,7 +171,7 @@ void compute_right_gap(long left_block_size, long right_block_size,
   bool avail = false;
   bool finished = false;
   
-  // Start the thread doing asynchronius writes.
+  // Start the thread doing asynchronous writes.
   std::thread *async_writer = new std::thread(rblock_async_write_code,
       std::ref(passive_vbyte_slab), std::ref(passive_vbyte_slab_length),
       std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished),
@@ -179,7 +179,7 @@ void compute_right_gap(long left_block_size, long right_block_size,
 
   for (long range_id = 0L; range_id < n_ranges; ++range_id) {
     // Compute the range [range_beg..range_end) of values in the right gap
-    // (which if indexed [0..right_gap_size)).
+    // array (which is indexed [0..right_gap_size)).
     long range_beg = range_id * max_range_size;
     long range_end = std::min(range_beg + max_range_size, right_gap_size);
     long range_size = range_end - range_beg;
@@ -195,7 +195,7 @@ void compute_right_gap(long left_block_size, long right_block_size,
     bv_section_end = bv_ranksel->select1(range_end - 1) + 1;
     long bv_section_size = bv_section_end - bv_section_beg;
 
-    // We split the current bitvector section into
+    // Split the current bitvector section into
     // equal parts. Each thread handles one part.
     long max_part_size = (bv_section_size + max_threads - 1) / max_threads;
     long n_parts = (bv_section_size + max_part_size - 1) / max_part_size;
@@ -233,8 +233,8 @@ void compute_right_gap(long left_block_size, long right_block_size,
 
     // 2.d
     //
-    // Asynchronously schedule the write of the slab.
-    // First, wait for the async I/O thread to finish writing.
+    // Schedule asynchronous write of the slab.
+    // First, wait for the I/O thread to finish writing.
     std::unique_lock<std::mutex> lk(mtx);
     while (avail == true)
       cv.wait(lk);
