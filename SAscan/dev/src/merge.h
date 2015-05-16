@@ -142,6 +142,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
 
   delete[] gap;
   delete[] gap_head;
+  delete[] sblock_info;
   
   for (int i = 0; i + 1 < n_block; ++i)
     utils::file_delete(hblock_info[i].gap_filename);
