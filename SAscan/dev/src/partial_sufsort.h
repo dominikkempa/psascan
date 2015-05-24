@@ -532,7 +532,7 @@ void process_block(long block_beg, long block_end,
   utils::read_objects_from_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
   long double right_block_bwt_read_time = utils::wclock() - right_block_bwt_read_start;
   long double right_block_bwt_read_io = (right_block_size / (1024.L * 1024)) / right_block_bwt_read_time;
-  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", right_block_bwt_read_time, right_block_bwt_read_io);
+  fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_block_bwt_read_time, right_block_bwt_read_io);
 
 
   utils::file_delete(right_block_pbwt_fname);
