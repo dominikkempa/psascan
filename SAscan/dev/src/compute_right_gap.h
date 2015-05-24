@@ -136,7 +136,7 @@ void compute_right_gap(long left_block_size, long right_block_size,
   bv->set(block_size);
   long bv_size = block_size + 1;
 
-  fprintf(stderr, "  Compute gap for right half-block: ");
+  fprintf(stderr, "  Compute gap array for right half-block: ");
   long compute_gap_start = utils::wclock();
 
   //----------------------------------------------------------------------------

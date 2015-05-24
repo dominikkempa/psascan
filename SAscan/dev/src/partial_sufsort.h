@@ -345,7 +345,7 @@ void process_block(long block_beg, long block_end,
   unsigned char *left_block_bwt = NULL;
   if (right_block_size > 0) {
     // XXX when I fix the in-memory SAscan, this step will be obsolete.
-    fprintf(stderr, "    Copy left BWT to separate array: ");
+    fprintf(stderr, "    Copy BWT of left half-block to separate array: ");
     long double left_bwt_copy_start = utils::wclock();
     left_block_bwt = (unsigned char *)malloc(left_block_size);
     std::copy(left_block_bwt_ptr, left_block_bwt_ptr + left_block_size, left_block_bwt);
@@ -503,12 +503,12 @@ void process_block(long block_beg, long block_end,
   // - sequential access of the left_block_gap is still initialized (i.e.,
   //   excess values are in RAM).
   //----------------------------------------------------------------------------
-  fprintf(stderr, "  Compute block gap:\n");
+  fprintf(stderr, "  Compute block gap array:\n");
 
   // 4.a
   //
   // Convert the partial gap of the left half-block into bitvector.
-  fprintf(stderr, "    Convert partial gap of left half-block to bitvector: ");
+  fprintf(stderr, "    Convert partial gap array of left half-block to bitvector: ");
   long double convert_to_bitvector_start = utils::wclock();
   bitvector *left_block_gap_bv = left_block_gap->convert_to_bitvector(max_threads);
   long double convert_to_bitvector_time = utils::wclock() - convert_to_bitvector_start;
@@ -544,7 +544,7 @@ void process_block(long block_beg, long block_end,
   // 4.c
   //
   // Actual merging of BWT.
-  fprintf(stderr, "    Merge BWT of half-blocks: ");
+  fprintf(stderr, "    Merge BWTs of half-blocks: ");
   long double bwt_merge_start = utils::wclock();
   block_i0 = merge_bwt(left_block_bwt, right_block_bwt, left_block_size, right_block_size,
       left_block_i0, right_block_i0, left_block_last, block_pbwt, left_block_gap_bv, max_threads);
@@ -559,7 +559,7 @@ void process_block(long block_beg, long block_end,
   //
   //
   // Write left_block_gap_bv to disk.
-  fprintf(stderr, "    Write left block gap bitvector to disk: ");
+  fprintf(stderr, "    Write left half-block gap bitvector to disk: ");
   long double write_left_gap_bv_start = utils::wclock();
   std::string left_block_gap_bv_filename = gap_filename + ".left_block_gap_bv";
   left_block_gap_bv->save(left_block_gap_bv_filename);
@@ -612,7 +612,7 @@ void process_block(long block_beg, long block_end,
   //
   //
   // Read left_block_gap_bv from disk.
-  fprintf(stderr, "    Read left block gap bitvector from disk: ");
+  fprintf(stderr, "    Read left half-block gap bitvector from disk: ");
   long double left_block_gap_bv_read_start = utils::wclock();
   left_block_gap_bv = new bitvector(left_block_gap_bv_filename);
   long double left_block_gap_bv_read_time = utils::wclock() - left_block_gap_bv_read_start;
