@@ -50,7 +50,7 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
         "at least %ldMiB\n", required_MiB + 1);
     std::exit(EXIT_FAILURE);
   }
-    
+
   fprintf(stderr, "RAM budget = %ld (%.1LfMiB)\n", ram_use, 1.L * ram_use / (1L << 20));
   fprintf(stderr, "RAM budget (excluding threads) = %ld (%.1LfMiB)\n",
       ram_use_excluding_threads, 1.L * ram_use_excluding_threads / (1L << 20));
@@ -58,9 +58,9 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
 
   fprintf(stderr, "Max block size = %ld (%.1LfMiB)\n\n", max_block_size, 1.L * max_block_size / (1L << 20));
   fprintf(stderr, "Parallel settings:\n");
-  fprintf(stderr, "  streaming threads = %ld\n", max_threads);
-  fprintf(stderr, "  stream buffer size = %ld\n", stream_buffer_size);
-  fprintf(stderr, "  #stream buffers = %ld\n\n", n_stream_buffers);
+  fprintf(stderr, "  #streaming threads = %ld\n", max_threads);
+  fprintf(stderr, "  #gap buffers = %ld\n", n_stream_buffers);
+  fprintf(stderr, "  gap buffer size = %ld\n\n", stream_buffer_size);
 
   // Check if the maximum number of open files
   // is large enough for the merging to work.
