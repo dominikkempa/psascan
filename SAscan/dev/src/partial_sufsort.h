@@ -26,6 +26,7 @@
 #include "bwt_merge.h"
 #include "compute_gap.h"
 #include "compute_initial_ranks.h"
+#include "em_compute_initial_ranks.h"
 #include "compute_right_gap.h"
 #include "compute_left_gap.h"
 
@@ -200,9 +201,10 @@ void process_block(long block_beg, long block_end,
     if (!last_block) {
       fprintf(stderr, "    Compute initial tail ranks (part 1): ");
       long double initial_ranks_first_term_start = utils::wclock();
-      compute_initial_ranks<block_offset_type>(right_block, right_block_beg, right_block_end, text_length,
-          right_block_psa_ptr, text_filename, block_initial_ranks, max_threads, block_tail_beg, block_tail_end);
-      fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_first_term_start);
+      em_compute_initial_ranks<block_offset_type>(right_block, right_block_psa_ptr, right_block_bwt,
+          right_block_i0, right_block_beg, right_block_end, text_length, text_filename,
+          tail_gt_begin_rev, block_initial_ranks, max_threads);  // Note the space usage of this function.
+      fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_first_term_start);
     }
 
     // 1.d
@@ -322,6 +324,9 @@ void process_block(long block_beg, long block_end,
     std::vector<long> block_initial_ranks_second_term;
     compute_initial_ranks<block_offset_type>(left_block, left_block_beg, left_block_end, text_length, left_block_psa_ptr,
         text_filename, block_initial_ranks_second_term, max_threads, block_tail_beg, block_tail_end);
+    // em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt_ptr,
+    //       left_block_i0, left_block_beg, left_block_end, text_length, text_filename, tail_gt_begin_rev,
+    //       block_initial_ranks_second_term, max_threads, block_tail_beg, block_tail_end);  // Note the space usage of this function.
     for (size_t j = 0; j < block_initial_ranks_second_term.size(); ++j)
       block_initial_ranks[j] += block_initial_ranks_second_term[j];
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_second_term_start);
@@ -412,6 +417,9 @@ void process_block(long block_beg, long block_end,
     std::vector<long> initial_ranks2;
     compute_initial_ranks<block_offset_type>(left_block, left_block_beg, left_block_end, text_length,
         left_block_psa_ptr, text_filename, initial_ranks2, max_threads, right_block_beg, right_block_end);
+    // em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt,
+    //      left_block_i0, left_block_beg, left_block_end, text_length, text_filename, right_block_gt_begin_rev,
+    //      initial_ranks2, max_threads, right_block_beg, right_block_end);  // Note the space usage of this function.
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_right_half_block_start);
     free(left_block);
     free(left_block_sabwt);
