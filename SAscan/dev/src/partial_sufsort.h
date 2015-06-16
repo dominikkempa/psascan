@@ -204,7 +204,7 @@ void process_block(long block_beg, long block_end,
       em_compute_initial_ranks<block_offset_type>(right_block, right_block_psa_ptr, right_block_bwt,
           right_block_i0, right_block_beg, right_block_end, text_length, text_filename,
           tail_gt_begin_rev, block_initial_ranks, max_threads);  // Note the space usage of this function.
-      fprintf(stderr, "%.2Lf\n", utils::wclock() - initial_ranks_first_term_start);
+      fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_first_term_start);
     }
 
     // 1.d
