@@ -306,7 +306,8 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
       streaming_speed);
 
   //----------------------------------------------------------------------------
-  // Clean up and sort m_excess. Consider using gnu parallel sort.
+  // STEP 7: clean up and sort m_excess.
+  // XXX Consider using gnu parallel sort.
   //----------------------------------------------------------------------------
   start = utils::wclock();
   free(oracle);

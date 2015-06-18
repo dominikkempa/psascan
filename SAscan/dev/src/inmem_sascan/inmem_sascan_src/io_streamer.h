@@ -219,7 +219,7 @@ private:
     m_pos_byte = m_pos_bit = 0;
   }
 
-  static const long k_bufsize = (2L << 20); // 2MB
+  static const long k_bufsize = (2L << 20);
 
   std::FILE *m_file;
 
@@ -242,7 +242,7 @@ struct bit_stream_writer {
   }
 
   inline void flush() {
-    if (pos_bit) ++filled; // final flush?
+    if (pos_bit) ++filled;  // in case this is the final flush
     utils::add_objects_to_file<unsigned char>(buf, filled, f);
     filled = pos_bit = 0;
     std::fill(buf, buf + bufsize, 0);
@@ -266,7 +266,7 @@ struct bit_stream_writer {
   }
 
 private:
-  static const long bufsize = (1L << 20); // 1MB
+  static const long bufsize = (1L << 20);
   
   unsigned char *buf;
   long filled;

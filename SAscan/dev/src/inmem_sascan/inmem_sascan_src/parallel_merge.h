@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <vector>
 #include <stack>
 #include <algorithm>
@@ -13,8 +12,8 @@
 #include "pagearray.h"
 #include "inmem_gap_array.h"
 
-namespace inmem_sascan_private {
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // Compute the range [res_beg..res_beg+res_size) of the output (i.e., the
@@ -131,7 +130,6 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   typedef typename pagearray_type::value_type value_type;
   typedef pagearray<value_type, pagesize_log> output_type;
 
-
   //----------------------------------------------------------------------------
   // STEP 1: compute the initial parameters for each thread. For now, we do it
   //         seqentially. Each thread gets:
@@ -182,7 +180,6 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   delete[] gap_answer_a;
   delete[] gap_answer_b;
   fprintf(stderr, "%.2Lf ", utils::wclock() - start);
-
 
   //----------------------------------------------------------------------------
   // STEP 2: merging the arrays.
@@ -251,6 +248,5 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
 }
 
 }  // namespace inmem_sascan
-
 
 #endif  // __PARALLEL_MERGE_H_INCLUDED

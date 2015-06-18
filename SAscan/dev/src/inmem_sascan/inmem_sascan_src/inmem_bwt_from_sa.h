@@ -1,17 +1,3 @@
-////////////////////////////////////////////////////////////////////////////////
-//  Implementation of two methods:
-//
-//  * bwt_from_sa_replace_text
-//    Given partial sa and text, compute the bwt and replace the text. The
-//    algorithm does not use any extra space and is fully parallelized.
-//    Destroys the suffix array!
-//
-//  * bwt_from_sa_into_dest
-//    Given partial sa and text, compute bwt and write into dest, where dest is
-//    any place in memory different from sa and text. The algorithm is fully
-//    parallelized.
-//==============================================================================
-
 #ifndef __INMEM_SASCAN_INMEM_BWT_FROM_SA_H_INCLUDED
 #define __INMEM_SASCAN_INMEM_BWT_FROM_SA_H_INCLUDED
 
@@ -21,11 +7,11 @@
 #include "utils.h"
 #include "bwtsa.h"
 
+
 namespace inmem_sascan_private {
 
-
 template<typename saidx_t>
-void bwt_from_sa_into_dest_aux(const unsigned char *text, long beg, long end,
+void compute_bwt_in_bwtsa_aux(const unsigned char *text, long beg, long end,
     bwtsa_t<saidx_t> *dest, long *i0) {
   *i0 = -1;
   for (long j = beg; j < end; ++j)
@@ -35,7 +21,7 @@ void bwt_from_sa_into_dest_aux(const unsigned char *text, long beg, long end,
 
 
 template<typename saidx_t>
-void bwt_from_sa_into_dest(const unsigned char *text, long length,
+void compute_bwt_in_bwtsa(const unsigned char *text, long length,
   bwtsa_t<saidx_t> *dest, long max_threads, long &result) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
@@ -47,7 +33,7 @@ void bwt_from_sa_into_dest(const unsigned char *text, long length,
     long block_beg = i * max_block_size;
     long block_end = std::min(block_beg + max_block_size, length);
 
-    threads[i] = new std::thread(bwt_from_sa_into_dest_aux<saidx_t>,
+    threads[i] = new std::thread(compute_bwt_in_bwtsa_aux<saidx_t>,
         text, block_beg, block_end, dest, index_0 + i);
   }
 

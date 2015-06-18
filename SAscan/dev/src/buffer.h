@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <queue>
 #include <condition_variable>
 #include <mutex>

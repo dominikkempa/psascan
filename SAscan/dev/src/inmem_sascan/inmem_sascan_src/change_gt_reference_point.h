@@ -8,6 +8,7 @@
 #include "../../bitvector.h"
 #include "srank_aux.h"
 
+
 namespace inmem_sascan_private {
 
 //==============================================================================

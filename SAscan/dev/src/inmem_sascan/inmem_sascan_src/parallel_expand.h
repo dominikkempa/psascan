@@ -4,15 +4,14 @@
 #include <algorithm>
 #include <thread>
 
-namespace inmem_sascan_private {
 
+namespace inmem_sascan_private {
 
 template<typename T, typename S>
 void parallel_expand_aux(const T *src, S *dest, long length) {
   for (long i = 0; i < length; ++i)
     dest[i] = (S)src[i];
 }
-
 
 // Requires sizeof(T) < sizeof(S).
 template<typename T, typename S>
@@ -68,6 +67,5 @@ S *parallel_expand(T *tab, long length, long max_threads) {
 }
 
 }  // namespace inmem_sascan
-
 
 #endif  // __PARALLEL_SHRINK_H_INCLUDED

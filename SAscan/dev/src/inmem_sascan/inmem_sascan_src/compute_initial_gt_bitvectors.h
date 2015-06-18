@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstring>
-
 #include <algorithm>
 #include <thread>
 

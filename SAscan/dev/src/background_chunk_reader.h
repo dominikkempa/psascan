@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -23,9 +22,8 @@ struct background_chunk_reader {
     std::mutex m_mutex;
     std::thread *m_thread;
     
-    // All five variables below are protected by m_mutex.
-    bool m_signal_read_next_chunk;  // signal for the I/O thread
-    bool m_signal_stop;  // used to let the I/O thread to stop
+    bool m_signal_read_next_chunk;
+    bool m_signal_stop;
 
     long m_cur;
     unsigned char *m_passive_chunk;

@@ -6,11 +6,10 @@
 #include "../../bitvector.h"
 #include "inmem_gap_array.h"
 #include "inmem_compute_gap.h"
-#include "inmem_bwt_from_sa.h"
 #include "parallel_merge.h"
 #include "pagearray.h"
 #include "bwtsa.h"
-#include "skewed-merge.h"
+#include "skewed_merge.h"
 #include "../../multifile.h"
 
 
@@ -71,7 +70,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(const unsigned char *t
 
   // 1
   //
-  // left block
+  // Left block
   long left_i0;
   pagearray_type *l_bwtsa =
     balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
@@ -81,7 +80,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(const unsigned char *t
 
   // 2
   // 
-  // right block
+  // Right block
   long right_i0;
   pagearray_type *r_bwtsa =
       balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
@@ -91,7 +90,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(const unsigned char *t
 
 
   //----------------------------------------------------------------------------
-  // STEP 3: Merge partial suffix arrays.
+  // STEP 3: Merge partial SAs and BWTs.
   //----------------------------------------------------------------------------
   fprintf(stderr, "Merging blocks %ld-%ld with %ld-%ld\n", lrange_beg + 1, lrange_end, rrange_beg + 1, rrange_end);
   long double start = utils::wclock();

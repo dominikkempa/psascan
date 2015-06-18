@@ -9,8 +9,8 @@
 #include <thread>
 #include <mutex>
 
-namespace inmem_sascan_private {
 
+namespace inmem_sascan_private {
 
 //==============================================================================
 // The pagearray stores the array of objects of given type in a permuted form.

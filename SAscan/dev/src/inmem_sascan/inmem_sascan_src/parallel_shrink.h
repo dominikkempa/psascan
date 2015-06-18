@@ -4,8 +4,8 @@
 #include <algorithm>
 #include <thread>
 
-namespace inmem_sascan_private {
 
+namespace inmem_sascan_private {
 
 template<typename T, typename S>
 void parallel_shrink_aux(T *src, S *dest, long length) {
@@ -68,6 +68,5 @@ S *parallel_shrink(T *tab, long length, long max_threads) {
 }
 
 }  // namespace inmem_sascan
-
 
 #endif  // __PARALLEL_SHRINK_H_INCLUDED

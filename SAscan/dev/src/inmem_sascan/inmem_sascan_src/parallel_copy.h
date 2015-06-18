@@ -7,6 +7,7 @@
 #include "bwtsa.h"
 #include "../../uint40.h"
 
+
 namespace inmem_sascan_private {
 
 template<typename T, typename S>

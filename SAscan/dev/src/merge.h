@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cmath>
-
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -12,7 +11,6 @@
 #include "uint40.h"
 #include "distributed_file.h"
 #include "half_block_info.h"
-
 #include "async_stream_writer.h"
 #include "async_vbyte_stream_reader.h"
 

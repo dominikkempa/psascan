@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -147,9 +146,9 @@ void compute_left_gap(long left_block_size, long right_block_size,
   ranksel_support *bv_ranksel = new ranksel_support(bv, bv_size, max_threads);
 
 
-  //============================================================================
+  //----------------------------------------------------------------------------
   // STEP 2: compute the values of the right gap array, one range at a time.
-  //============================================================================
+  //----------------------------------------------------------------------------
   long max_range_size = std::max(1L, ram_budget / (3L * (long)sizeof(long)));
   long n_ranges = (left_gap_size + max_range_size - 1) / max_range_size;
 

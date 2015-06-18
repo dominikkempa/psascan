@@ -1,11 +1,9 @@
-// Parallel backward search.
 #ifndef __INMEM_SASCAN_STREAM_H_INCLUDED
 #define __INMEM_SASCAN_STREAM_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
 #include <iostream>
 #include <queue>
 #include <string>
@@ -19,6 +17,7 @@
 #include "rank.h"
 #include "buffer.h"
 #include "inmem_update.h"
+
 
 namespace inmem_sascan_private {
 
@@ -73,18 +72,18 @@ void inmem_parallel_stream(
   long j = stream_block_end;
   bool gt_bit = gt->get(text_length - j);
   while (j > stream_block_beg) {
-    //--------------------------------------------------------------------------
+    // 2.a
+    //
     // Get a buffer from the poll of empty buffers.
-    //--------------------------------------------------------------------------
     std::unique_lock<std::mutex> lk(empty_buffers->m_mutex);
     while (!empty_buffers->available()) empty_buffers->m_cv.wait(lk);
     buffer<block_offset_type> *b = empty_buffers->get();
     lk.unlock();
     empty_buffers->m_cv.notify_one();
 
-    //--------------------------------------------------------------------------
+    // 2.b
+    //
     // Process buffer, i.e., fill with gap values.
-    //--------------------------------------------------------------------------
     long left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
     std::fill(block_count, block_count + n_buckets, 0);
@@ -128,9 +127,9 @@ void inmem_parallel_stream(
 
     }
 
-    //--------------------------------------------------------------------------
+    // 2.c
+    //
     // Partition the buffer into equal n_increasers parts.
-    //--------------------------------------------------------------------------
 
     // Compute super-buckets.
     long ideal_sblock_size = (b->m_filled + n_increasers - 1) / n_increasers;
@@ -148,6 +147,7 @@ void inmem_parallel_stream(
     }
 
     if (max_sbucket_size < 4L * ideal_sblock_size) {
+      // The quick partition was good enough.
       for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
@@ -164,9 +164,9 @@ void inmem_parallel_stream(
       }
     } else {
       // Repeat the partition into sbuckets, this time using random sample.
-      // This is a fallback mechanism in case the quick partition failed.
-      // It is not suppose to happen to often.
-
+      // This is a fallback mechanism in case the quick partition failed,
+      // and is expected to happen very rarely.
+      
       // Compute random sample of elements in the buffer.
       for (long t = 0; t < buffer_sample_size; ++t)
         samples[t] = temp[utils::random_long(0L, b->m_filled - 1)];
@@ -206,22 +206,26 @@ void inmem_parallel_stream(
       }
     }
 
-    //--------------------------------------------------------------------------
+    // 2.d
+    //
     // Add the buffer to the poll of full buffers and notify waiting thread.
-    //--------------------------------------------------------------------------
     std::unique_lock<std::mutex> lk2(full_buffers->m_mutex);
     full_buffers->add(b);
     lk2.unlock();
     full_buffers->m_cv.notify_one();
   }
 
-  // Report that another worker thread has finished.
+  //---------------------------------------------------------------------------
+  // STEP 3: Clean up.
+  //---------------------------------------------------------------------------
+
+  // Report that another thread has finished.
   std::unique_lock<std::mutex> lk(full_buffers->m_mutex);
   full_buffers->increment_finished_workers();
   lk.unlock();
 
   // Notify waiting update threads in case no more buffers
-  // are going to be produces by worker threads.
+  // are going to be produced by streaming threads.
   full_buffers->m_cv.notify_one();
 
   delete[] block_count;

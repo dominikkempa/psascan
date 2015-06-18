@@ -3,12 +3,12 @@
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <vector>
 #include <algorithm>
 #include <mutex>
 #include <stack>
 #include <thread>
+
 
 namespace inmem_sascan_private {
 

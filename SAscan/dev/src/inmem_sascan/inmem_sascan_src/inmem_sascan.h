@@ -11,6 +11,7 @@
 #include "compute_initial_gt_bitvectors.h"
 #include "initial_partial_sufsort.h"
 #include "change_gt_reference_point.h"
+#include "inmem_bwt_from_sa.h"
 #include "inmem_compute_gap.h"
 #include "inmem_compute_initial_ranks.h"
 #include "parallel_merge.h"
@@ -18,7 +19,7 @@
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
-#include "skewed-merge.h"
+#include "skewed_merge.h"
 
 
 namespace inmem_sascan_private {
@@ -78,7 +79,6 @@ void inmem_sascan(
     std::exit(EXIT_FAILURE);
   }
 
-
   // long max_block_size = (text_length + max_blocks - 1) / max_blocks;
   // while ((max_block_size & 7) || (max_block_size & pagesize_mask)) ++max_block_size;
   // long n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -98,7 +98,6 @@ void inmem_sascan(
 
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-
   if (!compute_gt_begin) {
     if (gt_begin) {
       fprintf(stderr, "Error: check gt_begin == NULL failed\n");
@@ -112,8 +111,6 @@ void inmem_sascan(
       std::exit(EXIT_FAILURE);
     }
   }
-
-
 
   fprintf(stderr, "Text length = %ld (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
   fprintf(stderr, "Max block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
@@ -164,9 +161,8 @@ void inmem_sascan(
   initial_partial_sufsort(text, text_length, gt_begin, bwtsa, max_block_size, max_threads, has_tail);
   fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
 
-
   //----------------------------------------------------------------------------
-  // STEP: compute matrix of block ranks.
+  // STEP 2: compute matrix of block ranks.
   //----------------------------------------------------------------------------
   fprintf(stderr, "Compute matrix of initial ranks: ");
   start = utils::wclock();
@@ -190,7 +186,7 @@ void inmem_sascan(
 
 
   //----------------------------------------------------------------------------
-  // STEP 2: compute the gt bitvectors for blocks that will be on the right
+  // STEP 3: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging. Also, create block description array.
   //----------------------------------------------------------------------------
   if (n_blocks > 1 || compute_gt_begin) {
@@ -228,7 +224,7 @@ void inmem_sascan(
       if (block_id + 1 != n_blocks || compute_bwt) {
         fprintf(stderr, "Computing BWT for block %ld: ", block_id + 1);
         long double bwt_start = utils::wclock();
-        bwt_from_sa_into_dest<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, i0_array[block_id]);
+        compute_bwt_in_bwtsa<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, i0_array[block_id]);
         fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
       }
     }

@@ -3,7 +3,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <stdint.h>
 
 #include "utils.h"

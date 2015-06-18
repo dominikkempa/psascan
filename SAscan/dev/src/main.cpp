@@ -1,9 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
-
 #include <string>
-
 #include <getopt.h>
 #include <unistd.h>
 #include <omp.h>
@@ -103,7 +101,7 @@ int main(int argc, char **argv) {
   }
 
   if (utils::file_exists(out_fname)) {
-    // Output file exists -- should we proceed?
+    // Output file exists, should we proceed?
     char *line = NULL;
     size_t buflen = 0;
     long len = 0L;
@@ -124,12 +122,6 @@ int main(int argc, char **argv) {
     free(line);
   }
 
-  //----------------------------------------------------------------------------
-  // Parallel settings
-  //
-  // NOTE: the number of threads can (?) be obtained using STL method:
-  // http://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency
-  //----------------------------------------------------------------------------
   long max_threads = (long)omp_get_max_threads();
   SAscan(text_fname, out_fname, gap_fname, ram_use, max_threads);
 }

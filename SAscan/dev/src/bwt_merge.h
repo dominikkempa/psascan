@@ -1,5 +1,4 @@
 // XXX The merge_bwt function should probably be tested more thoroughly.
-
 #ifndef __BWT_MERGE_H_INCLUDED
 #define __BWT_MERGE_H_INCLUDED
 
