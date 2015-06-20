@@ -14,7 +14,6 @@
 #include "bitvector.h"
 #include "multifile.h"
 #include "multifile_bit_stream_reader.h"
-#include "smaller_suffixes.h"
 #include "disk_pattern.h"
 
 

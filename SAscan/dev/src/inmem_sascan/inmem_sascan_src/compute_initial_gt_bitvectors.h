@@ -10,7 +10,7 @@
 #include "srank_aux.h"
 #include "../../multifile.h"
 #include "../../multifile_bit_stream_reader.h"
-#include "background_block_reader.h"
+#include "../../background_block_reader.h"
 
 
 namespace inmem_sascan_private {
@@ -56,10 +56,12 @@ void compute_partial_gt_end(const unsigned char *text, long text_length, long be
     long i = 0, el = 0, s = 0, p = 0;
     long i_max = 0, el_max = 0, s_max = 0, p_max = 0;
 
+    static const long chunk_size = (1L << 20);
+
     while (i < range_size) {
       while (i + el < range_size && el < tail_length) {
         if (el == tail_prefix_fetched) {
-          long next_chunk = std::min(tail_prefix_background_reader->get_chunk_size(), tail_prefix_length - tail_prefix_fetched);
+          long next_chunk = std::min(chunk_size, tail_prefix_length - tail_prefix_fetched);
           tail_prefix_fetched += next_chunk;
           tail_prefix_background_reader->wait(tail_prefix_fetched);
         }

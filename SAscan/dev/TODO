@@ -1,7 +1,5 @@
 Ordered roughly by priority (from the most urgent):
 
-* Fix the computation of starting positions for EM streaming in pSAscan
-
 * Remove the merging phase from the case where there is only one half-block
 
 * Use O_DIRECT for I/O to prevent caching: for starters, implement the
@@ -16,8 +14,8 @@ Ordered roughly by priority (from the most urgent):
 * Try the new, 2n-byte rank and implement more generic half-block
   processing (allowing more than two half-blocks)
 
-* Try the possibility of using some wavelet-tree-like data structure in place
-  of 4n (or 2n) - byte rank and check if its faster on DNA
+* Try the possibility of using some wavelet-tree-like data structure
+  in place of 4n (or 2n) - byte rank and check if its faster on DNA
 
 * Add an option for computing BWT rather than SA or both
 
@@ -27,4 +25,3 @@ Ordered roughly by priority (from the most urgent):
   dkempa@whx-15:~/saca-code/SAscan/dev/src$ ./sascan ~/data/countries.4G
   -m 3200 --output=~/data/sa5.correct.countries.4G
   ~/data/sa5.correct.countries.4G: No such file or directory
-  Possible solution: I think we should resolve the paths first.

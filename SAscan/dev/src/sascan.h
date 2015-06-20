@@ -92,7 +92,7 @@ void SAscan(std::string input_filename, std::string output_filename, std::string
   long double total_time = utils::wclock() - start;
 
   fprintf(stderr, "\n\nComputation finished. Summary:\n");
-  fprintf(stderr, "  elapsed time: %.2Lfs (%.4Lf/MiB)\n", total_time, total_time / ((1.L * length) / (1L << 20)));
+  fprintf(stderr, "  elapsed time: %.2Lfs (%.4Lfs/MiB)\n", total_time, total_time / ((1.L * length) / (1L << 20)));
   fprintf(stderr, "  speed: %.2LfMiB/s\n", ((1.L * length) / (1L << 20)) / total_time);
 }
 

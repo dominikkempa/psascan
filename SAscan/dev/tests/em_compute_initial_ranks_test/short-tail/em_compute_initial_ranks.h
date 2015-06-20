@@ -14,7 +14,7 @@
 #include "utils.h"
 
 
-// #define EM_STARTING_POS_MODULE_DEBUG_MODE
+#define EM_STARTING_POS_MODULE_DEBUG_MODE
 
 inline int lcp_compare(
     const unsigned char *text,  // only text[block_suf_beg..block_end) will be accessed

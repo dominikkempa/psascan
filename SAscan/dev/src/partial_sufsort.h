@@ -25,7 +25,6 @@
 #include "half_block_info.h"
 #include "bwt_merge.h"
 #include "compute_gap.h"
-#include "compute_initial_ranks.h"
 #include "em_compute_initial_ranks.h"
 #include "compute_right_gap.h"
 #include "compute_left_gap.h"
@@ -203,7 +202,13 @@ void process_block(long block_beg, long block_end,
       long double initial_ranks_first_term_start = utils::wclock();
       em_compute_initial_ranks<block_offset_type>(right_block, right_block_psa_ptr, right_block_bwt,
           right_block_i0, right_block_beg, right_block_end, text_length, text_filename,
-          tail_gt_begin_rev, block_initial_ranks, max_threads);  // Note the space usage of this function.
+          tail_gt_begin_rev, block_initial_ranks, max_threads, block_tail_end, 0);  // Note the space usage of this function.
+
+      size_t vec_size = block_initial_ranks.size();
+      for (size_t j = 0; j + 1 < vec_size; ++j)
+        block_initial_ranks[j] = block_initial_ranks[j + 1];
+      block_initial_ranks[vec_size - 1] = 0;
+
       fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_first_term_start);
     }
 
@@ -318,16 +323,22 @@ void process_block(long block_beg, long block_end,
   // 2.c
   //
   // Compute the second term for block_initial_ranks.
+  long after_block_initial_rank = 0;
   if (!last_block) {
     fprintf(stderr, "    Compute initial tail ranks (part 2): ");
     long double initial_ranks_second_term_start = utils::wclock();
     std::vector<long> block_initial_ranks_second_term;
-    compute_initial_ranks<block_offset_type>(left_block, left_block_beg, left_block_end, text_length, left_block_psa_ptr,
-        text_filename, block_initial_ranks_second_term, max_threads, block_tail_beg, block_tail_end);
-    // em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt_ptr,
-    //       left_block_i0, left_block_beg, left_block_end, text_length, text_filename, tail_gt_begin_rev,
-    //       block_initial_ranks_second_term, max_threads, block_tail_beg, block_tail_end);  // Note the space usage of this function.
-    for (size_t j = 0; j < block_initial_ranks_second_term.size(); ++j)
+    em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_beg,
+        left_block_end, text_length, text_filename, tail_gt_begin_rev, block_initial_ranks_second_term,
+        max_threads, block_tail_beg);  // Note the space usage of this function.
+
+    after_block_initial_rank = block_initial_ranks_second_term[0];
+    size_t vec_size = block_initial_ranks_second_term.size();
+    for (size_t j = 0; j + 1 < vec_size; ++j)
+      block_initial_ranks_second_term[j] = block_initial_ranks_second_term[j + 1];
+    block_initial_ranks_second_term[vec_size - 1] = 0;
+
+    for (size_t j = 0; j < vec_size; ++j)
       block_initial_ranks[j] += block_initial_ranks_second_term[j];
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_second_term_start);
   }
@@ -409,49 +420,53 @@ void process_block(long block_beg, long block_end,
   buffered_gap_array *left_block_gap = NULL;
 
   // STEP 3, case II
-    // 3.a
-    //
-    // Compute initial ranks for streaming of the right half-block.
-    fprintf(stderr, "    Compute initial ranks: ");
-    long double initial_ranks_right_half_block_start = utils::wclock();
-    std::vector<long> initial_ranks2;
-    compute_initial_ranks<block_offset_type>(left_block, left_block_beg, left_block_end, text_length,
-        left_block_psa_ptr, text_filename, initial_ranks2, max_threads, right_block_beg, right_block_end);
-    // em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt,
-    //      left_block_i0, left_block_beg, left_block_end, text_length, text_filename, right_block_gt_begin_rev,
-    //      initial_ranks2, max_threads, right_block_beg, right_block_end);  // Note the space usage of this function.
-    fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_right_half_block_start);
-    free(left_block);
-    free(left_block_sabwt);
+  // 3.a
+  //
+  // Compute initial ranks for streaming of the right half-block.
+  fprintf(stderr, "    Compute initial ranks: ");
+  long double initial_ranks_right_half_block_start = utils::wclock();
+  std::vector<long> initial_ranks2;
+  em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt,
+       left_block_i0, left_block_beg, left_block_end, text_length, text_filename, right_block_gt_begin_rev,
+       initial_ranks2, max_threads, right_block_end, after_block_initial_rank);  // Note the space usage of this function.
 
-    // 3.b
-    //
-    // Build the rank over BWT of left half-block.
-    // RAM: left_block_sabwt, handles to right block psa and gt_begin.
-    fprintf(stderr, "    Construct rank: ");
-    long double left_block_rank_build_start = utils::wclock();
-    rank4n<> *left_block_rank = new rank4n<>(left_block_bwt, left_block_size, max_threads);
-    long double left_block_rank_build_time = utils::wclock() - left_block_rank_build_start;
-    long double left_block_rank_build_speed = (left_block_size / (1024.L * 1024)) / left_block_rank_build_time;
-    fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
+  size_t vec_size = initial_ranks2.size();
+  for (size_t j = 0; j + 1 < vec_size; ++j)
+    initial_ranks2[j] = initial_ranks2[j + 1];
+  initial_ranks2[vec_size - 1] = after_block_initial_rank;
+
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_right_half_block_start);
+  free(left_block);
+  free(left_block_sabwt);
+
+  // 3.b
+  //
+  // Build the rank over BWT of left half-block.
+  // RAM: left_block_sabwt, handles to right block psa and gt_begin.
+  fprintf(stderr, "    Construct rank: ");
+  long double left_block_rank_build_start = utils::wclock();
+  rank4n<> *left_block_rank = new rank4n<>(left_block_bwt, left_block_size, max_threads);
+  long double left_block_rank_build_time = utils::wclock() - left_block_rank_build_start;
+  long double left_block_rank_build_speed = (left_block_size / (1024.L * 1024)) / left_block_rank_build_time;
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", left_block_rank_build_time, left_block_rank_build_speed);
 
 #ifdef DROP_CACHE
-    utils::drop_cache();
+  utils::drop_cache();
 #endif
 
-    // 3.c
-    //
-    // Compute gap array of the left half-block wrt to the right half-block.
-    // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
-    left_block_gap = new buffered_gap_array(left_block_size + 1, gap_filename);
-    compute_gap<block_offset_type>(left_block_rank, left_block_gap, right_block_beg, right_block_end,
-        text_length, max_threads, left_block_i0, stream_buffer_size, left_block_last,
-        initial_ranks2, text_filename, output_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
-    delete left_block_rank;
-    delete right_block_gt_begin_rev;
+  // 3.c
+  //
+  // Compute gap array of the left half-block wrt to the right half-block.
+  // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
+  left_block_gap = new buffered_gap_array(left_block_size + 1, gap_filename);
+  compute_gap<block_offset_type>(left_block_rank, left_block_gap, right_block_beg, right_block_end,
+      text_length, max_threads, left_block_i0, stream_buffer_size, left_block_last,
+      initial_ranks2, text_filename, output_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
+  delete left_block_rank;
+  delete right_block_gt_begin_rev;
 
 #ifdef DROP_CACHE
-    utils::drop_cache();
+  utils::drop_cache();
 #endif
 
 

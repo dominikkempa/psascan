@@ -7,7 +7,7 @@
 
 #include "bwtsa.h"
 #include "pagearray.h"
-#include "background_block_reader.h"
+#include "../../background_block_reader.h"
 #include "../../multifile.h"
 
 //#define BLOCK_MATRIX_MODULE_DEBUG_MODE
@@ -473,13 +473,14 @@ void compute_ranges_2(const unsigned char *text, long text_length, long text_beg
   }
 #endif
 
+  static const long chunk_size = (1L << 20);
 
   // Compute secondary range.
   long pat_length = cur_pat_length + std::min(tail_length, max_block_size);
   if (reader) {
     // The reader != NULL, meaning that we have to gradually refine the range.
     while (left != right && cur_pat_length < pat_length) {
-      long next_chunk = std::min(reader->get_chunk_size(), pat_length - cur_pat_length);
+      long next_chunk = std::min(chunk_size, pat_length - cur_pat_length);
       long new_pat_length = cur_pat_length + next_chunk;
       reader->wait(new_pat_length - max_block_size);
 
@@ -562,12 +563,13 @@ void compute_ranges_3(const unsigned char *text, long text_length, long text_beg
   long right = block_size;
   long cur_pat_length = 0L;
 
+  static const long chunk_size = (1L << 20);
 
   // Compute the primary range.
   if (reader) {
     // The reader != NULL, meaning that we have to gradually refine the range.
     while (left != right && cur_pat_length < first_range_pat_length) {
-      long next_chunk = std::min(reader->get_chunk_size(), first_range_pat_length - cur_pat_length);
+      long next_chunk = std::min(chunk_size, first_range_pat_length - cur_pat_length);
       long new_pat_length = cur_pat_length + next_chunk;
       reader->wait(new_pat_length);
 
@@ -616,7 +618,7 @@ void compute_ranges_3(const unsigned char *text, long text_length, long text_beg
   if (reader) {
     // The reader != NULL, meaning that we have to gradually refine the range.
     while (left != right && cur_pat_length < pat_length) {
-      long next_chunk = std::min(reader->get_chunk_size(), pat_length - cur_pat_length);
+      long next_chunk = std::min(chunk_size, pat_length - cur_pat_length);
       long new_pat_length = cur_pat_length + next_chunk;
       reader->wait(new_pat_length);
 

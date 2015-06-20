@@ -7,7 +7,7 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -pthread -std=c++0x -DN
 all: sascan
 
 sascan: main.cpp utils.cpp
-	$(CC) $(CFLAGS) -o sascan utils.cpp smaller_suffixes.cpp main.cpp ./inmem_sascan/inmem_sascan_src/utils.cpp -ldivsufsort -ldivsufsort64 -fopenmp
+	$(CC) $(CFLAGS) -o sascan utils.cpp main.cpp ./inmem_sascan/inmem_sascan_src/utils.cpp -ldivsufsort -ldivsufsort64 -fopenmp
 
 clean:
 	/bin/rm -f *.o

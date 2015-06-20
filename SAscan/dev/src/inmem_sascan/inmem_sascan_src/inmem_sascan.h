@@ -7,6 +7,7 @@
 
 #include "../../bitvector.h"
 #include "../../multifile.h"
+#include "../../background_block_reader.h"
 #include "inmem_gap_array.h"
 #include "compute_initial_gt_bitvectors.h"
 #include "initial_partial_sufsort.h"
@@ -133,15 +134,10 @@ void inmem_sascan(
   // Initialize reading of the tail prefix in the background.
   long tail_length = supertext_length - text_end;
   long tail_prefix_length = std::min(text_length, tail_length);
-#if 0
-  long chunk_length = utils::random_long(1L, 5L);
-#else
-  long chunk_length = (1L << 20);
-#endif
 
   background_block_reader *tail_prefix_background_reader = NULL;
   if (has_tail && tail_prefix_preread == NULL)
-    tail_prefix_background_reader = new background_block_reader(supertext_filename, text_end, tail_prefix_length, chunk_length);
+    tail_prefix_background_reader = new background_block_reader(supertext_filename, text_end, tail_prefix_length);
 
 
   //----------------------------------------------------------------------------

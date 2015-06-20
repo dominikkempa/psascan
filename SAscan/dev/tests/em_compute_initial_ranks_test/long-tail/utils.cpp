@@ -1,12 +1,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-
 #include <errno.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
-
 #include <string>
 #include <fstream>
 #include <algorithm>
@@ -44,8 +42,6 @@ void drop_cache() {
   fprintf(stderr, "Clearing time: %.2Lf\n", utils::wclock() - start);
 }
 
-
-/****************************** MEASURING TIME ********************************/
 long double wclock() {
   timeval tim;
   gettimeofday(&tim, NULL);
@@ -53,8 +49,6 @@ long double wclock() {
   return tim.tv_sec + (tim.tv_usec / 1000000.0L);
 }
 
-
-/**************************** FILE MANIPULATION *******************************/
 std::FILE *open_file(std::string fname, std::string mode) {
   std::FILE *f = std::fopen(fname.c_str(), mode.c_str());
   if (f == NULL) {
@@ -123,7 +117,6 @@ void read_block(std::string fname, long beg, long length, unsigned char *b) {
   std::fclose(f);
 }
 
-/******************************* RANDOMNESS ***********************************/
 int random_int(int p, int r) {
   return p + rand() % (r - p + 1);
 }
@@ -152,7 +145,6 @@ std::string random_string_hash() {
   return ss.str();
 }
 
-/********************************* MATH ***************************************/
 long log2ceil(long x) {
   long pow2 = 1, w = 0;
   while (pow2 < x) { pow2 <<= 1; ++w; }

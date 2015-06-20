@@ -1,10 +1,8 @@
-// Various types of streamers.
 #ifndef __IO_STREAMER_H_INCLUDED
 #define __IO_STREAMER_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
-
 #include <algorithm>
 #include <string>
 
@@ -217,7 +215,7 @@ private:
     m_pos_byte = m_pos_bit = 0;
   }
 
-  static const long k_bufsize = (2L << 20); // 2MB
+  static const long k_bufsize = (2L << 20);
 
   std::FILE *m_file;
 
@@ -240,7 +238,7 @@ struct bit_stream_writer {
   }
 
   inline void flush() {
-    if (pos_bit) ++filled; // final flush?
+    if (pos_bit) ++filled;  // in case this is the final flush
     utils::add_objects_to_file<unsigned char>(buf, filled, f);
     filled = pos_bit = 0;
     std::fill(buf, buf + bufsize, 0);
@@ -264,7 +262,7 @@ struct bit_stream_writer {
   }
 
 private:
-  static const long bufsize = (1L << 20); // 1MB
+  static const long bufsize = (1L << 20);
   
   unsigned char *buf;
   long filled;
@@ -359,7 +357,7 @@ private:
 namespace stream {
 
 template<typename T, typename U>
-void write_objects_to_file(T *tab, long length, std::string fname) {
+void write_objects_to_file(const T *tab, long length, std::string fname) {
   if (utils::is_same_type<T, U>::value) {  // same type, just write
     std::FILE *f = utils::open_file(fname, "w");
     size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);

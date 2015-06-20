@@ -18,7 +18,7 @@ struct background_block_reader {
     long m_size;
 
   private:
-    long m_chunk_size;
+    static const long k_chunk_size;
 
     // These variables are protected by m_mutex.
     long m_fetched;
@@ -44,7 +44,7 @@ struct background_block_reader {
 
         if (fetched == reader.m_size || signal_stop) break;
 
-        long toread = std::min(reader.m_size - fetched, reader.m_chunk_size);
+        long toread = std::min(reader.m_size - fetched, reader.k_chunk_size);
         unsigned char *dest = reader.m_data + fetched;
         utils::read_objects_from_file(dest, toread, reader.m_file);
 
@@ -59,8 +59,7 @@ struct background_block_reader {
     }
 
   public:
-    background_block_reader(std::string filename, long start, long size, long chunk_size = (1L << 20)) {
-      m_chunk_size = chunk_size;
+    background_block_reader(std::string filename, long start, long size) {
       m_start = start;
       m_size = size;
          
@@ -110,10 +109,8 @@ struct background_block_reader {
         m_cv.wait(lk);
       lk.unlock();
     }
-
-    inline long get_chunk_size() const {
-      return m_chunk_size;
-    }
 };
+
+const long background_block_reader::k_chunk_size = (1L << 20);
 
 #endif  // __BACKGROUND_BLOCK_READER_H_INCLUDED
