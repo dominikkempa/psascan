@@ -12,6 +12,7 @@
 #include "utils.h"
 
 
+namespace psascan_private {
 namespace utils {
 
 void execute(std::string cmd) {
@@ -158,3 +159,4 @@ long log2floor(long x) {
 }
 
 }  // namespace utils
+}  // namespace psascan_private

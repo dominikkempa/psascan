@@ -6,11 +6,11 @@
 #include <unistd.h>
 #include <omp.h>
 
-#include "sascan.h"
+#include "psascan_src/psascan.h"
+#include "utils.h"
 
 
 char *program_name;
-bool verbose;
 
 void usage(int status) {
   printf(
@@ -31,7 +31,7 @@ void usage(int status) {
 int main(int argc, char **argv) {
   srand(time(0) + getpid());
   program_name = argv[0];
-  verbose = false;
+  bool verbose = false;
 
   static struct option long_options[] = {
     {"help",    no_argument,       NULL, 'h'},
@@ -122,6 +122,10 @@ int main(int argc, char **argv) {
     free(line);
   }
 
+  // Find the number of (logical) cores on the machine.
   long max_threads = (long)omp_get_max_threads();
-  SAscan(text_fname, out_fname, gap_fname, ram_use, max_threads);
+
+  // Run pSAscan.
+  pSAscan(text_fname, out_fname, gap_fname,
+      ram_use, max_threads, verbose);
 }

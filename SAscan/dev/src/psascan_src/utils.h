@@ -1,5 +1,5 @@
-#ifndef __UTILS_H_INCLUDED
-#define __UTILS_H_INCLUDED
+#ifndef __PSASCAN_SRC_PSASCAN_UTILS_H_INCLUDED
+#define __PSASCAN_SRC_PSASCAN_UTILS_H_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -7,6 +7,7 @@
 #include <sstream>
 
 
+namespace psascan_private {
 namespace utils {
 
 #define STRX(x) #x
@@ -111,5 +112,6 @@ std::string intToStr(int_type x) {
 }
 
 }  // namespace utils
+}  // namespace psascan_private
 
-#endif  // __UTILS_H_INCLUDED
+#endif  // __PSASCAN_SRC_PSASCAN_UTILS_H_INCLUDED
