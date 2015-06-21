@@ -7,7 +7,6 @@
 #include <omp.h>
 
 #include "psascan_src/psascan.h"
-#include "utils.h"
 
 
 char *program_name;
@@ -18,14 +17,23 @@ void usage(int status) {
 "Construct the suffix array for text stored in FILE.\n"
 "\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
-"  -g, --gap=GAPFILE       specify gap array file (default: along with output)\n"
+"  -g, --gap=GAPFILE       specify the file holding the gap array (default:\n"
+"                          FILE.sa5.gap)\n"
 "  -h, --help              display this help and exit\n"
 "  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n"
-"  -o, --output=OUTFILE    specify output file (default: FILE.sa5)\n"
+"  -o, --output=OUTFILE    specify the output file (default: FILE.sa5)\n"
 "  -v, --verbose           print detailed information during internal sufsort\n",
     program_name);
 
   std::exit(status);
+}
+
+bool file_exists(std::string fname) {
+  std::FILE *f = std::fopen(fname.c_str(), "r");
+  bool ret = (f != NULL);
+  if (f != NULL) std::fclose(f);
+
+  return ret;
 }
 
 int main(int argc, char **argv) {
@@ -94,13 +102,13 @@ int main(int argc, char **argv) {
     gap_fname = out_fname;
 
   // Check if input exists.
-  if (!utils::file_exists(text_fname)) {
+  if (!file_exists(text_fname)) {
     fprintf(stderr, "Error: input file (%s) does not exist\n\n",
         text_fname.c_str());
     usage(EXIT_FAILURE);
   }
 
-  if (utils::file_exists(out_fname)) {
+  if (file_exists(out_fname)) {
     // Output file exists, should we proceed?
     char *line = NULL;
     size_t buflen = 0;

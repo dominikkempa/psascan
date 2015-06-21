@@ -1,0 +1,123 @@
+pSAscan - parallel external memory suffix array construction algorithm.
+=======================================================================
+
+
+Description
+-----------
+
+This package contains the implementation of a parallel external memory
+suffix array construction algorithm called pSAscan described in the paper
+
+  Juha Kärkkäinen, Dominik Kempa, and Simon J. Puglisi,
+  Parallel External Memory Suffix Sorting,
+  In Proc. 26th Annual Symposium on Combinatorial Pattern Matching (CPM) 2015.
+
+This implementation is based on the sequential external-memory suffix
+array construction algorithm called SAscan which was described in the paper
+
+  Juha Kärkkäinen and Dominik Kempa,
+  Engineering a Lightweight External Memory Suffix Array Construction Algorithm,
+  In Proc. 2nd International Conference on Algorithms for Big Data (ICABD) 2014.
+
+The latest version of SAscan/pSAscan is available at:
+  http://www.cs.helsinki.fi/group/pads/
+
+
+Compilation and usage
+---------------------
+
+1. Download http://libdivsufsort.googlecode.com/files/libdivsufsort-2.0.1.tar.gz
+   and install. Make sure to compile libdivsufsort to static 64-bit libraries,
+   i.e. set options in the main CMakeLists.txt to
+
+   option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
+   option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
+
+2. Compile pSAscan using the provided Makefile
+
+   $ cd src
+   $ make
+
+This will produce the executable 'psascan' which is the main program
+that allows computing the suffix array of a given file. For usage, run
+the 'psascan' program without parameters.
+
+
+Disk space allocation
+---------------------
+
+To compute the suffix array of an n-byte input text, pSAscan needs about
+7.5n bytes of disk space. This includes the input (n bytes) and output
+(a suffix array, which is encoded using 40-bit integers and thus needs
+5n bytes).
+
+In the standard scenario, the 'psascan' program assumes, that there is at
+least 6.5n bytes of free disk space available in the location that was
+specified as the destination for the suffix array (which by default is
+text.sa5, where text is the filename of the input text; this can be changed
+with the -o flag). This space is used for auxiliary files created during
+the computation and to accommodate the output.
+
+The above disk space requirement may in some cases prohibit the use of
+algorithm, e.g., if there is enough space (5n) on one physical disk to hold
+the suffix array, but not enough (6.5n) to run the algorithm. To still
+allow the computation in such cases, the 'psascan' implements the '-g'
+flag. With this flag, one can force pSAscan to use disk space from two
+physically different locations (e.g., on two disks).
+
+More precisely, out of 6.5n bytes of disk space used by pSAscan, n bytes
+is used to store the so-called "gap array". By default, the gap array is
+stored along with the suffix array. The -g flag allows explicitly specifying
+the location of gap array. This way, it suffices that there is only 5.5n
+bytes of disk space in the location specified as the destination of suffix
+array. The remaining n bytes can be allocated in other location specified
+with the -g flag.
+
+
+Troubleshooting
+---------------
+
+1. I am getting "Error: the limit on the maximum number of open files
+   is too small (...)".
+
+Solution: The soft limit on the maximum number of opened files can be
+increased with the "ulimit -n newlimit" command. However, the soft limit
+cannot be increased beyond the hard limit, which is usually only few times
+larger than the soft limit. Furthermore, this is a temporary solution that
+needs to repeated every time a new session is started. To increase the
+limits permanently, edit (as a root) the file /etc/security/limits.conf
+and add the following lines at the end (including the asterisks):
+
+* soft nofile 128000
+* hard nofile 128000
+
+This increases the limit to 128000 (use larger values if necessary). The
+new limits apply (check with ulimit -n) after starting a new session.
+
+
+Limitations
+-----------
+
+1. In the current implementation only input texts that do not contain
+   bytes with value 255 are correctly handled.
+2. The current internal-memory implementation of pSAscan (used internally
+   in pSAscan) only supports segments of size at most 2GiB. Therefore,
+   pSAscan will fail, if the memory budget X for the computation (specified
+   with the -m flag) satisfies X / (10 * p) >= 2^31, where p is the number
+   of threads used during the computation. In most practical situations,
+   this is not a severe limitation, e.g., for a regular 4-core machine
+   supporting Hyper-Threading (and thus capable of simultaneously running
+   8 threads), pSAscan can safely utilize up to 160GiB of RAM.
+
+
+Terms of use
+------------
+
+pSAscan is released under the MIT/X11 license. See the file LICENCE for
+more details.
+
+If you use this code for experiments in a research paper, please cite the
+paper mentioned above and publish the URL from which you downloaded the code.
+
+
+Helsinki, June 2015.

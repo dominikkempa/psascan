@@ -15,7 +15,7 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-//#define BLOCK_MATRIX_MODULE_DEBUG_MODE
+// #define BLOCK_MATRIX_MODULE_DEBUG_MODE
 
 inline int lcp_compare(const unsigned char *text, long text_length, const unsigned char *pat, long pat_length,
     long gt_begin_length, long j, multifile_bit_stream_reader &rev_gt_begin_reader, long &lcp) {
@@ -48,8 +48,8 @@ template<typename pagearray_type>
 void compute_range(const unsigned char *text, long block_beg, long block_size, const unsigned char *pat,
     long pat_length, const pagearray_type &bwtsa, std::pair<long, long> &ret) {
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
-  static const long min_discrepancy = utils::random_long(0L, 10L);
-  static const long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_long(0L, 10L);
+  long balancing_factor = utils::random_long(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;

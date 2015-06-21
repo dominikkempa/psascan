@@ -88,7 +88,8 @@ void initial_partial_sufsort(unsigned char *text, long text_length, bitvector* &
   }
 
   if (max_block_size >= (2L << 30)) {  // Use 64-bit divsufsort.
-    fprintf(stderr, "Not implemented yet (time saving, this will never come up in experiments).\n");
+    fprintf(stdout, "\nError: 2GiB+ segments are not yet supported by the "
+        "internal-memory pSAscan\n");
     std::exit(EXIT_FAILURE);
   } else {  // Use 32-bit divsufsort.
     int *temp_sa = (int *)bwtsa;
