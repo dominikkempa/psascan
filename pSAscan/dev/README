@@ -5,7 +5,7 @@ pSAscan - parallel external memory suffix array construction algorithm.
 Description
 -----------
 
-This package contains the implementation of a parallel external memory
+This package contains implementation of the parallel external-memory
 suffix array construction algorithm called pSAscan described in the paper
 
   Juha Kärkkäinen, Dominik Kempa, and Simon J. Puglisi,
@@ -13,7 +13,7 @@ suffix array construction algorithm called pSAscan described in the paper
   In Proc. 26th Annual Symposium on Combinatorial Pattern Matching (CPM) 2015.
 
 This implementation is based on the sequential external-memory suffix
-array construction algorithm called SAscan which was described in the paper
+array construction algorithm called SAscan described in
 
   Juha Kärkkäinen and Dominik Kempa,
   Engineering a Lightweight External Memory Suffix Array Construction Algorithm,
@@ -95,19 +95,30 @@ This increases the limit to 128000 (use larger values if necessary). The
 new limits apply (check with ulimit -n) after starting a new session.
 
 
-Limitations
------------
+Limitations / known issues
+--------------------------
 
 1. In the current implementation only input texts that do not contain
    bytes with value 255 are correctly handled.
-2. The current internal-memory implementation of pSAscan (used internally
-   in pSAscan) only supports segments of size at most 2GiB. Therefore,
-   pSAscan will fail, if the memory budget X for the computation (specified
-   with the -m flag) satisfies X / (10 * p) >= 2^31, where p is the number
-   of threads used during the computation. In most practical situations,
-   this is not a severe limitation, e.g., for a regular 4-core machine
-   supporting Hyper-Threading (and thus capable of simultaneously running
-   8 threads), pSAscan can utilize up to 160GiB of RAM.
+2. The current internal-memory suffix sorting algorithm used internally
+   in pSAscan works only if the input text is split into segments of
+   size at most 2GiB each. Therefore, pSAscan will fail, if the memory
+   budget X for the computation (specified with the -m flag) satisfies
+   X / p >= 10 * 2^31, where p is the number of threads used during
+   the computation. On most systems, this is not a severe limitation,
+   e.g., for a regular 4-core machine supporting Hyper-Threading (and
+   thus capable of simultaneously running 8 threads), pSAscan can utilize
+   up to 160GiB of RAM.
+3. The current implementation does not implement the non-caching I/O.
+   For practical uses, the non-caching I/O can only improve the runtime.
+   However, if you wish to experiment with the algorithm using significantly
+   less RAM that is available in the system, you might get biased results
+   (the algorithm runs faster than it would if the RAM available in the
+   system was equal to the RAM used in the computation). This problem can
+   be solved by restricting the RAM available in the system using the
+   GRUB 'mem' option. Note however, that on NUMA systems this may degrade
+   the performance, since the limited RAM is not allocated equally on
+   all nodes.
 
 
 Terms of use

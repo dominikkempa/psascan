@@ -66,13 +66,11 @@ namespace psascan_private {
 //   should save some I/O.
 //==============================================================================
 template<typename block_offset_type>
-void process_block(long block_beg, long block_end,
-    long text_length, long ram_use, long max_threads, long gap_buf_size,
-    std::string text_filename, std::string output_filename, std::string gap_filename,
+void process_block(long block_beg, long block_end, long text_length, long ram_use,
+    long max_threads, long gap_buf_size, std::string text_filename,
+    std::string output_filename, std::string gap_filename,
     multifile *newtail_gt_begin_rev, const multifile *tail_gt_begin_rev,
-    std::vector<half_block_info<block_offset_type> > &hblock_info,
-    bool verbose) {
-
+    std::vector<half_block_info<block_offset_type> > &hblock_info, bool verbose) {
   long block_size = block_end - block_beg;
 
   if (block_end != text_length && block_size <= 1) {
