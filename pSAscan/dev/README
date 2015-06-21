@@ -42,6 +42,21 @@ This will produce the executable 'psascan' which is the main program
 that allows computing the suffix array of a given file. For usage, run
 the 'psascan' program without parameters.
 
+Example
+~~~~~~~
+
+To compute the suffix array of a file in.txt located in /data01/
+using 8GiB of RAM and to write the resulting suffix array to file
+/data02/in.txt.sa5 run the 'psascan' command (assuming you are
+in the src/ directory) as:
+
+   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.sa5
+
+The current implementation encodes the output suffix array using unsigned
+40-bit integers. For further processing of the suffix array, one should use
+the same or compatible encoding. The class implementing the unsigned 40-bit
+integers is located in the src/psascan_src/uint40.h file.
+
 
 Disk space allocation
 ---------------------
@@ -73,6 +88,15 @@ bytes of disk space in the location specified as the destination of suffix
 array. The remaining n bytes can be allocated in other location specified
 with the -g flag.
 
+Example
+~~~~~~~
+
+Assume the location of input/output files and RAM usage as in the example
+from the previous section. To additionally specify the location of gap
+array as /data03/in.txt.gap run the 'psascan' command as:
+
+   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.sa5 -g /data03/in.txt.gap
+
 
 Troubleshooting
 ---------------
@@ -98,9 +122,10 @@ new limits apply (check with ulimit -n) after starting a new session.
 Limitations / known issues
 --------------------------
 
-1. In the current implementation only input texts that do not contain
-   bytes with value 255 are correctly handled.
-2. The current internal-memory suffix sorting algorithm used internally
+1. The maximum size of input text is 1TiB (2^40 bytes).
+2. The current implementation supports only inputs over byte alphabet.
+3. Only texts not containing bytes with value 255 are handled correctly.
+4. The current internal-memory suffix sorting algorithm used internally
    in pSAscan works only if the input text is split into segments of
    size at most 2GiB each. Therefore, pSAscan will fail, if the memory
    budget X for the computation (specified with the -m flag) satisfies
@@ -109,7 +134,7 @@ Limitations / known issues
    e.g., for a regular 4-core machine supporting Hyper-Threading (and
    thus capable of simultaneously running 8 threads), pSAscan can utilize
    up to 160GiB of RAM.
-3. The current implementation does not implement the non-caching I/O.
+5. The current implementation does not implement the non-caching I/O.
    For practical uses, the non-caching I/O can only improve the runtime.
    However, if you wish to experiment with the algorithm using significantly
    less RAM that is available in the system, you might get biased results
@@ -120,6 +145,21 @@ Limitations / known issues
    the performance, since the limited RAM is not allocated equally on
    all nodes.
 
+The above issues (except possibly 2) are not inherent with the algorithm
+but merely a missing features in the current implementation. Future
+releases will most likely overcome these limitations.
+
+
+Third-party code
+----------------
+
+The current implementation makes use of some third-part code, in particular:
+  - the uint40 class was copied (and slightly modified) from the eSAIS-0.5.2
+    algorithm (https://panthema.net/2012/1119-eSAIS-Inducing-Suffix-and-
+    LCP-Arrays-in-External-Memory/)
+  - pSAscan uses the libdivsufsort-2.0.1 algorithm as the internal
+    suffix-sorting routine (https://code.google.com/p/libdivsufsort/)
+
 
 Terms of use
 ------------
@@ -127,8 +167,9 @@ Terms of use
 pSAscan is released under the MIT/X11 license. See the file LICENCE for
 more details.
 
-If you use this code for experiments in a research paper, please cite the
-paper mentioned above and publish the URL from which you downloaded the code.
+If you use this code, please cite the paper mentioned above and publish
+the URL from which you downloaded the code.
 
 
 Helsinki, June 2015.
+Written by Dominik Kempa <dominik.kempa (at) gmail.com>

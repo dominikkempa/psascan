@@ -17,7 +17,13 @@
  *
  * You should have received a copy of the GNU General Public License along with
  * this program.  If not, see <http://www.gnu.org/licenses/>.
- *****************************************************************************/
+ *****************************************************************************
+ *
+ * NOTE: Compared to eSAIS, thus version of the file contains a small
+ * bugfix in the += operator.
+ *
+ ****************************************************************************/
+
 
 #ifndef __UINT40_H_INCLUDED
 #define __UINT40_H_INCLUDED
@@ -111,7 +117,7 @@ public:
 
     inline uint40& operator+= (const uint40& b)
     {
-        uint64_t add = (uint64_t)low + b.low; // BUGFIX: without casting log + b.low can overflow
+        uint64_t add = (uint64_t)low + b.low;  // BUGFIX
         low = add & 0xFFFFFFFF;
         high += b.high + ((add >> 32) & 0xFF);
         return *this;
