@@ -107,7 +107,7 @@ Limitations
    of threads used during the computation. In most practical situations,
    this is not a severe limitation, e.g., for a regular 4-core machine
    supporting Hyper-Threading (and thus capable of simultaneously running
-   8 threads), pSAscan can safely utilize up to 160GiB of RAM.
+   8 threads), pSAscan can utilize up to 160GiB of RAM.
 
 
 Terms of use

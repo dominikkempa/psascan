@@ -52,7 +52,7 @@ void inmem_parallel_stream(
   //----------------------------------------------------------------------------
   // STEP 1: initialize structures necessary to do the buffer partitions.
   //----------------------------------------------------------------------------
-  static const int max_buckets = 4092;
+  static const int max_buckets = 4096;
   int *block_id_to_sblock_id = new int[max_buckets];
 
   long bucket_size = 1;
