@@ -1,3 +1,36 @@
+/**
+ * @file    psascan_src/inmem_psascan_src/initial_partial_sufsort.h
+ * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * @section LICENCE
+ *
+ * This file is part of pSAscan. See: http://www.cs.helsinki.fi/group/pads/
+ * Copyright (C) 2014-2015
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
 #ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_H_INCLUDED
 #define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_H_INCLUDED
 
@@ -47,7 +80,6 @@ void rerename_block(unsigned char *block, long block_length) {
 //   1) rename the blocks
 //   2) run divsufsort on each block
 //==============================================================================
-
 template<typename saidx_t>
 void initial_partial_sufsort(unsigned char *, long, bitvector* &, bwtsa_t<saidx_t> *, long, long, bool) {
   fprintf(stderr, "Error: initial_partial_sufsort: given saidx_t is "
@@ -60,7 +92,6 @@ void initial_partial_sufsort(unsigned char *text, long text_length, bitvector* &
     bwtsa_t<uint40> *bwtsa, long max_block_size, long max_threads, bool has_tail) {
   long double start = utils::wclock();
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
-
 
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
@@ -121,7 +152,6 @@ void initial_partial_sufsort(unsigned char *text, long text_length, bitvector* &
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
-
   //----------------------------------------------------------------------------
   // STEP 4: Finally, we restore the text.
   //----------------------------------------------------------------------------
@@ -146,10 +176,6 @@ void initial_partial_sufsort(unsigned char *text, long text_length, bitvector* &
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 }
-
-
-
-
 
 template<>
 void initial_partial_sufsort(unsigned char *text, long text_length, bitvector* &gt,

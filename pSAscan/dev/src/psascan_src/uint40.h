@@ -19,10 +19,14 @@
  * this program.  If not, see <http://www.gnu.org/licenses/>.
  *****************************************************************************
  *
- * NOTE: Compared to eSAIS, thus version of the file contains a small
- * bugfix in the += operator.
+ * NOTE: This is slightly modified version of the file used in eSAIS-0.5.4
+ * (https://panthema.net/2012/1119-eSAIS-Inducing-Suffix-and-LCP-Arrays-
+ * in-External-Memory/). In particular, it contains a small bugfix in the
+ * += operator.
  *
- ****************************************************************************/
+ * Modified by Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ *****************************************************************************/
 
 
 #ifndef __UINT40_H_INCLUDED

@@ -80,13 +80,13 @@ allow the computation in such cases, the 'psascan' implements the '-g'
 flag. With this flag, one can force pSAscan to use disk space from two
 physically different locations (e.g., on two disks).
 
-More precisely, out of 6.5n bytes of disk space used by pSAscan, n bytes
-is used to store the so-called "gap array". By default, the gap array is
-stored along with the suffix array. The -g flag allows explicitly specifying
-the location of gap array. This way, it suffices that there is only 5.5n
-bytes of disk space in the location specified as the destination of suffix
-array. The remaining n bytes can be allocated in other location specified
-with the -g flag.
+More precisely, out of 6.5n bytes of disk space used by pSAscan, about n
+bytes is used to store the so-called "gap array". By default, the gap array
+is stored along with the suffix array. The -g flag allows explicitly
+specifying the location of gap array. This way, it suffices that there is
+only 5.5n bytes of disk space in the location specified as the destination
+of suffix array. The remaining n bytes can be allocated in other location
+specified with the -g flag.
 
 Example
 ~~~~~~~
@@ -153,7 +153,7 @@ releases will most likely overcome these limitations.
 Third-party code
 ----------------
 
-The current implementation makes use of some third-part code, in particular:
+The current implementation makes use of some third-party code, in particular:
   - the uint40 class was copied (and slightly modified) from the eSAIS-0.5.2
     algorithm (https://panthema.net/2012/1119-eSAIS-Inducing-Suffix-and-
     LCP-Arrays-in-External-Memory/)
