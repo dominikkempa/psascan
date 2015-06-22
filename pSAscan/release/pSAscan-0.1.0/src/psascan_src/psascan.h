@@ -116,7 +116,7 @@ void pSAscan(std::string input_filename, std::string output_filename,
   }
 
   long double start = utils::wclock();
-  if (max_block_size < (1L << 31)) {  // XXX (1L << 32)?
+  if (max_block_size < (1L << 31)) {
     std::vector<half_block_info<int> > hblock_info = partial_sufsort<int>(input_filename,
         output_filename, gap_filename, length, max_block_size, ram_use, max_threads, gap_buf_size, verbose);
     merge<int>(output_filename, ram_use, hblock_info);

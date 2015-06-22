@@ -53,8 +53,8 @@ namespace inmem_psascan_private {
 //==============================================================================
 // Rename the given block using its gt bitvector.
 //==============================================================================
-void rename_block(unsigned char *text, long text_length, long block_beg, long block_length,
-    bitvector *gt) {
+void rename_block(unsigned char *text, long text_length, long block_beg,
+    long block_length, bitvector *gt) {
   long block_end = block_beg + block_length;
   long beg_rev = text_length - block_end;
   unsigned char *block = text + block_beg;
@@ -78,9 +78,6 @@ void rerename_block(unsigned char *block, long block_length) {
 
 //==============================================================================
 // Given gt bitvectors, compute partial suffix arrays of blocks.
-// To do this, in parallel:
-//   1) rename the blocks
-//   2) run divsufsort on each block
 //==============================================================================
 template<typename saidx_t>
 void initial_partial_sufsort(unsigned char *, long, bitvector *,
@@ -101,7 +98,6 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   // STEP 1: Rename the blocks in parallel.
   //----------------------------------------------------------------------------
 
-  // XXX change this parallelism to vertical!
   if (n_blocks > 1 || has_tail) {
     fprintf(stderr, "  Renaming blocks: ");
     start = utils::wclock();
@@ -129,9 +125,9 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   } else {  // Use 32-bit divsufsort.
     int *temp_sa = (int *)bwtsa;
 
-    //----------------------------------------------------------------------------
-    // STEP 3: Run the threads. This parallelism has to be horizontal.
-    //----------------------------------------------------------------------------
+    //--------------------------------------------------------------------------
+    // STEP 2: Compute suffix arrays in parallel.
+    //--------------------------------------------------------------------------
     fprintf(stderr, "  Running divsufsort32 in parallel: ");
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
@@ -157,9 +153,8 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   }
 
   //----------------------------------------------------------------------------
-  // STEP 4: Finally, we restore the text.
+  // STEP 3: Restore the original text.
   //----------------------------------------------------------------------------
-  // XXX: change parallelism to vertical.
   if (n_blocks > 1 || has_tail) {
     fprintf(stderr, "  Rerenaming blocks: ");
     start = utils::wclock();
@@ -188,11 +183,9 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   long double start = utils::wclock();
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
   //----------------------------------------------------------------------------
-  // XXX change this parallelism to vertical!
   if (n_blocks > 1 || has_tail) {
     fprintf(stderr, "  Renaming blocks: ");
     start = utils::wclock();
@@ -216,7 +209,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   int *temp_sa = (int *)bwtsa;
 
   //----------------------------------------------------------------------------
-  // STEP 2: Run the threads. This parallelism has to be horizontal.
+  // STEP 2: Compute suffix arrays in parallel.
   //----------------------------------------------------------------------------
   fprintf(stderr, "  Running divsufsort32 in parallel: ");
   start = utils::wclock();
@@ -240,11 +233,9 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   parallel_expand<int, bwtsa_t<int> >(temp_sa, text_length, max_threads);
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
-
   //----------------------------------------------------------------------------
-  // STEP 3: Finally, we restore the text.
+  // STEP 3: Restore the original text.
   //----------------------------------------------------------------------------
-  // XXX: change parallelism to vertical.
   if (n_blocks > 1 || has_tail) {
     fprintf(stderr, "  Rerenaming blocks: ");
     start = utils::wclock();

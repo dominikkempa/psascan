@@ -51,24 +51,19 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-//==============================================================================
-// Compute bitvectors bv[0..ref_pos) and undecided[0..ref_pos), where:
-//   undecided[i] == 0 iff lcp(text[0..txtlen), text[ref_pos..txtlen)) < max_lcp
-//   gt[i] == 1 iff undecided[i] == 0 and text[0..txtlen) > text[ref_pos..txtlen)
-//
-// NOTE: we store the gt bitvector reversed, so that later we can overwrite
-// it with gt_begin in place.
-//==============================================================================
-void compute_partial_gt_end(const unsigned char *text, long text_length, long begin,
-    long end, long max_lcp, bitvector *gt, bitvector *undecided, bool &all_decided,
-    long text_end, long supertext_length, const multifile *tail_gt_begin_reversed,
-    background_block_reader *tail_prefix_background_reader, const unsigned char *tail_prefix_preread) {
+void compute_partial_gt_end(const unsigned char *text, long text_length,
+    long begin, long end, long max_lcp, bitvector *gt, bitvector *undecided,
+    bool &all_decided, long text_end, long supertext_length,
+    const multifile *tail_gt_begin_rev,
+    background_block_reader *tail_prefix_background_reader,
+    const unsigned char *tail_prefix_preread) {
   bool res = true;
   all_decided = true;
   long revbeg = text_length - end;
 
   if (end == text_length) {
-    multifile_bit_stream_reader tail_gt_begin_reversed_reader(tail_gt_begin_reversed);  // ok if tail_gt_begin_reversed is NULL
+    // It's ok if tail_gt_begin_rev is NULL
+    multifile_bit_stream_reader tail_gt_beg_rev(tail_gt_begin_rev);
     long tail_length = supertext_length - text_end;
     long range_size = end - begin;
     long tail_prefix_length = std::min(text_length, tail_length);
@@ -97,17 +92,21 @@ void compute_partial_gt_end(const unsigned char *text, long text_length, long be
     while (i < range_size) {
       while (i + el < range_size && el < tail_length) {
         if (el == tail_prefix_fetched) {
-          long next_chunk = std::min(chunk_size, tail_prefix_length - tail_prefix_fetched);
+          long next_chunk = std::min(chunk_size,
+              tail_prefix_length - tail_prefix_fetched);
           tail_prefix_fetched += next_chunk;
           tail_prefix_background_reader->wait(tail_prefix_fetched);
         }
-        while (i + el < range_size && el < tail_length && el < tail_prefix_fetched && txt[i + el] == tail_prefix[el])
+        while (i + el < range_size && el < tail_length &&
+            el < tail_prefix_fetched && txt[i + el] == tail_prefix[el])
           update_ms(tail_prefix, ++el, s, p);
         if (el < tail_prefix_fetched) break;
       }
 
-      if ((el == tail_length) || (i + el == range_size && tail_gt_begin_reversed_reader.access(tail_length - el) == false) ||
-          (i + el < range_size && txt[i + el] > tail_prefix[el])) gt->set(revbeg + i);
+      if ((el == tail_length) ||
+          (i + el == range_size && !tail_gt_beg_rev.access(tail_length - el)) ||
+          (i + el < range_size && txt[i + el] > tail_prefix[el]))
+        gt->set(revbeg + i);
 
       long j = i_max;
       if (el > el_max) {
@@ -120,7 +119,8 @@ void compute_partial_gt_end(const unsigned char *text, long text_length, long be
       if (el < 100) {
         ++i;
         el = 0;
-      } else if (p > 0 && (p << 2) <= el && !memcmp(tail_prefix, tail_prefix + p, s)) {
+      } else if (p > 0 && (p << 2) <= el &&
+          !memcmp(tail_prefix, tail_prefix + p, s)) {
         long maxk = std::min(p, range_size - i);
         for (long k = 1; k < maxk; ++k)
           if (gt->get(revbeg + j + k)) gt->set(revbeg + i + k);
@@ -195,13 +195,13 @@ void compute_partial_gt_end(const unsigned char *text, long text_length, long be
   all_decided = res;
 }
 
-
 //==============================================================================
 // Set all undecided bits inside the given microblock (that is, the range
 // [mb_beg..mb_end)) of all gt bitvectors to their correct values.
 //==============================================================================
 void compute_final_gt(long text_length, long max_block_size, long mb_beg,
-    long mb_end, bitvector *gt, const bitvector *undecided, const bool *all_decided) {
+    long mb_end, bitvector *gt, const bitvector *undecided,
+    const bool *all_decided) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   // Go through blocks right to left.
@@ -216,8 +216,8 @@ void compute_final_gt(long text_length, long max_block_size, long mb_beg,
     long rev_end = text_length - block_beg;
 
     if (!all_decided[t]) {
-      // This eliminates the problem with accessing bits located in the same byte
-      // in the bitvector. Skipped bits are later updated sequentially.
+      // This eliminates the problem with accessing bits located in the same
+      // byte in the bitvector. Skipped bits are later updated sequentially.
       while (((rev_end - 1 - this_mb_beg) & 7) != 7) ++this_mb_beg;
       for (long j = this_mb_beg; j < this_mb_end; ++j)
         if (undecided->get(rev_end - 1 - j) && gt->get(rev_beg - 1 - j))
@@ -229,8 +229,9 @@ void compute_final_gt(long text_length, long max_block_size, long mb_beg,
 //==============================================================================
 // Update the bits omitted in compute_final_gt.
 //==============================================================================
-void compute_final_gt_last_bits(long text_length, long max_block_size, long mb_beg,
-    long mb_end, bitvector *gt, const bitvector *undecided, bool *all_decided) {
+void compute_final_gt_last_bits(long text_length, long max_block_size,
+    long mb_beg, long mb_end, bitvector *gt, const bitvector *undecided,
+    bool *all_decided) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (!all_decided[0]) {
     long block_end = text_length - (n_blocks - 1) * max_block_size;
@@ -253,22 +254,16 @@ void compute_final_gt_last_bits(long text_length, long max_block_size, long mb_b
   }
 }
 
-
-
 //==============================================================================
 // Fully parallel computation of gt bitvectors.
 //==============================================================================
 void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
-    bitvector* gt, long max_block_size, long max_threads, long,
-    long text_end,
-    long supertext_length,
-    const multifile *tail_gt_begin_reversed,
+    bitvector *gt, long max_block_size, long max_threads, long text_end,
+    long supertext_length, const multifile *tail_gt_begin_reversed,
     background_block_reader *tail_prefix_background_reader,
     const unsigned char *tail_prefix_preread) {
-
   long double start;
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
-
 
   //----------------------------------------------------------------------------
   // STEP 1: compute gt bitvectors, some bits may still be undecided after this.
@@ -281,7 +276,7 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
   // all_decided[i] == true, if all bits inside block i were
-  // decided in the first state. This can be used by threads in the
+  // decided in the first stage. This can be used by threads in the
   // second stage to completely skip inspecting some blocks.
   bool *all_decided = new bool[n_blocks];
 
@@ -307,7 +302,6 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   delete[] threads;
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
-
   //----------------------------------------------------------------------------
   // STEP 2: compute the undecided bits in the gt bitvectors.
   //----------------------------------------------------------------------------
@@ -315,7 +309,8 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   // The size of micro block has to be a multiple of 8, otherwise two
   // threads might try to update the same char inside bitvector.
   long max_microblock_size = (max_block_size + max_threads - 1) / max_threads;
-  while ((max_microblock_size & 7) && max_microblock_size < max_block_size) ++max_microblock_size;
+  while ((max_microblock_size & 7) && max_microblock_size < max_block_size)
+    ++max_microblock_size;
   long n_microblocks = (max_block_size + max_microblock_size - 1) / max_microblock_size;
 
   fprintf(stderr, "  Computing undecided bits: ");
@@ -339,9 +334,9 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
     long mb_beg = i * max_microblock_size;
     long mb_end = std::min(mb_beg + max_microblock_size, max_block_size);
 
-    compute_final_gt_last_bits(text_length, max_block_size, mb_beg, mb_end, gt, undecided, all_decided);
+    compute_final_gt_last_bits(text_length, max_block_size, mb_beg, mb_end,
+        gt, undecided, all_decided);
   }
-
 
   fprintf(stderr, "  Deallocating: ");
   start = utils::wclock();
