@@ -4,7 +4,9 @@
  *
  * @section LICENCE
  *
- * This file is part of pSAscan. See: http://www.cs.helsinki.fi/group/pads/
+ * This file is part of pSAscan v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
  * Copyright (C) 2014-2015
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
