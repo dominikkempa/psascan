@@ -2,6 +2,15 @@
  * @file    src/psascan_src/inmem_psascan_src/sparse_isa.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
+ * @section DESCRIPTION
+ *
+ * Sparse ISA encoding based on the ISAs algorithm computing
+ * Lempel-Ziv (LZ77) factorization described in
+ *
+ *   Dominik Kempa, Simon J. Puglisi:
+ *   Lempel-Ziv factorization: Simple, fast, practical.
+ *   In Proc. ALENEX 2013, p. 103-112.
+ *
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0

@@ -2,6 +2,15 @@
  * @file    src/psascan_src/inmem_psascan_src/parallel_merge.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
+ * @section DESCRIPTION
+ *
+ * Parallel version of almost in-place stable merging described in
+ * the Appending B of
+ *
+ *   Juha Karkkainen, Peter Sanders, Stefan Burkhardt:
+ *   Linear work suffix array construction.
+ *   J. ACM 53(6), p. 918-936 (2006).
+ *
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0

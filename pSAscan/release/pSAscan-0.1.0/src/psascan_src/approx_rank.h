@@ -2,6 +2,15 @@
  * @file    src/psascan_src/approx_rank.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
+ * @section DESCRIPTION
+ *
+ * The approximate rank data structure. Based on the 'sparse-LF'
+ * data structure described in:
+ *
+ *   Dominik Kempa, Simon J. Puglisi:
+ *   Lempel-Ziv Factorization: Simple, Fast, Practical.
+ *   In Proc. ALENEX 2013, p. 103-112.
+ *
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0

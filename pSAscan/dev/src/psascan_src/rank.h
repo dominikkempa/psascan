@@ -3,6 +3,33 @@
  * @author  Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *          Dominik Kempa <dominik.kempa (at) gmail.com>
  *
+ * @section DESCRIPTION
+ *
+ * A general rank data structure. Basic idea of type-I encoding is from
+ * the external-memory algorithm for constructing Burrows-Wheeler transform
+ * called bwtdisk (available at: http://people.unipmn.it/manzini/bwtdisk/)
+ * described in [1]. We extended the data structure by applying the
+ * fixed block boosting [2] and alphabet partitioning [3] techniques.
+ * The resulting data structure was described in [4]. This file extends
+ * the implementation used in [4] by parallelizing the construction and
+ * introducting an alternative encoding (called type-II in the code).
+ * Type-II encoding is a novel encoding due to present authors.
+ *
+ * References:
+ * [1] Paolo Ferragina, Travis Gagie, Giovanni Manzini:
+ *     Lightweight Data Indexing and Compression in External Memory.
+ *     Algorithmica 63(3), p. 707-730 (2012).
+ * [2] Juha Karkkainen, Simon J. Puglisi:
+ *     Fixed Block Compression Boosting in FM-Indexes.
+ *     In Proc. SPIRE 2011, p. 174-184.
+ * [3] Jeremy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
+ *     Alphabet Partitioning for Compressed Rank/Select and Applications.
+ *     In Proc. ISAAC 2010, p. 315-326.
+ * [4] Juha Karkkainen, Dominik Kempa:
+ *     Engineering a Lightweight External Memory Suffix Array Construction
+ *     Algorithm.
+ *     In Proc. ICABD 2014, p. 53-60.
+ *
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0

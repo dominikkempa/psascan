@@ -2,6 +2,15 @@
  * @file    src/psascan_src/inmem_psascan_src/compute_initial_gt_bitvectors.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
+ * @section DESCRIPTION
+ *
+ * Parallel computation of gt_end bitvectors. The procedure uses the
+ * string range matching algorithm described in
+ *
+ *   Juha Karkkainen, Dominik Kempa, Simon J. Puglisi:
+ *   String Range Matching.
+ *   In Proc. CPM 2014, p. 232-241.
+ *
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0
