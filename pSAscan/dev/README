@@ -9,18 +9,19 @@ This package contains implementation of the parallel external-memory
 suffix array construction algorithm called pSAscan described in the paper
 
   Juha Kärkkäinen, Dominik Kempa, and Simon J. Puglisi,
-  Parallel External Memory Suffix Sorting,
+  Parallel External Memory Suffix Sorting.
   In Proc. 26th Annual Symposium on Combinatorial Pattern Matching (CPM) 2015.
 
 This implementation is based on the sequential external-memory suffix
 array construction algorithm called SAscan described in
 
   Juha Kärkkäinen and Dominik Kempa,
-  Engineering a Lightweight External Memory Suffix Array Construction Algorithm,
+  Engineering a Lightweight External Memory Suffix Array Construction Algorithm.
   In Proc. 2nd International Conference on Algorithms for Big Data (ICABD) 2014.
 
 The latest version of SAscan/pSAscan is available at:
   http://www.cs.helsinki.fi/group/pads/
+
 
 
 Compilation and usage
@@ -38,19 +39,24 @@ Compilation and usage
    $ cd src
    $ make
 
-This will produce the executable 'psascan' which is the main program
-that allows computing the suffix array of a given file. For usage, run
-the 'psascan' program without parameters.
+This will produce the executable 'psascan' which is the main program that
+allows computing the suffix array of a given file. For usage, run the
+'psascan' program without parameters.
 
 Example
 ~~~~~~~
 
-To compute the suffix array of a file in.txt located in /data01/
-using 8GiB of RAM and to write the resulting suffix array to file
-/data02/in.txt.sa5 run the 'psascan' command (assuming you are
-in the src/ directory) as:
+To compute the suffix array of a file in.txt located in /data01/ using 8GiB
+of RAM run the 'psascan' command (assuming you are in the src/ directory) as:
 
-   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.sa5
+   $ ./psascan /data01/in.txt -m 8192
+
+By default, the resulting suffix array is written to a file matching the
+filename of the input text with the .sa5 extension (/data01/in.txt.sa5
+in this case). To write the suffix array to a different file, use the
+-o flag, e.g.,
+
+   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf
 
 The current implementation encodes the output suffix array using unsigned
 40-bit integers. For further processing of the suffix array, one should use
@@ -58,44 +64,66 @@ the same or compatible encoding. The class implementing the unsigned 40-bit
 integers is located in the src/psascan_src/uint40.h file.
 
 
-Disk space allocation
----------------------
+
+Disk space requirements
+-----------------------
 
 To compute the suffix array of an n-byte input text, pSAscan needs about
 7.5n bytes of disk space. This includes the input (n bytes) and output
-(a suffix array, which is encoded using 40-bit integers and thus needs
-5n bytes).
+(5n bytes).
 
 In the standard scenario, the 'psascan' program assumes, that there is at
 least 6.5n bytes of free disk space available in the location that was
-specified as the destination for the suffix array (which by default is
-text.sa5, where text is the filename of the input text; this can be changed
-with the -o flag). This space is used for auxiliary files created during
-the computation and to accommodate the output.
+specified as the destination for the suffix array. This space is used for
+auxiliary files created during the computation and to accommodate the output.
 
 The above disk space requirement may in some cases prohibit the use of
 algorithm, e.g., if there is enough space (5n) on one physical disk to hold
 the suffix array, but not enough (6.5n) to run the algorithm. To still
-allow the computation in such cases, the 'psascan' implements the '-g'
-flag. With this flag, one can force pSAscan to use disk space from two
-physically different locations (e.g., on two disks).
+allow the computation in such cases, the 'psascan' implements the -g flag.
+With this flag, one can force pSAscan to use disk space from two physically
+different locations (e.g., on two disks).
 
 More precisely, out of 6.5n bytes of disk space used by pSAscan, about n
 bytes is used to store the so-called "gap array". By default, the gap array
 is stored along with the suffix array. The -g flag allows explicitly
-specifying the location of gap array. This way, it suffices that there is
-only 5.5n bytes of disk space in the location specified as the destination
-of suffix array. The remaining n bytes can be allocated in other location
+specifying the location of the gap array. This way, it suffices that there
+is only 5.5n bytes of disk space in the location specified as the destination
+of the suffix array. The remaining n bytes can be allocated in other location
 specified with the -g flag.
 
 Example
 ~~~~~~~
 
 Assume the location of input/output files and RAM usage as in the example
-from the previous section. To additionally specify the location of gap
+from the previous section. To additionally specify the location of the gap
 array as /data03/in.txt.gap run the 'psascan' command as:
 
-   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.sa5 -g /data03/in.txt.gap
+   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf -g /data03/in.txt.gap
+
+
+
+RAM requirements
+----------------
+
+The algorithm does not have a fixed memory requirements. In principle, it
+can run with any amount of RAM (though there is some minimal per-thread
+amount necessary in the streaming phase). However, since the time complexity
+(without logarithmic factors) of the algorithm is O(n^2 / M), where M is the
+amount of RAM used in the computation, the algorithm runs faster with more
+RAM. To achieve best performance it is recommended to use all unused RAM
+available in the system (as shown by the Linux 'free' command). Leaving about
+5% (but no more than 1GiB) of RAM free should prevent most of incidents
+with swap.
+
+Example
+~~~~~~~
+
+On a machine with 12 physical cores and Hyper-Threading (and thus capable
+of simultaneously running 24 threads) it takes about a week to compute a
+suffix array of a 200GiB file using 3.5GiB of RAM. Using 120GiB of RAM
+reduces the time to less than 12 hours.
+
 
 
 Troubleshooting
@@ -118,6 +146,12 @@ and add the following lines at the end (including the asterisks):
 This increases the limit to 128000 (use larger values if necessary). The
 new limits apply (check with ulimit -n) after starting a new session.
 
+2. Program stops without any error message.
+
+Most likely the problem occurred during internal-memory sorting. Re-running
+the program with -v flag should show the error message.
+
+
 
 Limitations / known issues
 --------------------------
@@ -125,31 +159,31 @@ Limitations / known issues
 1. The maximum size of input text is 1TiB (2^40 bytes).
 2. The current implementation supports only inputs over byte alphabet.
 3. Only texts not containing bytes with value 255 are handled correctly.
-   To remove all 255-bytes from the input text, you can use the tool
-   located in the tools/delete-bytes-255/ directory of this package.
+   The 255-bytes can be removed from the input text using the tool located
+   in the directory tools/delete-bytes-255/ of this package.
 4. The current internal-memory suffix sorting algorithm used internally
    in pSAscan works only if the input text is split into segments of
    size at most 2GiB each. Therefore, pSAscan will fail, if the memory
    budget X for the computation (specified with the -m flag) satisfies
-   X / p >= 10 * 2^31, where p is the number of threads used during
+   X / p > 10 * 2^31, where p is the number of threads used during
    the computation. On most systems, this is not a severe limitation,
    e.g., for a regular 4-core machine supporting Hyper-Threading (and
    thus capable of simultaneously running 8 threads), pSAscan can utilize
    up to 160GiB of RAM.
 5. The current implementation does not implement the non-caching I/O.
    For practical uses, the non-caching I/O can only improve the runtime.
-   However, if you wish to experiment with the algorithm using significantly
-   less RAM that is available in the system, you might get biased results
-   (the algorithm runs faster than it would if the RAM available in the
-   system was equal to the RAM used in the computation). This problem can
-   be solved by restricting the RAM available in the system using the
-   GRUB 'mem' option. Note however, that on NUMA systems this may degrade
-   the performance, since the limited RAM is not allocated equally on
-   all nodes.
+   However, the experiments with the algorithm using significantly less RAM
+   that is available in the system may give biased results (the algorithm
+   runs faster than it would if the RAM available in the system was equal
+   to the RAM used in the computation). This problem can be solved by
+   restricting the RAM available in the system using the GRUB 'mem' option.
+   Note however, that on NUMA systems this may degrade the performance,
+   since the limited RAM is not allocated equally on all nodes.
 
-The above issues (except possibly 2) are not inherent with the algorithm
-but merely a missing features in the current implementation. Future
-releases will most likely overcome these limitations.
+The above limitations (except possibly 2) are not inherent to the
+algorithm but merely a missing features in the current implementation.
+Future releases will most likely overcome these limitations.
+
 
 
 Third-party code
@@ -163,6 +197,7 @@ The current implementation makes use of some third-party code, in particular:
     suffix-sorting routine (https://code.google.com/p/libdivsufsort/)
 
 
+
 Terms of use
 ------------
 
@@ -171,6 +206,7 @@ more details.
 
 If you use this code, please cite the paper mentioned above and publish
 the URL from which you downloaded the code.
+
 
 
 Helsinki, June 2015.

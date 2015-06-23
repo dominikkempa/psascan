@@ -117,7 +117,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
       long tot_vol = inp_vol + out_vol;
       long double tot_vol_m = tot_vol / (1024.L * 1024);
       long double io_speed = tot_vol_m / elapsed;
-      fprintf(stderr, "  %.1Lf%%. Time = %.2Lfs. I/O: %2.LfMiB/s\r",
+      fprintf(stderr, "\r  %.1Lf%%. Time = %.2Lfs. I/O: %2.LfMiB/s",
           (100.L * i) / text_length, elapsed, io_speed);
       dbg = 0;
     }
@@ -162,7 +162,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   long double merge_time = utils::wclock() - merge_start;
   long io_volume = (1 + sizeof(block_offset_type) + sizeof(uint40)) * text_length;
   long double io_speed = (io_volume / (1024.L * 1024)) / merge_time;
-  fprintf(stderr, "  100.0%%. Time: %.2Lfs. I/O: %.2LfMiB/s\n", merge_time, io_speed);
+  fprintf(stderr, "\r  100.0%%. Time: %.2Lfs. I/O: %.2LfMiB/s\n", merge_time, io_speed);
 
   // Clean up.
   delete output;

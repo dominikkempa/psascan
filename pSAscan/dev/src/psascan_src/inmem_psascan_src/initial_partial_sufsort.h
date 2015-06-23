@@ -53,16 +53,25 @@ namespace inmem_psascan_private {
 //==============================================================================
 // Rename the given block using its gt bitvector.
 //==============================================================================
-void rename_block(unsigned char *text, long text_length, long block_beg, long block_length,
-    bitvector *gt) {
+void rename_block(unsigned char *text, long text_length, long block_beg,
+    long block_length, bitvector *gt, bool &renaming_error) {
   long block_end = block_beg + block_length;
   long beg_rev = text_length - block_end;
   unsigned char *block = text + block_beg;
   unsigned char last = block[block_length - 1];
+  bool err = false;
   for (long i = 0; i + 1 < block_length; ++i)
-    if (block[i] > last || (block[i] == last && gt->get(beg_rev + i + 1)))
+    if (block[i] > last || (block[i] == last && gt->get(beg_rev + i + 1))) {
+      if (block[i] == 255)
+        err = true;
       ++block[i];
+    }
+  if (block[block_length - 1] == 255)
+    err = true;
   ++block[block_length - 1];
+
+  if (err)
+    renaming_error = true;
 }
 
 
@@ -105,14 +114,16 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   if (n_blocks > 1 || has_tail) {
     fprintf(stderr, "  Renaming blocks: ");
     start = utils::wclock();
+    bool *renaming_error = new bool[n_blocks];
+    std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
     for (long i = 0; i < n_blocks; ++i) {
       long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
       long block_beg = std::max(0L, block_end - max_block_size);
       long block_size = block_end - block_beg;
 
-      threads[i] = new std::thread(rename_block,
-          text, text_length, block_beg, block_size, gt);
+      threads[i] = new std::thread(rename_block, text, text_length, block_beg,
+          block_size, gt, std::ref(renaming_error[i]));
     }
 
     for (long i = 0; i < n_blocks; ++i) threads[i]->join();
@@ -120,11 +131,24 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     delete[] threads;
 
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+    bool err = false;
+    for (long i = 0; i < n_blocks; ++i)
+      if (renaming_error[i]) err = true;
+    delete[] renaming_error;
+
+    if (err) {
+      fprintf(stdout, "\n\nError: byte with value 255 was detected in the input text!\n"
+          "See the section on limitations in the README for more information.\n");
+      std::fflush(stdout);
+      std::exit(EXIT_FAILURE);
+    }
   }
 
   if (max_block_size >= (2L << 30)) {  // Use 64-bit divsufsort.
     fprintf(stdout, "\nError: 2GiB+ partial suffix arrays are not "
         "yet supported by the internal-memory pSAscan.\n");
+    std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   } else {  // Use 32-bit divsufsort.
     int *temp_sa = (int *)bwtsa;
@@ -196,14 +220,16 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   if (n_blocks > 1 || has_tail) {
     fprintf(stderr, "  Renaming blocks: ");
     start = utils::wclock();
+    bool *renaming_error = new bool[n_blocks];
+    std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
     for (long i = 0; i < n_blocks; ++i) {
       long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
       long block_beg = std::max(0L, block_end - max_block_size);
       long block_size = block_end - block_beg;
 
-      threads[i] = new std::thread(rename_block,
-          text, text_length, block_beg, block_size, gt);
+      threads[i] = new std::thread(rename_block, text, text_length, block_beg,
+          block_size, gt, std::ref(renaming_error[i]));
     }
 
     for (long i = 0; i < n_blocks; ++i) threads[i]->join();
@@ -211,6 +237,18 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     delete[] threads;
 
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+
+    bool err = false;
+    for (long i = 0; i < n_blocks; ++i)
+      if (renaming_error[i]) err = true;
+    delete[] renaming_error;
+
+    if (err) {
+      fprintf(stdout, "\n\nError: byte with value 255 was detected in the input text!\n"
+          "See the section on limitations in the README for more information.\n");
+      std::fflush(stdout);
+      std::exit(EXIT_FAILURE);
+    }
   }
   
   int *temp_sa = (int *)bwtsa;
