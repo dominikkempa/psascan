@@ -185,7 +185,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
  
     // 1.c
     //
-    // Compute the first term of initial_ranks for the block.
+    // Compute the first term of initial ranks for the block.
     if (!last_block) {
       fprintf(stderr, "    Compute initial tail ranks (part 1): ");
       long double initial_ranks_first_term_start = utils::wclock();
@@ -305,7 +305,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   // 2.c
   //
-  // Compute the second term for block_initial_ranks.
+  // Compute the second terms of block initial ranks.
   long after_block_initial_rank = 0;
   if (!last_block) {
     fprintf(stderr, "    Compute initial tail ranks (part 2): ");
@@ -340,7 +340,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   // 2.e
   //
-  // Write the BWT of the left half-block to disk.
+  // Copy the BWT of the left half-block to separate array.
   unsigned char *left_block_bwt = NULL;
   if (right_block_size > 0) {
     fprintf(stderr, "    Copy BWT of left half-block to separate array: ");
@@ -373,7 +373,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   }
 
   //----------------------------------------------------------------------------
-  // STEP 3: compute the gap array of the left half-block wrt to the
+  // STEP 3: Compute the gap array of the left half-block wrt to the
   //         right half-block.
   //----------------------------------------------------------------------------
   fprintf(stderr, "  Compute partial gap array for left half-block:\n");
@@ -421,11 +421,6 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   if (last_block) {
     free(left_block_bwt);
 
-    // INVARIANT:
-    //   The gap of the left half-block wrt to the right half-block is
-    //   the gap of the left half-block wrt to the whole tail and right_block_size > 0.
-    // What we should do in this situation, is to write the gap to disk
-    // and update the information about the gap array filename in info_left.
     info_left.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
     left_block_gap->save_to_file(info_left.gap_filename);
     left_block_gap->erase_disk_excess();
@@ -472,7 +467,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   // 4.c
   //
-  // Actual merging of BWT.
+  // Merge BWTs of left and right half-block.
   fprintf(stderr, "    Merge BWTs of half-blocks: ");
   long double bwt_merge_start = utils::wclock();
   block_i0 = merge_bwt(left_block_bwt, right_block_bwt, left_block_size, right_block_size,
@@ -536,7 +531,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   utils::file_delete(left_block_gap_bv_filename);
 
   //----------------------------------------------------------------------------
-  // STEP 6: compute gap arrays of half-blocks
+  // STEP 6: Compute gap arrays of half-blocks.
   //----------------------------------------------------------------------------
   info_left.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
   info_right.gap_filename = gap_filename + ".gap." + utils::random_string_hash();

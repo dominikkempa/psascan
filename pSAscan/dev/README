@@ -113,7 +113,7 @@ amount necessary in the streaming phase). However, since the time complexity
 amount of RAM used in the computation, the algorithm runs faster with more
 RAM. To achieve best performance it is recommended to use all unused RAM
 available in the system (as shown by the Linux 'free' command). Leaving about
-5% (but no more than 1GiB) of RAM free should prevent most of incidents
+5% (but not more than 2GiB) of RAM free should prevent most of incidents
 with swap.
 
 Example

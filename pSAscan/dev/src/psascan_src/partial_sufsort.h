@@ -119,7 +119,6 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   bool last_block = (block_end == text_length);
   bool first_block = (block_beg == 0);
 
-  // Note: left_block_size > 0.
   long left_block_size;
   if (!last_block) left_block_size = std::max(1L, block_size / 2L);
   else left_block_size = std::min(block_size, std::max(1L, ram_use / 10L));
@@ -128,6 +127,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   long left_block_end = block_beg + left_block_size;
   long right_block_beg = left_block_end;
   long right_block_end = block_end;
+  // Invariant; left_block_size > 0.
 
   fprintf(stderr, "  Block size = %ld (%.2LfMiB)\n", block_size, 1.L * block_size / (1 << 20));
   fprintf(stderr, "  Left half-block size = %ld (%.2LfMiB)\n", left_block_size, 1.L * left_block_size / (1 << 20));
@@ -195,6 +195,8 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
     block_offset_type *right_block_psa_ptr = (block_offset_type *)right_block_sabwt;
     unsigned char *right_block_bwt = (unsigned char *)(right_block_psa_ptr + right_block_size);
     bitvector *right_block_gt_begin_rev_bv = new bitvector(right_block_size);
+
+    // Start the timer.
     fprintf(stderr, "    Internal memory sufsort: ");
     if (verbose) fprintf(stderr, "\n%s\n", std::string(60, '*').c_str());
     long double right_block_sascan_start = utils::wclock();
@@ -209,7 +211,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
       close(stderr_temp);
     }
 
-    // Run in-memory SAscan.
+    // Run in-memory pSAscan.
     inmem_psascan_private::inmem_psascan<block_offset_type>(right_block, right_block_size, right_block_sabwt,
         max_threads, !last_block, true, right_block_gt_begin_rev_bv, -1, right_block_beg, right_block_end,
         text_length, text_filename, tail_gt_begin_rev, &right_block_i0);
@@ -229,13 +231,13 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
  
     // 1.c
     //
-    // Compute the first term of initial_ranks for the block.
+    // Compute the first term of initial ranks for the block.
     if (!last_block) {
       fprintf(stderr, "    Compute initial tail ranks (part 1): ");
       long double initial_ranks_first_term_start = utils::wclock();
       em_compute_initial_ranks<block_offset_type>(right_block, right_block_psa_ptr, right_block_bwt,
           right_block_i0, right_block_beg, right_block_end, text_length, text_filename,
-          tail_gt_begin_rev, block_initial_ranks, max_threads, block_tail_end, 0);  // Note the space usage of this function.
+          tail_gt_begin_rev, block_initial_ranks, max_threads, block_tail_end, 0);  // Note the space usage!
 
       size_t vec_size = block_initial_ranks.size();
       for (size_t j = 0; j + 1 < vec_size; ++j)
@@ -321,6 +323,8 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   unsigned char *left_block_bwt_ptr = (unsigned char *)(left_block_psa_ptr + left_block_size);
   bitvector *left_block_gt_begin_rev_bv = NULL;
   if (!first_block) left_block_gt_begin_rev_bv = new bitvector(left_block_size);  
+
+  // Start the timer.
   fprintf(stderr, "    Internal memory sufsort: ");
   if (verbose) fprintf(stderr, "\n%s\n", std::string(60, '*').c_str());
   long double left_block_sascan_start = utils::wclock();
@@ -335,7 +339,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
     close(stderr_temp);
   }
 
-  // Run in-memory SAscan.
+  // Run in-memory pSAscan.
   inmem_psascan_private::inmem_psascan<block_offset_type>(left_block, left_block_size, left_block_sabwt,
       max_threads, (right_block_size > 0), !first_block, left_block_gt_begin_rev_bv, -1, left_block_beg,
       left_block_end, text_length, text_filename, right_block_gt_begin_rev, &left_block_i0, right_block);
@@ -355,7 +359,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   // 2.c
   //
-  // Compute the second term for block_initial_ranks.
+  // Compute the second terms of block initial ranks.
   long after_block_initial_rank = 0;
   if (!last_block) {
     fprintf(stderr, "    Compute initial tail ranks (part 2): ");
@@ -363,7 +367,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
     std::vector<long> block_initial_ranks_second_term;
     em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_beg,
         left_block_end, text_length, text_filename, tail_gt_begin_rev, block_initial_ranks_second_term,
-        max_threads, block_tail_beg);  // Note the space usage of this function.
+        max_threads, block_tail_beg);  // Note the space usage!
 
     after_block_initial_rank = block_initial_ranks_second_term[0];
     size_t vec_size = block_initial_ranks_second_term.size();
@@ -390,7 +394,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   // 2.e
   //
-  // Write the BWT of the left half-block to disk.
+  // Copy the BWT of the left half-block to separate array.
   unsigned char *left_block_bwt = NULL;
   if (right_block_size > 0) {
     // XXX when I fix the in-memory SAscan, this step will be obsolete.
@@ -461,7 +465,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   std::vector<long> initial_ranks2;
   em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt,
        left_block_i0, left_block_beg, left_block_end, text_length, text_filename, right_block_gt_begin_rev,
-       initial_ranks2, max_threads, right_block_end, after_block_initial_rank);  // Note the space usage of this function.
+       initial_ranks2, max_threads, right_block_end, after_block_initial_rank);  // Note the space usage!
 
   size_t vec_size = initial_ranks2.size();
   for (size_t j = 0; j + 1 < vec_size; ++j)
@@ -571,7 +575,6 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   long double convert_to_bitvector_speed = (block_size / (1024.L * 1024)) / convert_to_bitvector_time;
   fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", convert_to_bitvector_time, convert_to_bitvector_speed);
 
-
   left_block_gap->erase_disk_excess();
   delete left_block_gap;
 
@@ -590,16 +593,14 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   long double right_block_bwt_read_io = (right_block_size / (1024.L * 1024)) / right_block_bwt_read_time;
   fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_block_bwt_read_time, right_block_bwt_read_io);
 
-
   utils::file_delete(right_block_pbwt_fname);
-
 
   unsigned char *block_pbwt = (unsigned char *)malloc(block_size);
   long block_i0 = 0;
 
   // 4.c
   //
-  // Actual merging of BWT.
+  // Merge BWTs of left and right half-block.
   fprintf(stderr, "    Merge BWTs of half-blocks: ");
   long double bwt_merge_start = utils::wclock();
   block_i0 = merge_bwt(left_block_bwt, right_block_bwt, left_block_size, right_block_size,
@@ -611,8 +612,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   free(left_block_bwt);
   free(right_block_bwt);
 
-
-  //
+  // 4.d
   //
   // Write left_block_gap_bv to disk.
   fprintf(stderr, "    Write left half-block gap bitvector to disk: ");
@@ -664,8 +664,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   block_gap->flush_excess_to_disk();
 
-
-  //
+  // 5.c
   //
   // Read left_block_gap_bv from disk.
   fprintf(stderr, "    Read left half-block gap bitvector from disk: ");
@@ -677,7 +676,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   utils::file_delete(left_block_gap_bv_filename);
 
   //----------------------------------------------------------------------------
-  // STEP 6: compute the gap array of the right half-block
+  // STEP 6: Compute gap arrays of half-blocks.
   //
   // At this point we know that right_block_size > 0 and the current block
   // is not the last one in the text. The task now is to compute the gap
