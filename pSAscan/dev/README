@@ -80,9 +80,9 @@ auxiliary files created during the computation and to accommodate the output.
 The above disk space requirement may in some cases prohibit the use of
 algorithm, e.g., if there is enough space (5n) on one physical disk to hold
 the suffix array, but not enough (6.5n) to run the algorithm. To still
-allow the computation in such cases, the 'psascan' implements the -g flag.
-With this flag, one can force pSAscan to use disk space from two physically
-different locations (e.g., on two disks).
+allow the computation in such cases, the 'psascan' program implements the
+-g flag. With this flag, one can force pSAscan to use disk space from two
+physically different locations (e.g., on two disks).
 
 More precisely, out of 6.5n bytes of disk space used by pSAscan, about n
 bytes is used to store the so-called "gap array". By default, the gap array
