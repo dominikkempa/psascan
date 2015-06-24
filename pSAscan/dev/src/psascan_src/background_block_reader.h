@@ -83,7 +83,7 @@ struct background_block_reader {
 
         long toread = std::min(reader.m_size - fetched, reader.k_chunk_size);
         unsigned char *dest = reader.m_data + fetched;
-        utils::read_objects_from_file(dest, toread, reader.m_file);
+        utils::read_n_objects_from_file(dest, toread, reader.m_file);
 
         lk.lock();
         reader.m_fetched += toread;

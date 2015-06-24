@@ -93,7 +93,7 @@ struct async_multifile_bit_stream_reader {
       long file_left = m_files_info[m_file_id].m_end - m_total_read_buf;
       m_active_buf_filled = std::min(file_left, 8L * m_buf_size);
       long toread_bytes = (m_active_buf_filled + 7L) / 8L;
-      utils::read_objects_from_file(m_active_buf, toread_bytes, m_file);
+      utils::read_n_objects_from_file(m_active_buf, toread_bytes, m_file);
       m_total_read_buf += m_active_buf_filled;
       if (m_total_read_buf == m_files_info[m_file_id].m_end) {
         std::fclose(m_file);
@@ -169,7 +169,7 @@ struct async_multifile_bit_stream_reader {
         long file_left = file->m_files_info[file->m_file_id].m_end - file->m_total_read_buf;
         file->m_passive_buf_filled = std::min(file_left, 8L * (file->m_buf_size));
         long toread_bytes = (file->m_passive_buf_filled + 7L) / 8L;
-        utils::read_objects_from_file(file->m_passive_buf, toread_bytes, file->m_file);
+        utils::read_n_objects_from_file(file->m_passive_buf, toread_bytes, file->m_file);
         file->m_total_read_buf += file->m_passive_buf_filled;
         if (file->m_total_read_buf == file->m_files_info[file->m_file_id].m_end) {
           std::fclose(file->m_file);

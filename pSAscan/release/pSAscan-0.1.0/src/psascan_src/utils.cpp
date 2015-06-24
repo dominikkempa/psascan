@@ -116,7 +116,7 @@ std::string absolute_path(std::string fname) {
 
 void read_block(std::FILE *f, long beg, long length, unsigned char *b) {
   std::fseek(f, beg, SEEK_SET);
-  read_objects_from_file<unsigned char>(b, length, f);
+  read_n_objects_from_file<unsigned char>(b, length, f);
 }
 
 void read_block(std::string fname, long beg, long length, unsigned char *b) {

@@ -484,7 +484,7 @@ struct gap_array_2n {
     while (m_excess_disk > 0) {
       // Read a portion of excess values from disk.
       long toread = std::min(m_excess_disk, elems);
-      utils::read_objects_from_file(buffer, toread, f);
+      utils::read_n_objects_from_file(buffer, toread, f);
 
       // Sort excess values in parallel.
       __gnu_parallel::sort(buffer, buffer + toread);

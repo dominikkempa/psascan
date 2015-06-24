@@ -12,8 +12,8 @@ suffix array construction algorithm called pSAscan described in the paper
   Parallel External Memory Suffix Sorting.
   In Proc. 26th Annual Symposium on Combinatorial Pattern Matching (CPM) 2015.
 
-This implementation is based on the sequential external-memory suffix
-array construction algorithm called SAscan described in
+The algorithm is based on the sequential external-memory suffix array
+construction algorithm called SAscan described in
 
   Juha Kärkkäinen and Dominik Kempa,
   Engineering a Lightweight External Memory Suffix Array Construction Algorithm.
@@ -39,9 +39,9 @@ Compilation and usage
    $ cd src
    $ make
 
-This will produce the executable 'psascan' which is the main program that
-allows computing the suffix array of a given file. For usage, run the
-'psascan' program without parameters.
+This will produce the executable 'psascan' that allows computing the suffix
+array of a given file. For usage, run the 'psascan' program without any
+arguments.
 
 Example
 ~~~~~~~

@@ -259,7 +259,7 @@ struct distributed_file {
       file->m_passive_buf_filled = std::min(left, file->m_buf_size);
       file->m_cur_file_read += file->m_passive_buf_filled;
       file->m_total_read_buf += file->m_passive_buf_filled;
-      utils::read_objects_from_file(file->m_passive_buf,
+      utils::read_n_objects_from_file(file->m_passive_buf,
           file->m_passive_buf_filled, file->m_file);
 
       // Let the caller know that the I/O thread finished reading.
