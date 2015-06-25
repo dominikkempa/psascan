@@ -268,10 +268,8 @@ void compute_final_gt_last_bits(long text_length, long max_block_size, long mb_b
 // Fully parallel computation of gt bitvectors.
 //==============================================================================
 void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
-    bitvector* gt, long max_block_size, long max_threads, long,
-    long text_end,
-    long supertext_length,
-    const multifile *tail_gt_begin_reversed,
+    bitvector* gt, long max_block_size, long max_threads, long text_end,
+    long supertext_length, const multifile *tail_gt_begin_reversed,
     background_block_reader *tail_prefix_background_reader,
     const unsigned char *tail_prefix_preread) {
 

@@ -1,5 +1,5 @@
 /**
- * @file    src/psascan_src/inmem_psascan_src/skewed_merge.h
+ * @file    src/psascan_src/inmem_psascan_src/merge_schedule.h
  * @author  Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *
  * @section LICENCE
@@ -33,8 +33,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_SKEWED_MERGE_H_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_SKEWED_MERGE_H_INCLUDED
+#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_H_INCLUDED
+#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_H_INCLUDED
 
 #include <iostream>
 #include <vector>
@@ -135,4 +135,4 @@ void print_schedule(const MergeSchedule & sched, int n) {
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_SKEWED_MERGE_H_INCLUDED
+#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_H_INCLUDED

@@ -45,7 +45,6 @@
 
 #include "utils.h"
 #include "rank.h"
-#include "io_streamer.h"
 #include "gap_buffer.h"
 #include "update.h"
 #include "stream_info.h"

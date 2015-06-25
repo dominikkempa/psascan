@@ -53,11 +53,11 @@
 #include "inmem_bwt_from_sa.h"
 #include "inmem_compute_initial_ranks.h"
 #include "parallel_merge.h"
-#include "balanced_merge.h"
+#include "inmem_bwtsa_merge.h"
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
-#include "skewed_merge.h"
+#include "merge_schedule.h"
 
 
 namespace psascan_private {
@@ -175,8 +175,8 @@ void inmem_psascan(
 
   background_block_reader *tail_prefix_background_reader = NULL;
   if (has_tail && tail_prefix_preread == NULL)
-    tail_prefix_background_reader = new background_block_reader(supertext_filename, text_end, tail_prefix_length);
-
+    tail_prefix_background_reader =
+      new background_block_reader(supertext_filename, text_end, tail_prefix_length);
 
   //----------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
@@ -185,7 +185,7 @@ void inmem_psascan(
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
     compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size,
-        max_threads, text_beg, text_end, supertext_length, tail_gt_begin_reversed,
+        max_threads, text_end, supertext_length, tail_gt_begin_reversed,
         tail_prefix_background_reader, tail_prefix_preread);
     fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
   }
@@ -218,7 +218,6 @@ void inmem_psascan(
 
   fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
 
-
   //----------------------------------------------------------------------------
   // STEP 3: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging. Also, create block description array.
@@ -226,7 +225,7 @@ void inmem_psascan(
   if (n_blocks > 1 || compute_gt_begin) {
     fprintf(stderr, "Overwriting gt_end with gt_begin: ");
     start = utils::wclock();
-    gt_end_to_gt_begin(text, text_length, gt_begin, max_block_size, max_threads);
+    gt_end_to_gt_begin(text, text_length, gt_begin, max_block_size);
     fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
   }
 
@@ -258,7 +257,8 @@ void inmem_psascan(
       if (block_id + 1 != n_blocks || compute_bwt) {
         fprintf(stderr, "Computing BWT for block %ld: ", block_id + 1);
         long double bwt_start = utils::wclock();
-        compute_bwt_in_bwtsa<saidx_t>(text + block_beg, block_size, bwtsa + block_beg, max_threads, i0_array[block_id]);
+        compute_bwt_in_bwtsa<saidx_t>(text + block_beg, block_size,
+            bwtsa + block_beg, max_threads, i0_array[block_id]);
         fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
       }
     }
@@ -267,10 +267,12 @@ void inmem_psascan(
 
   if (n_blocks > 1) {
     long i0_result;
-    pagearray<bwtsa_t<saidx_t>, pagesize_log> *result = balanced_merge<saidx_t, pagesize_log>(text,
-        text_length, bwtsa, gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
-        compute_bwt, i0_result, schedule, text_beg, text_end, supertext_length, supertext_filename,
-        tail_gt_begin_reversed, i0_array, block_rank_matrix);
+    pagearray<bwtsa_t<saidx_t>, pagesize_log> *result =
+      inmem_bwtsa_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
+          gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
+          compute_bwt, i0_result, schedule, text_beg, text_end,
+          supertext_length, supertext_filename, tail_gt_begin_reversed,
+          i0_array, block_rank_matrix);
     if (i0) *i0 = i0_result;
 
     // Permute SA to plain array.

@@ -54,7 +54,6 @@
 #include "rank.h"
 #include "gap_array.h"
 #include "bitvector.h"
-#include "io_streamer.h"
 #include "multifile.h"
 #include "distributed_file.h"
 #include "half_block_info.h"

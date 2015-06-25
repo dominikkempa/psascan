@@ -48,7 +48,6 @@
 
 #include "utils.h"
 #include "bitvector.h"
-#include "io_streamer.h"
 #include "parallel_utils.h"
 #include "async_stream_writer.h"
 
@@ -164,7 +163,8 @@ struct buffered_gap_array {
     long bytes_written = 0L;
 
     start_sequential_access();
-    stream_writer<unsigned char> *writer = new stream_writer<unsigned char>(fname);
+    typedef async_stream_writer<unsigned char> stream_writer_type;
+    stream_writer_type *writer = new stream_writer_type(fname);
 
     for (long j = 0; j < m_length; ++j) {
       long val = get_next();
@@ -538,26 +538,6 @@ struct gap_array_2n {
       value -= (1L << 16);
     }
     m_count[pos] = (uint64_t)value;
-  }
-
-  void write_to_disk(std::string filename) {
-    async_stream_writer<unsigned char> *writer = new async_stream_writer<unsigned char>(filename);
-
-    for (long j = 0, excess_ptr = 0L; j < m_length; ++j) {
-      long val = m_count[j];
-      while (excess_ptr < (long)m_excess.size() && m_excess[excess_ptr] == j) {
-        val += (1L << 16);
-        ++excess_ptr;
-      }
-
-      while (val > 127) {
-        writer->write((val & 0x7f) | 0x80);
-        val >>= 7;
-      }
-      writer->write(val);
-    }
-
-    delete writer;
   }
 
   void erase_disk_excess() {

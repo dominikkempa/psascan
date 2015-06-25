@@ -53,11 +53,11 @@
 #include "inmem_bwt_from_sa.h"
 #include "inmem_compute_initial_ranks.h"
 #include "parallel_merge.h"
-#include "balanced_merge.h"
+#include "inmem_bwtsa_merge.h"
 #include "pagearray.h"
 #include "bwtsa.h"
 #include "parallel_shrink.h"
-#include "skewed_merge.h"
+#include "merge_schedule.h"
 
 
 namespace psascan_private {
@@ -242,8 +242,8 @@ void inmem_psascan(
   if (n_blocks > 1) {
     long i0_result;
     pagearray<bwtsa_t<saidx_t>, pagesize_log> *result =
-      balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt_begin,
-          max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
+      inmem_bwtsa_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
+          gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
           compute_bwt, i0_result, schedule, text_beg, text_end,
           supertext_length, supertext_filename, tail_gt_begin_reversed,
           i0_array, block_rank_matrix);

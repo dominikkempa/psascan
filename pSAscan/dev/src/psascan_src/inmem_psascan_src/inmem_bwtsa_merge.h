@@ -1,5 +1,5 @@
 /**
- * @file    src/psascan_src/inmem_psascan_src/balanced_merge.h
+ * @file    src/psascan_src/inmem_psascan_src/inmem_bwtsa_merge.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
  * @section LICENCE
@@ -33,8 +33,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_BALANCED_MERGE_H_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_BALANCED_MERGE_H_INCLUDED
+#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWTSA_MERGE_H_INCLUDED
+#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWTSA_MERGE_H_INCLUDED
 
 #include <cstdio>
 #include <vector>
@@ -48,14 +48,14 @@
 #include "parallel_merge.h"
 #include "pagearray.h"
 #include "bwtsa.h"
-#include "skewed_merge.h"
+#include "merge_schedule.h"
 
 
 namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
-pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(
+pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
     const unsigned char *text,
     long text_length,
     bwtsa_t<saidx_t> *bwtsa,
@@ -123,21 +123,21 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(
   //
   // Left block
   long left_i0;
-  pagearray_type *l_bwtsa =
-    balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-    max_block_size, lrange_beg, lrange_end, max_threads, need_gt, true,
-    left_i0, schedule, text_beg, text_end, supertext_length,
-    supertext_filename, tail_gt_begin_reversed, i0_array, block_rank_matrix);
+  pagearray_type *l_bwtsa = inmem_bwtsa_merge<saidx_t, pagesize_log>(text,
+      text_length, bwtsa, gt, max_block_size, lrange_beg, lrange_end,
+      max_threads, need_gt, true, left_i0, schedule, text_beg, text_end,
+      supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array,
+      block_rank_matrix);
 
   // 2.b
   // 
   // Right block
   long right_i0;
-  pagearray_type *r_bwtsa =
-      balanced_merge<saidx_t, pagesize_log>(text, text_length, bwtsa, gt,
-      max_block_size, rrange_beg, rrange_end, max_threads, true, need_bwt,
-      right_i0, schedule, text_beg, text_end, supertext_length,
-      supertext_filename, tail_gt_begin_reversed, i0_array, block_rank_matrix);
+  pagearray_type *r_bwtsa = inmem_bwtsa_merge<saidx_t, pagesize_log>(text,
+      text_length, bwtsa, gt, max_block_size, rrange_beg, rrange_end,
+      max_threads, true, need_bwt, right_i0, schedule, text_beg, text_end,
+      supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array,
+      block_rank_matrix);
 
   //----------------------------------------------------------------------------
   // STEP 3: Merge partial SAs and BWTs.
@@ -197,4 +197,4 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *balanced_merge(
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_BALANCED_MERGE_H_INCLUDED
+#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWTSA_MERGE_H_INCLUDED

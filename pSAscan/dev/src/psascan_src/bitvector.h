@@ -41,7 +41,6 @@
 #include <stdint.h>
 
 #include "utils.h"
-#include "io_streamer.h"
 
 
 namespace psascan_private {

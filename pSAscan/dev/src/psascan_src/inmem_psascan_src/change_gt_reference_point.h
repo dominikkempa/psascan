@@ -123,7 +123,7 @@ void gt_end_to_gt_begin_aux(const unsigned char *text, long text_length,
 // Change gt_end bitvector into gt_begin using string range matching.
 //==============================================================================
 void gt_end_to_gt_begin(const unsigned char *text, long text_length,
-    bitvector *gt, long max_block_size, long /*max_threads*/) {
+    bitvector *gt, long max_block_size) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
 
