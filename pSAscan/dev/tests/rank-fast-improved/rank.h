@@ -10,13 +10,13 @@
 //
 //   * alphabet partitioning
 //
-//     Jérémy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
+//     Jeremy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
 //     Alphabet Partitioning for Compressed Rank/Select and Applications.
 //     Proc. ISAAC 2010.
 //
 //  * fixed block boosting
 //
-//    Juha Kärkkäinen, Simon J. Puglisi:
+//    Juha Karkkainen, Simon J. Puglisi:
 //    Fixed Block Compression Boosting in FM-Indexes.
 //    Proc. SPIRE 2011.
 

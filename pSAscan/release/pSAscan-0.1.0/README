@@ -8,14 +8,14 @@ Description
 This package contains implementation of the parallel external-memory
 suffix array construction algorithm called pSAscan described in the paper
 
-  Juha Kärkkäinen, Dominik Kempa, and Simon J. Puglisi,
+  Juha Karkkainen, Dominik Kempa, and Simon J. Puglisi,
   Parallel External Memory Suffix Sorting.
   In Proc. 26th Annual Symposium on Combinatorial Pattern Matching (CPM) 2015.
 
 The algorithm is based on the sequential external-memory suffix array
 construction algorithm called SAscan described in
 
-  Juha Kärkkäinen and Dominik Kempa,
+  Juha Karkkainen and Dominik Kempa,
   Engineering a Lightweight External Memory Suffix Array Construction Algorithm.
   In Proc. 2nd International Conference on Algorithms for Big Data (ICABD) 2014.
 
