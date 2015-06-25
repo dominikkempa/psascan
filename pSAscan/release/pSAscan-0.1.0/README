@@ -72,10 +72,10 @@ To compute the suffix array of an n-byte input text, pSAscan needs about
 7.5n bytes of disk space. This includes the input (n bytes) and output
 (5n bytes).
 
-In the standard scenario, the 'psascan' program assumes, that there is at
-least 6.5n bytes of free disk space available in the location that was
-specified as the destination for the suffix array. This space is used for
-auxiliary files created during the computation and to accommodate the output.
+In the default mode, the 'psascan' program assumes, that there is 6.5n bytes
+of free disk space available in the location used as the destination for the
+suffix array. This space is used for auxiliary files created during the
+computation and to accommodate the output.
 
 The above disk space requirement may in some cases prohibit the use of
 algorithm, e.g., if there is enough space (5n) on one physical disk to hold
@@ -111,10 +111,10 @@ can run with any amount of RAM (though there is some minimal per-thread
 amount necessary in the streaming phase). However, since the time complexity
 (without logarithmic factors) of the algorithm is O(n^2 / M), where M is the
 amount of RAM used in the computation, the algorithm runs faster with more
-RAM. To achieve best performance it is recommended to use all unused RAM
-available in the system (as shown by the Linux 'free' command). Leaving about
-5% (but not more than 2GiB) of RAM free should prevent most of incidents
-with swap.
+RAM. Thus, the best performance is achieved when nearly all unused RAM
+available in the system (as shown by the Linux 'free' command) is used for
+the computation. Leaving about 5% (but not more than 2GiB) of RAM free is
+advised to prevent thrashing.
 
 Example
 ~~~~~~~
@@ -176,7 +176,7 @@ Limitations / known issues
    that is available in the system may give biased results (the algorithm
    runs faster than it would if the RAM available in the system was equal
    to the RAM used in the computation). This problem can be solved by
-   restricting the RAM available in the system using the GRUB 'mem' option.
+   restricting the RAM available in the system with the GRUB 'mem' option.
    Note however, that on NUMA systems this may degrade the performance,
    since the limited RAM is not allocated equally on all nodes.
 
