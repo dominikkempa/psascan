@@ -110,10 +110,10 @@ The algorithm does not have a fixed memory requirements. In principle, it
 can run with any amount of RAM (though there is some minimal per-thread
 amount necessary in the streaming phase). However, since the time complexity
 (without logarithmic factors) of the algorithm is O(n^2 / M), where M is the
-amount of RAM used in the computation, the algorithm runs faster with more
-RAM. Thus, the best performance is achieved when nearly all unused RAM
-available in the system (as shown by the Linux 'free' command) is used for
-the computation. Leaving about 5% (but not more than 2GiB) of RAM free is
+amount of RAM used in the computation, using more RAM decreases the runtime.
+Thus, the best performance is achieved when nearly all unused RAM available
+in the system (as shown by the Linux 'free' command) is used for the
+computation. Leaving about 5% (but not more than 2GiB) of RAM free is
 advised to prevent thrashing.
 
 Example
@@ -132,13 +132,15 @@ Troubleshooting
 1. I am getting "Error: the limit on the maximum number of open files
    is too small (...)".
 
-Solution: The soft limit on the maximum number of opened files can be
-increased with the "ulimit -n newlimit" command. However, the soft limit
-cannot be increased beyond the hard limit, which is usually only few times
-larger than the soft limit. Furthermore, this is a temporary solution that
-needs to repeated every time a new session is started. To increase the
-limits permanently, edit (as a root) the file /etc/security/limits.conf
-and add the following lines at the end (including the asterisks):
+Solution: The error is caused by the operating system imposing a limit
+on the maximum number of files opened by a program. The limit (in Linux
+referred to as the soft limit) can be increased with the "ulimit -n newlimit"
+command. However, in Linux the soft limit cannot be increased beyond the
+so-called "hard limit", which is usually only few times larger than the
+soft limit. Furthermore, this is a temporary solution that needs to repeated
+every time a new session is started. To increase the limits permanently,
+edit (as a root) the file /etc/security/limits.conf and add the following
+lines at the end (including the asterisks):
 
 * soft nofile 128000
 * hard nofile 128000
@@ -148,8 +150,8 @@ new limits apply (check with ulimit -n) after starting a new session.
 
 2. Program stops without any error message.
 
-Most likely the problem occurred during internal-memory sorting. Re-running
-the program with -v flag should show the error message.
+Solution: Most likely the problem occurred during internal-memory sorting.
+Re-running the program with -v flag should show the error message.
 
 
 
@@ -171,16 +173,16 @@ Limitations / known issues
    thus capable of simultaneously running 8 threads), pSAscan can utilize
    up to 160GiB of RAM.
 
-The above limitations (except possibly 2) are not inherent to the
-algorithm but merely a missing features in the current implementation.
-Future releases will most likely overcome these limitations.
+The above limitations (except possibly 2) are not inherent to the algorithm
+but rather the current implementation. Future releases will most likely
+overcome these limitations.
 
 
 
 Third-party code
 ----------------
 
-The current implementation makes use of some third-party code, in particular:
+The pSAscan implementation makes use of some third-party code, in particular:
   - the uint40 class was copied (and slightly modified) from the eSAIS-0.5.2
     algorithm (https://panthema.net/2012/1119-eSAIS-Inducing-Suffix-and-
     LCP-Arrays-in-External-Memory/)
