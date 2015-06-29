@@ -170,15 +170,6 @@ Limitations / known issues
    e.g., for a regular 4-core machine supporting Hyper-Threading (and
    thus capable of simultaneously running 8 threads), pSAscan can utilize
    up to 160GiB of RAM.
-5. The current implementation does not implement the non-caching I/O.
-   For practical uses, the non-caching I/O can only improve the runtime.
-   However, the experiments with the algorithm using significantly less RAM
-   that is available in the system may give biased results (the algorithm
-   runs faster than it would if the RAM available in the system was equal
-   to the RAM used in the computation). This problem can be solved by
-   restricting the RAM available in the system with the GRUB 'mem' option.
-   Note however, that on NUMA systems this may degrade the performance,
-   since the limited RAM is not allocated equally on all nodes.
 
 The above limitations (except possibly 2) are not inherent to the
 algorithm but merely a missing features in the current implementation.
