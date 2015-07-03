@@ -101,11 +101,11 @@ struct inmem_gap_array {
     }
   }
 
-
   //==============================================================================
   // Compute gap[0] + gap[1] + .. + gap[j - 1] with the help of gapsum array.
   //==============================================================================
-  static long compute_sum3(const inmem_gap_array *gap, long j, long max_block_size, long *gapsum) {
+  static long compute_sum3(const inmem_gap_array *gap, long j,
+      long max_block_size, long *gapsum) {
     long block_id = j / max_block_size;
     long result = gapsum[block_id];
 
@@ -124,8 +124,8 @@ struct inmem_gap_array {
   // Compute sum of gap values for blocks in range [range_beg..range_end).
   // The sum for each block is stored in gapsum array.
   //==============================================================================
-  static void compute_sum2(const inmem_gap_array *gap, long range_beg, long range_end,
-      long max_block_size, long *gapsum) {
+  static void compute_sum2(const inmem_gap_array *gap, long range_beg,
+      long range_end, long max_block_size, long *gapsum) {
     for (long block_id = range_beg; block_id < range_end; ++block_id) {
       long block_beg = block_id * max_block_size;
       long block_end = std::min(block_beg + max_block_size, gap->m_length);
@@ -140,7 +140,6 @@ struct inmem_gap_array {
       gapsum[block_id] = block_gap_sum;
     }
   }
-
 
   //==============================================================================
   // Parallel computaton of answers to n_queries queries of the form:
@@ -181,14 +180,11 @@ struct inmem_gap_array {
     for (long i = 0; i < n_ranges; ++i) delete threads[i];
     delete[] threads;
 
-
     //----------------------------------------------------------------------------
     // STEP 2: compute partial sum from block counts.
     //----------------------------------------------------------------------------
-    // Change gapsum so that gapsum[i] is the sum of blocks 0, 1, .., i - 1.
     for (long i = 0, s = 0, t; i < n_blocks; ++i)
       { t = gapsum[i]; gapsum[i] = s; s += t; }
-
 
     //----------------------------------------------------------------------------
     // STEP 3: Answer the queries in parallel.

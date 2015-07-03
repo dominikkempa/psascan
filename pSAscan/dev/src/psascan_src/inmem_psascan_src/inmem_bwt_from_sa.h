@@ -47,14 +47,14 @@ namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename saidx_t>
-void compute_bwt_in_bwtsa_aux(const unsigned char *text, long beg, long end,
-    bwtsa_t<saidx_t> *dest, long *i0) {
+void compute_bwt_in_bwtsa_aux(const unsigned char *text, long beg,
+    long end, bwtsa_t<saidx_t> *dest, long *i0) {
   *i0 = -1;
-  for (long j = beg; j < end; ++j)
+  for (long j = beg; j < end; ++j) {
     if (dest[j].sa) dest[j].bwt = text[dest[j].sa - 1];
     else { dest[j].bwt = 0; *i0 = j; }
+  }
 }
-
 
 template<typename saidx_t>
 void compute_bwt_in_bwtsa(const unsigned char *text, long length,

@@ -59,7 +59,7 @@ namespace psascan_private {
 
 std::mutex stdout_mutex;
 
-template<typename block_offset_type>
+template<typename block_offset_type, typename rank_type>
 void parallel_stream(
     gap_buffer_poll<block_offset_type> *full_gap_buffers,
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
@@ -68,7 +68,7 @@ void parallel_stream(
     block_offset_type i,
     const long *count,
     block_offset_type whole_suffix_rank,
-    const rank4n<> *rank,
+    const rank_type *rank,
     unsigned char last,
     std::string text_filename,
     long length,

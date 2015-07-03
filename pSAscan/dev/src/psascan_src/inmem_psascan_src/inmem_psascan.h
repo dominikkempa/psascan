@@ -220,7 +220,7 @@ void inmem_psascan(
 
   //----------------------------------------------------------------------------
   // STEP 3: compute the gt bitvectors for blocks that will be on the right
-  //         side during the merging. Also, create block description array.
+  //         side during the merging.
   //----------------------------------------------------------------------------
   if (n_blocks > 1 || compute_gt_begin) {
     fprintf(stderr, "Overwriting gt_end with gt_begin: ");

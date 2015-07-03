@@ -78,10 +78,9 @@ inline int lcp_compare(const unsigned char *text, const unsigned char *pat,
 }
 
 //------------------------------------------------------------------------------
-// Find the range [left..right) of suffixes started inside the block
-// that are prefixed with text[suf_start..suf_start + maxlcp).
-// In case there is no such suffix, left == right and they both point
-// to the first suffix larger than the pattern (of length maxlcp).
+// Find the range [left..right) of suffixes starting inside the block that are
+// prefixed with pat[0..pat_length). In case there is no such suffix, left ==
+// right and they both point to the first suffix larger than the pattern.
 //------------------------------------------------------------------------------
 template<typename pagearray_type>
 void compute_range(const unsigned char *text, long block_beg, long block_size,
@@ -167,7 +166,7 @@ void compute_range(const unsigned char *text, long block_beg, long block_size,
 // - all suffixes in the range [right..text_length) are larger than the pattern,
 // - suffixes in the range [left..right) are unknown -- they can either be
 //   larger or smaller than the pattern, or equal -- in any case, they have a
-//   common prefix of length `lcp' with the pattern.
+//   common prefix of length `old_pat_length' with the pattern.
 //------------------------------------------------------------------------------
 template<typename saidx_t>
 void refine_range(const unsigned char *text, long block_beg,
@@ -178,7 +177,6 @@ void refine_range(const unsigned char *text, long block_beg,
   long high = right;
   long llcp = old_pat_length;
   long rlcp = old_pat_length;
-
 
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
   long min_discrepancy = utils::random_long(0L, 10L);

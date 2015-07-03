@@ -137,7 +137,7 @@ long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
 
   // 7
   //
-  // Clean up and exit
+  // Clean up and exit.
   delete bv_ranksel;
   return block_i0;
 }

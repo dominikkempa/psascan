@@ -126,7 +126,6 @@ void gt_end_to_gt_begin(const unsigned char *text, long text_length,
     bitvector *gt, long max_block_size) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-
   //----------------------------------------------------------------------------
   // STEP 1: Compute the last bit in every block.
   //----------------------------------------------------------------------------
@@ -135,7 +134,6 @@ void gt_end_to_gt_begin(const unsigned char *text, long text_length,
     long rev_beg = text_length - block_end;
     gt->flip(rev_beg);
   }
-
 
   //----------------------------------------------------------------------------
   // STEP 2: compute remaining bits in every block.

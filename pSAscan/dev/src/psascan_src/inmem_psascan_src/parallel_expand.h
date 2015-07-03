@@ -97,8 +97,7 @@ S *parallel_expand(T *tab, long length, long max_threads) {
   for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
 
-
-  // Recursively expand the first split elements..
+  // Recursively expand the first split elements.
   parallel_expand<T, S>(tab, split, max_threads);
 
   return result;

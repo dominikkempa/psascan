@@ -60,8 +60,8 @@ namespace psascan_private {
 // Compute the gap for an arbitrary range of suffixes of tail. This version is
 // more general, and can be used also when processing half-blocks.
 //==============================================================================
-template<typename block_offset_type>
-void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
+template<typename block_offset_type, typename rank_type>
+void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap,
     long tail_begin, long tail_end, long text_length, long max_threads,
     long block_isa0, long gap_buf_size, unsigned char block_last_symbol,
     std::vector<long> initial_ranks, std::string text_filename, std::string output_filename,
@@ -77,7 +77,9 @@ void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
   //
   // Get symbol counts of a block and turn into exclusive partial sum.
   long *count = new long[256];
-  std::copy(rank->m_count, rank->m_count + 256, count);
+  for (unsigned j = 0; j < 256; ++j)
+    count[j] = rank->rank(block_size, (unsigned char)j);
+
   ++count[block_last_symbol];
   --count[0];
   for (long j = 0, s = 0, t; j < 256; ++j) {
@@ -120,7 +122,7 @@ void compute_gap(const rank4n<> *rank, buffered_gap_array *gap,
     gt_filenames[t] = output_filename + ".gt_tail." + utils::random_string_hash();
     newtail_gt_begin_rev->add_file(text_length - stream_block_end, text_length - stream_block_beg, gt_filenames[t]);
 
-    streamers[t] = new std::thread(parallel_stream<block_offset_type>, full_gap_buffers, empty_gap_buffers, stream_block_beg,
+    streamers[t] = new std::thread(parallel_stream<block_offset_type, rank_type>, full_gap_buffers, empty_gap_buffers, stream_block_beg,
         stream_block_end, initial_ranks[t], count, block_isa0, rank, block_last_symbol, text_filename, text_length,
         std::ref(gt_filenames[t]), &info, t, gap->m_length, gap_buf_size, tail_gt_begin_rev, max_threads);
   }

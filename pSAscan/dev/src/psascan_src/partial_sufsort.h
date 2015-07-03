@@ -151,7 +151,6 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
     info_right.end = right_block_end;
   }
 
-
   //----------------------------------------------------------------------------
   // STEP 1: Process right half-block.
   //
@@ -187,9 +186,9 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
  
     // 1.b
     //
-    // Compute partial sa, bwt and gt_begin of the right half-block.
+    // Compute partial SA, BWT and gt_begin of the right half-block.
 
-    // Allocate suffix array, bwt and gt_begin.
+    // Allocate SA, BWT and gt_begin.
     unsigned char *right_block_sabwt = (unsigned char *)malloc(right_block_size * (sizeof(block_offset_type) + 1));
     block_offset_type *right_block_psa_ptr = (block_offset_type *)right_block_sabwt;
     unsigned char *right_block_bwt = (unsigned char *)(right_block_psa_ptr + right_block_size);
@@ -316,7 +315,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   //
   // Compute partial SA, BWT and gt_begin for left half-block.
 
-  // Allocate suffix array, bwt and gt_begin.
+  // Allocate SA, BWT and gt_begin.
   unsigned char *left_block_sabwt = (unsigned char *)malloc(left_block_size * (sizeof(block_offset_type) + 1) + 1);
   block_offset_type *left_block_psa_ptr = (block_offset_type *)left_block_sabwt;
   unsigned char *left_block_bwt_ptr = (unsigned char *)(left_block_psa_ptr + left_block_size);
@@ -447,15 +446,13 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
     return;
   }
 
-
   //----------------------------------------------------------------------------
-  // From now on we assume right_block_size > 0.
+  // STEP 3: Compute the gap array of the left half-block wrt to the
+  //         right half-block.
   //----------------------------------------------------------------------------
-
   fprintf(stderr, "  Compute partial gap array for left half-block:\n");
   buffered_gap_array *left_block_gap = NULL;
 
-  // STEP 3, case II
   // 3.a
   //
   // Compute initial ranks for streaming of the right half-block.
@@ -495,7 +492,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   // Compute gap array of the left half-block wrt to the right half-block.
   // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
   left_block_gap = new buffered_gap_array(left_block_size + 1, gap_filename);
-  compute_gap<block_offset_type>(left_block_rank, left_block_gap, right_block_beg, right_block_end,
+  compute_gap<block_offset_type>(left_block_rank, left_block_size, left_block_gap, right_block_beg, right_block_end,
       text_length, max_threads, left_block_i0, gap_buf_size, left_block_last,
       initial_ranks2, text_filename, output_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
   delete left_block_rank;
@@ -656,7 +653,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   // Compute gap for the block. During this step we also compute gt_begin
   // for the new tail (i.e., the block and the old tail).
   // RAM: block_rank, block_gap_array, block_gap.
-  compute_gap<block_offset_type>(block_rank, block_gap, block_tail_beg, block_tail_end, text_length,
+  compute_gap<block_offset_type>(block_rank, block_size, block_gap, block_tail_beg, block_tail_end, text_length,
       max_threads, block_i0, gap_buf_size, block_last_symbol, block_initial_ranks, text_filename,
       output_filename, tail_gt_begin_rev, newtail_gt_begin_rev);
   delete block_rank;

@@ -169,8 +169,9 @@ void parallel_merge_aux(
 }
 
 template<typename pagearray_type>
-pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pagearray,
-    const inmem_gap_array *gap, long max_threads, long i0, long &aux_result, long what_to_add) {
+pagearray_type *parallel_merge(pagearray_type *l_pagearray,
+    pagearray_type *r_pagearray, const inmem_gap_array *gap, long max_threads,
+    long i0, long &aux_result, long what_to_add) {
   static const unsigned pagesize_log = pagearray_type::pagesize_log;
   static const unsigned pagesize = pagearray_type::pagesize;
   typedef typename pagearray_type::value_type value_type;
@@ -196,7 +197,6 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   long n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
   output_type *result = new output_type(l_pagearray->m_origin, length);
 
-  // Compute initial parameters for each thread.
   long *left_idx = new long[n_threads];
   long *right_idx = new long[n_threads];
   long *remaining_gap = new long[n_threads];
@@ -228,7 +228,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray, pagearray_type *r_pa
   fprintf(stderr, "%.2Lf ", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
-  // STEP 2: merging the arrays.
+  // STEP 2: merge the arrays.
   //----------------------------------------------------------------------------
   fprintf(stderr, "merge: ");
   start = utils::wclock();

@@ -147,7 +147,6 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   rank_init_time = utils::wclock() - start;
   fprintf(stderr, "total: %.2Lf\n", rank_init_time);
 
-
   //----------------------------------------------------------------------------
   // STEP 2: compute symbol counts and the last symbol of the left block.
   //----------------------------------------------------------------------------
@@ -159,8 +158,6 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   --count[0];
   for (long i = 0, s = 0, t; i < 256; ++i)
     { t = count[i]; count[i] = s; s += t; }
-
-
 
   //----------------------------------------------------------------------------
   // STEP 3: compute starting positions for all streaming threads.
@@ -190,7 +187,6 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   for (long j = lrange_beg; j < lrange_end; ++j)
     initial_ranks[n_threads - 1] += block_rank_matrix[j][rrange_end - 1];
 
-
   // 3.b
   //
   // Compute the starting position for all
@@ -202,7 +198,6 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     long stream_block_size = stream_block_end - stream_block_beg;
     const unsigned char *pat = text + stream_block_end;
 
-    // i-th thread streams text[stream_block_beg[i]..stream_block_end[i]), right-to-left.
     threads[i] = new std::thread(compute_range<pagearray_bwtsa_type>,
         text, left_block_beg, left_block_size, pat, prev_stream_block_size,
         std::ref(bwtsa), std::ref(initial_ranges[i]));
@@ -251,8 +246,8 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
         // Valid values for mid are in [left..right).
         long mid = (left + right) / 2;
 
-        // Check if suffix starting at position stream_block_end is larger
-        // than the one starting at block_beg + bwtsa[ret].sa in the text.
+        // Check if suffix starting at position suf_start is larger
+        // than the one starting at block_beg + bwtsa[mid].sa in the text.
         // We know they have a common prefix of length prev_stream_block_size.
         if ((long)bwtsa[mid].sa + prev_stream_block_size >= left_block_size) {
           if (gt->get(text_length - 1 - (suf_start + left_block_size - (long)bwtsa[mid].sa - 1))) left = mid + 1;
@@ -277,15 +272,12 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   }
   fprintf(stderr, "\n");
 
-
   //----------------------------------------------------------------------------
-  // STEP 4: allocate gap array. As explained in the description of the module
-  //         on the top of the page, the gap array is indexed from 0 to
+  // STEP 4: allocate gap array. The gap array is indexed from 0 to
   //         left_block_size so the number of elements is left_block_size + 1.
   //----------------------------------------------------------------------------
   start = utils::wclock();
   gap = new inmem_gap_array(left_block_size + 1);
-
 
   //----------------------------------------------------------------------------
   // STEP 5: allocate buffers, buffer polls and auxiliary arrays.
@@ -313,9 +305,8 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   if (allocations_time > 0.05L)
     fprintf(stderr, "    Allocations: %.2Lf\n", allocations_time);
 
-
   //----------------------------------------------------------------------------
-  // STEP 6: stream.
+  // STEP 6: run the parallel streaming.
   //----------------------------------------------------------------------------
 
   // Start streaming threads.
@@ -327,9 +318,9 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     long end = std::min(beg + max_stream_block_size, right_block_end);
 
     threads[t] = new std::thread(inmem_parallel_stream<rank_type, saidx_t>,
-      text, text_length, beg, end, last, count, full_gap_buffers, empty_gap_buffers,
-      initial_ranks[t], i0, rank, gap->m_length, max_threads, gt,
-      temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
+      text, text_length, beg, end, last, count, full_gap_buffers,
+      empty_gap_buffers, initial_ranks[t], i0, rank, gap->m_length, max_threads,
+      gt, temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
   }
 
   // Start updating thread.
@@ -346,7 +337,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
       streaming_speed);
 
   //----------------------------------------------------------------------------
-  // STEP 7: clean up and sort m_excess.
+  // STEP 7: clean up and sort gap->m_excess.
   // XXX Consider using gnu parallel sort.
   //----------------------------------------------------------------------------
   start = utils::wclock();
@@ -367,7 +358,6 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   long double cleaning_time = utils::wclock() - start;
   if (cleaning_time > 0.1L)
     fprintf(stderr, "    Cleaning: %.2Lf\n", cleaning_time);
-
 }
 
 }  // namespace inmem_psascan_private
