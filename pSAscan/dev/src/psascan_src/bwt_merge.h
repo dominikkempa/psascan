@@ -33,7 +33,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-// XXX The merge_bwt function should probably be tested more thoroughly.
 #ifndef __PSASCAN_SRC_BWT_MERGE_H_INCLUDED
 #define __PSASCAN_SRC_BWT_MERGE_H_INCLUDED
 

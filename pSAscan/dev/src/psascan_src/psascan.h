@@ -70,7 +70,6 @@ void pSAscan(std::string input_filename, std::string output_filename,
   fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
   fprintf(stderr, "Gap filename = %s\n", gap_filename.c_str());
   fprintf(stderr, "Input length = %ld (%.1LfMiB)\n", length, 1.L * length / (1L << 20));
-  fprintf(stderr, "\n");
 
   long ram_for_threads = n_gap_buffers * gap_buf_size;  // for buffers
   if (ram_use / 5.2L < (long double)(1L << 31))  // for oracle
@@ -90,13 +89,13 @@ void pSAscan(std::string input_filename, std::string output_filename,
   fprintf(stderr, "RAM budget = %ld (%.1LfMiB)\n", ram_use, 1.L * ram_use / (1L << 20));
   fprintf(stderr, "RAM budget (excluding threads) = %ld (%.1LfMiB)\n",
       ram_use_excluding_threads, 1.L * ram_use_excluding_threads / (1L << 20));
-  long max_block_size = std::max(2L, (long)(ram_use_excluding_threads / 5.2L));
 
-  fprintf(stderr, "Max block size = %ld (%.1LfMiB)\n\n", max_block_size, 1.L * max_block_size / (1L << 20));
-  fprintf(stderr, "Parallel settings:\n");
-  fprintf(stderr, "  #streaming threads = %ld\n", max_threads);
-  fprintf(stderr, "  #gap buffers = %ld\n", n_gap_buffers);
-  fprintf(stderr, "  gap buffer size = %ld\n\n", gap_buf_size);
+  long max_block_size = std::max(2L, (long)(ram_use_excluding_threads / 5.2L));
+  fprintf(stderr, "Max block size = %ld (%.1LfMiB)\n", max_block_size, 1.L * max_block_size / (1L << 20));
+
+  fprintf(stderr, "Detected number of threads = %ld\n", max_threads);
+  fprintf(stderr, "Number of gap buffers = %ld\n", n_gap_buffers);
+  fprintf(stderr, "Gap buffer size = %ld\n", gap_buf_size);
 
   // Check if the maximum number of open files
   // is large enough for the merging to work.
@@ -114,6 +113,10 @@ void pSAscan(std::string input_filename, std::string output_filename,
         (long)rlimit_res.rlim_cur, max_open_files_estimated);
     std::exit(EXIT_FAILURE);
   }
+
+  fprintf(stderr, "System limit on number of open files = %ld\n", rlimit_res.rlim_cur);
+  fprintf(stderr, "Max open files during computation = %ld\n", max_open_files_estimated);
+  fprintf(stderr, "Verbose = %s\n", verbose ? "true" : "false");
 
   long double start = utils::wclock();
   if (max_block_size < (1L << 31)) {  // XXX (1L << 32)?

@@ -178,16 +178,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   typedef pagearray<value_type, pagesize_log> output_type;
 
   //----------------------------------------------------------------------------
-  // STEP 1: compute the initial parameters for each thread. For now, we do it
-  //         seqentially. Each thread gets:
-  //
-  //  - long left_idx, right_idx -- indices to first elems from aubarrays
-  //  - initial_bckt_size -- how many element from right seq goes first
-  //  - res_size --  number of elements to process
-  //  - res_beg -- index to the first elements of the output
-  //
-  // In short, if we did it sequentially, the thread would just produce the
-  // elements of the output in the range [res_beg .. rea_beg + res_size).
+  // STEP 1: compute the initial parameters for each thread.
   //----------------------------------------------------------------------------
   fprintf(stderr, "queries: ");
   long double start = utils::wclock();
@@ -225,7 +216,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   delete[] gap_query;
   delete[] gap_answer_a;
   delete[] gap_answer_b;
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 2: merge the arrays.
@@ -288,7 +279,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
     }
   }
   delete[] usedpage;
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
 
   return result;
 }

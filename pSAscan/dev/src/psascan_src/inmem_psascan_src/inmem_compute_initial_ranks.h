@@ -353,7 +353,7 @@ void compute_ranges_1(const unsigned char *text, long text_length,
   // pat_start + 2 * max_block_size <= text_length.
   if (0 > row || row >= column || column >= n_blocks - 2 ||
       pat_start + 2L * max_block_size > text_length) {
-    fprintf(stdout, "\nError: invariant in compute_ranges_1 failed.\n");
+    fprintf(stdout, "\n\nError: invariant in compute_ranges_1 failed.\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   }
@@ -391,7 +391,7 @@ void compute_ranges_1(const unsigned char *text, long text_length,
     long check_left = smaller;
     long check_right = smaller + equal;
     if (primary_range[row][column] != std::make_pair(check_left, check_right)) {
-      fprintf(stdout, "\nError: incorrect primary range!\n");
+      fprintf(stdout, "\n\nError: incorrect primary range!\n");
       std::fflush(stdout);
       std::exit(EXIT_FAILURE);
     }
@@ -427,7 +427,7 @@ void compute_ranges_1(const unsigned char *text, long text_length,
     long check_left = smaller;
     long check_right = smaller + equal;
     if (secondary_range[row][column] != std::make_pair(check_left, check_right)) {
-      fprintf(stdout, "\nError: incorrect secondary range!\n");
+      fprintf(stdout, "\n\nError: incorrect secondary range!\n");
       std::fflush(stdout);
       std::exit(EXIT_FAILURE);
     }
@@ -461,7 +461,7 @@ void compute_ranges_2(const unsigned char *text, long text_length,
   // and pat_start + max_block_size == text_length.
   if (0 > row || row >= column || column != n_blocks - 2 ||
         pat_start + max_block_size != text_length) {
-    fprintf(stdout, "\nError: invariant in compute_ranges_2 failed.\n");
+    fprintf(stdout, "\n\nError: invariant in compute_ranges_2 failed.\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   }
@@ -499,7 +499,7 @@ void compute_ranges_2(const unsigned char *text, long text_length,
     long check_left = smaller;
     long check_right = smaller + equal;
     if (primary_range[row][column] != std::make_pair(check_left, check_right)) {
-      fprintf(stdout, "\nError: incorrect primary range!\n");
+      fprintf(stdout, "\n\nError: incorrect primary range!\n");
       std::fflush(stdout);
       std::exit(EXIT_FAILURE);
     }
@@ -593,7 +593,7 @@ void compute_ranges_3(const unsigned char *text, long text_length,
 
   // Check that 0 <= row < colum and column == n_blocks - 1.
   if (0 > row || row >= column || column != n_blocks - 1) {
-    fprintf(stdout, "\nError: invariant 1 in compute_ranges_3 failed.\n");
+    fprintf(stdout, "\n\nError: invariant 1 in compute_ranges_3 failed.\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   }
@@ -711,7 +711,7 @@ void compute_ranges_3(const unsigned char *text, long text_length,
   secondary_range[row][column] = std::make_pair(left, right);
 
   if (left != right && text_length <= tail_length) {
-    fprintf(stdout, "\nError: left != right && text_length <= tail_length.\n");
+    fprintf(stdout, "\n\nError: left != right && text_length <= tail_length.\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   }
@@ -885,14 +885,17 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
         // Check that both invariants hold.
         for (long j = next_primary_range_end; j + 1 < next_primary_range_end; ++j)
           if ((long)next_block_psa[j + 1].sa - (long)next_block_psa[j].sa != delta) {
-            fprintf(stdout, "Invariant 1 failed.\n"); std::exit(EXIT_FAILURE); }
+            fprintf(stdout, "\n\nError: invariant 1 in compute_block_rank_matrix failed.\n");
+            std::fflush(stdout);
+            std::exit(EXIT_FAILURE);
+          }
         for (long j = left; j < right; ++j) {
           long suf = cur_block_psa[j].sa + shift;
           bool found = false;
           for (long jj = next_primary_range_beg; jj < next_primary_range_end; ++jj)
             if ((long)next_block_psa[jj].sa == suf) { found = true; break; }
           if (!found) {
-            fprintf(stdout, "Invariant 2 failed.\n");
+            fprintf(stdout, "\n\nError: invariant 2 in compute_block_rank_matrix failed.\n");
             std::fflush(stdout);
             std::exit(EXIT_FAILURE);
           }

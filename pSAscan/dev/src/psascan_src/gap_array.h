@@ -182,7 +182,7 @@ struct buffered_gap_array {
 
     long double gap_write_time = utils::wclock() - gap_write_start;
     long double io_speed = (bytes_written / (1024.L * 1024)) / gap_write_time;
-    fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", gap_write_time, io_speed);
+    fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", gap_write_time, io_speed);
   }
   
   

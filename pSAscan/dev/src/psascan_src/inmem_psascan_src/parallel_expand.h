@@ -58,7 +58,7 @@ S *parallel_expand(T *tab, long length, long max_threads) {
 
   long diff = (long)sizeof(S) - (long)sizeof(T);
   if (!diff) {
-    fprintf(stderr, "Error: expanding requires sizeof(T) < sizeof(S)\n");
+    fprintf(stderr, "\n\nError: expanding requires sizeof(T) < sizeof(S)\n");
     std::exit(EXIT_FAILURE);
   }
 

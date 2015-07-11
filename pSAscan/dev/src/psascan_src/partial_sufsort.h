@@ -395,7 +395,6 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   // Copy the BWT of the left half-block to separate array.
   unsigned char *left_block_bwt = NULL;
   if (right_block_size > 0) {
-    // XXX when I fix the in-memory SAscan, this step will be obsolete.
     fprintf(stderr, "    Copy BWT of left half-block to separate array: ");
     long double left_bwt_copy_start = utils::wclock();
     left_block_bwt = (unsigned char *)malloc(left_block_size);
@@ -406,8 +405,6 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   // 2.f
   //
   // Write gt_begin of the left half-block to disk.
-  // Note that gt_begin of the block is the part of the output of this function.
-  // It is only needed if the block is not the first block of the text.
   if (!first_block) {
     fprintf(stderr, "    Write gt_begin to disk: ");
     long double left_gt_begin_rev_save_start = utils::wclock();
@@ -439,7 +436,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   //    half-blocks. Note that the partial SA of the left half-block is already
   //    in memory.
   //----------------------------------------------------------------------------
-  if (right_block_size == 0) {  // STEP 3, case I
+  if (right_block_size == 0) {
     hblock_info.push_back(info_left);
     free(left_block);
     free(left_block_sabwt);
@@ -529,10 +526,8 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   utils::drop_cache();
 #endif
 
-
   //----------------------------------------------------------------------------
-  // STEP 4: Compute the BWT for the block. This step is only performed
-  //         if the block under consideration is not the last block of text
+  // STEP 4: Compute the BWT for the block.
   //
   // RAM:
   // - handle to block_psa,
@@ -651,7 +646,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   // 5.b
   //
   // Compute gap for the block. During this step we also compute gt_begin
-  // for the new tail (i.e., the block and the old tail).
+  // for the new tail.
   // RAM: block_rank, block_gap_array, block_gap.
   compute_gap<block_offset_type>(block_rank, block_size, block_gap, block_tail_beg, block_tail_end, text_length,
       max_threads, block_i0, gap_buf_size, block_last_symbol, block_initial_ranks, text_filename,

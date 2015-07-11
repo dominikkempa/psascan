@@ -57,7 +57,7 @@ S *parallel_shrink(T *tab, long length, long max_threads) {
 
   long diff = (long)sizeof(T) - (long)sizeof(S);
   if (!diff) {
-    fprintf(stderr, "Error: shrinking requires sizeof(T) > sizeof(S)\n");
+    fprintf(stderr, "\n\nError: shrinking requires sizeof(T) > sizeof(S)\n");
     std::exit(EXIT_FAILURE);
   }
 

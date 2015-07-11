@@ -87,14 +87,11 @@ void rerename_block(unsigned char *block, long block_length) {
 
 //==============================================================================
 // Given gt bitvectors, compute partial suffix arrays of blocks.
-// To do this, in parallel:
-//   1) rename the blocks
-//   2) run divsufsort on each block
 //==============================================================================
 template<typename saidx_t>
 void initial_partial_sufsort(unsigned char *, long, bitvector *,
     bwtsa_t<saidx_t> *, long, long, bool) {
-  fprintf(stderr, "Error: initial_partial_sufsort: given saidx_t is "
+  fprintf(stderr, "\n\nError: initial_partial_sufsort: given saidx_t is "
       "not supported, sizeof(saidx_t) = %ld\n", (long)sizeof(saidx_t));
   std::exit(EXIT_FAILURE);
 }
@@ -112,7 +109,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
 
   // XXX change this parallelism to vertical!
   if (n_blocks > 1 || has_tail) {
-    fprintf(stderr, "  Renaming blocks: ");
+    fprintf(stderr, "  Rename blocks: ");
     start = utils::wclock();
     bool *renaming_error = new bool[n_blocks];
     std::fill(renaming_error, renaming_error + n_blocks, false);
@@ -130,7 +127,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     for (long i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
     bool err = false;
     for (long i = 0; i < n_blocks; ++i)
@@ -146,7 +143,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   }
 
   if (max_block_size >= (2L << 30)) {  // Use 64-bit divsufsort.
-    fprintf(stdout, "\nError: 2GiB+ partial suffix arrays are not "
+    fprintf(stdout, "\n\nError: 2GiB+ partial suffix arrays are not "
         "yet supported by the internal-memory pSAscan.\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
@@ -156,7 +153,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     //--------------------------------------------------------------------------
     // STEP 2: Compute suffix arrays in parallel.
     //--------------------------------------------------------------------------
-    fprintf(stderr, "  Running divsufsort32 in parallel: ");
+    fprintf(stderr, "  Run divsufsort32: ");
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
     for (long i = 0; i < n_blocks; ++i) {
@@ -172,19 +169,19 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     for (long i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
-    fprintf(stderr, "  Expanding 32-bit integers to bwtsa objects: ");
+    fprintf(stderr, "  Expand 32-bit integers to bwtsa objects: ");
     start = utils::wclock();
     parallel_expand<int, bwtsa_t<uint40> >(temp_sa, text_length, max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
   //----------------------------------------------------------------------------
   // STEP 3: Restore the original text.
   //----------------------------------------------------------------------------
   if (n_blocks > 1 || has_tail) {
-    fprintf(stderr, "  Rerenaming blocks: ");
+    fprintf(stderr, "  Rerename blocks: ");
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
     for (long i = 0; i < n_blocks; ++i) {
@@ -200,7 +197,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     for (long i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 }
 
@@ -216,7 +213,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   //----------------------------------------------------------------------------
   // XXX change this parallelism to vertical!
   if (n_blocks > 1 || has_tail) {
-    fprintf(stderr, "  Renaming blocks: ");
+    fprintf(stderr, "  Rename blocks: ");
     start = utils::wclock();
     bool *renaming_error = new bool[n_blocks];
     std::fill(renaming_error, renaming_error + n_blocks, false);
@@ -234,7 +231,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     for (long i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
     bool err = false;
     for (long i = 0; i < n_blocks; ++i)
@@ -254,7 +251,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   //----------------------------------------------------------------------------
   // STEP 2: Compute suffix arrays in parallel.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "  Running divsufsort32 in parallel: ");
+  fprintf(stderr, "  Run divsufsort32: ");
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
   for (long i = 0; i < n_blocks; ++i) {
@@ -269,19 +266,19 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();
   for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
-  fprintf(stderr, "  Expanding 32-bit integers to bwtsa objects: ");
+  fprintf(stderr, "  Expand 32-bit integers to bwtsa objects: ");
   start = utils::wclock();
   parallel_expand<int, bwtsa_t<int> >(temp_sa, text_length, max_threads);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 3: Restore the original text.
   //----------------------------------------------------------------------------
   // XXX: change parallelism to vertical.
   if (n_blocks > 1 || has_tail) {
-    fprintf(stderr, "  Rerenaming blocks: ");
+    fprintf(stderr, "  Rerename blocks: ");
     start = utils::wclock();
     threads = new std::thread*[n_blocks];
     for (long i = 0; i < n_blocks; ++i) {
@@ -297,7 +294,7 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     for (long i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 }
 

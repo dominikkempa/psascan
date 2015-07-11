@@ -53,7 +53,6 @@
 namespace psascan_private {
 
 // Merge partial suffix arrays into final suffix array.
-// XXX write a separate tests for the new merging.
 template<typename block_offset_type>
 void merge(std::string output_filename, long ram_use, std::vector<half_block_info<block_offset_type> > &hblock_info) {
   long n_block = (long)hblock_info.size();

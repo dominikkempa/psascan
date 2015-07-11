@@ -33,33 +33,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-// Class implementing a file that we can read sequentially and simultanously
-// release the disk space for the already scanned prefix.
-//
-// The constructor is given a `filename' (partial files with be named
-// filename.part0, filename.part1, ...) and a maximal size (in bytes) of a
-// single file.
-//
-// Example: create, write and read a sequence distributed into 10MiB files.
-// ----------------------------------------------------------------------------
-// static const int n = (100 << 20);              // prepare some data to write
-// int *t = new int[n], i, S = 0;
-// for (i=0; i<n; ++i) t[i] = 5*i;
-//
-// distributed_file<int> *f = new distributed_file<int>("input.sa", 10 << 20);
-// f->initialize_writing(2 << 20);                   // 2MiB buffer for writing
-// for (i=0; i<n; ++i) f->write(t[i]);                         // single writes
-// f->write(t, t + n);                        // block writes are also possible
-// for (i=0; i<b; ++i) f->write(t[i]);   // both write types can be interleaved
-// f->finish_writing();                   // all files remain closed after this
-//
-// f->initialize_reading(1 << 20);                   // 1MiB buffer for reading
-// for (i=0; i<n; ++i) S += f->read();   // simultanously destroys scanned file
-// f->finish_reading();   // NOTE: this fails if you don't read the whole file!
-//
-// delete f;
-// ----------------------------------------------------------------------------
-
 #ifndef __PSASCAN_SRC_DISTRIBUTED_FILE_H_INCLUDED
 #define __PSASCAN_SRC_DISTRIBUTED_FILE_H_INCLUDED
 

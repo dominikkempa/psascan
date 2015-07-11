@@ -123,7 +123,7 @@ void parallel_stream(
         long double speed = (total_streamed / (1024.L * 1024)) / elapsed;
 
         stdout_mutex.lock();
-        fprintf(stderr, "\r    Stream: %.2Lf%%. Time: %.2Lf. Speed: %.2LfMiB/s",
+        fprintf(stderr, "\r    Stream: %.2Lf%%. Time: %.2Lfs. Speed: %.2LfMiB/s",
             (total_streamed * 100.L) / info->m_tostream, elapsed, speed);
         stdout_mutex.unlock();
       }

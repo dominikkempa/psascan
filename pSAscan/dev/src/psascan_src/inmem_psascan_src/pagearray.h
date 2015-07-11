@@ -57,21 +57,6 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-//==============================================================================
-// The pagearray stores the array of objects of given type in a permuted form.
-// Accessing element at index i (for i = 0, .., m_length - 1) for a pagearray
-// a is done as follows:
-//
-//  a.pageindex[i >> a.pagesize_log][i & a.pagesize_mask];
-//
-// All addresses of pages are in the range [a.origin..a.origin + a.m_length).
-// Furthermore, if m_length % pagesize is not 0 (that is, there exists only
-// partially filled page) then that page is the last page in the index. Also,
-// we do not assume anything about its content following the values from the
-// array that that pages has to contain. It could be garbage or memory used by
-// some other array in the program. You should never read or write anything
-// from there.
-//==============================================================================
 template<typename T, unsigned k_pagesize_log = 12U>
 struct pagearray {
   static const unsigned pagesize_log = k_pagesize_log;

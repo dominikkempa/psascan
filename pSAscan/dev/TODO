@@ -2,6 +2,8 @@ Ordered roughly by priority (from the most urgent):
 
 * Remove the merging phase from the case where there is only one half-block
 
+* The merge_bwt function should probably be tested more thoroughly.
+
 * Use O_DIRECT for I/O to prevent caching: for starters, implement the
   O_DIRECT version of stream_reader and use during streaming; disk pages will
   still be cached in RAM (due to the use of async_multifile_bitstream_reader

@@ -146,7 +146,7 @@ class rank4n {
       unsigned char *bwt = (unsigned char *)malloc(length + k_cblock_size);
       long double alloc_time = utils::wclock() - start;
       if (alloc_time > 0.05L)
-        fprintf(stderr, "alloc: %.2Lf ", alloc_time);
+        fprintf(stderr, "alloc: %.2Lfs ", alloc_time);
 
       encode_type_I(ptext, bwt, max_threads);
       encode_type_II(bwt, max_threads);
@@ -197,7 +197,7 @@ class rank4n {
         free(occ[i]);
       free(occ);
 
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+      fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
 
 
       //------------------------------------------------------------------------
@@ -254,7 +254,7 @@ class rank4n {
       delete[] cblock_type;
       delete[] rare_trunk_size;
 
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+      fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
     }
 
     static void encode_type_I_aux(rank4n &r, const pagearray_type *ptext,
@@ -479,7 +479,7 @@ class rank4n {
       for (unsigned long i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
 
-      fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+      fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
     }
 
     static void encode_type_II_aux(rank4n &r, unsigned long cblock_range_beg,

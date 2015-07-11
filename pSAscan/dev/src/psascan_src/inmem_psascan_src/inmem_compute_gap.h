@@ -33,74 +33,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-//==============================================================================
-// This file implements a method:
-//
-// template<typename T>
-// void compute_gap(
-//                   unsigned char*    text,
-//                   long              text_length,
-//                   long              left_block_beg,
-//                   long              left_block_size,
-//                   long              right_block_size,
-//                   T*              partial_sa,
-//                   bitvector*        gt_in,
-//                   bitvector*&       gt_out,
-//                   bool              compute_gt_out,
-//                   inmem_gap_array*  gap,
-//                   long              max_threads
-// );
-//
-// DESCRIPTION OF INPUT PARAMETERS:
-// --------------------------------
-//
-//  * The algorithm deals with two substrings of text called left and right
-//    block. Right block start immediately after left block and has size
-//    right_block_size. Left block starts at left_block_size and has length
-//    left_block_size. Formally:
-//    - left block  = text[left_block_beg . .left_block_beg + left_block_size)
-//    - right block = text[left_block_end .. left_block_end + right_block_size)
-//      where left_block_end = left_block_beg + left_block_size.
-//
-//  * partial_sa is an array of size left_block_size that contains permutation
-//    of integers 0, 1, .., left_block_size - 1. It contains the ordering of
-//    the suffixes starting inside the left block and extending until the end
-//    of text.
-//
-//  * gt_in is a bitvector of length right_block_size + 1. We have gt[i] = 1
-//    iff text[left_block_end + i..text_length) > text[left_block_end ..
-//    text_length). Formally, we never need gt[0], so it could be omitted.
-//
-//  * gt_out is a bitvector of length left_block_size + right_blocK_size + 1
-//    to be computed. It tells whether suffixes at positions starting inside
-//    left and right block (and also on one position after the right block)
-//    are greater than the suffix starting at left_block_beg. It is
-//    indexed from 0, so we know what gt_out[0] will always be 0, since
-//    it compares suffix starting at left_block_beg with itself.
-//
-//  * bool compute_gt_out tells, whether gt_out should be computed or not.
-//
-//  * gap is the pointer to the in-memory gap array that is the result of
-//    this computation. The gap array is of size left_block_size + 1 and is
-//    defined as follows:
-//    - for i = 1, .., left_block_size - 1  gap[i] = the number of suffixes
-//      starting inside the right block (and extending until the end of the
-//      string), that are lexicoographically between suffixes starting at
-//      positions left_block_beg + partial_sa[i - 1] and left_block_beg +
-//      partial_sa[i] of text (and extending until the end of of the text).
-//    - gap[0] is the number of suffixes starting inside the right block
-//      that are lexicographically smaller than the suffix of text starting
-//      at position left_block_beg + partial_sa[0].
-//    - gap[left_block_size] is the number of suffixes starting inside
-//      the right block that are lexocpgraphically larger than the suffix
-//      of text starting as position left_block_size + partial_sa[
-//      left_block_size - 1]
-//
-//  * max_threads is the desired number of threads used for computation. It
-//    should be equal to the number of physical cores installed in a machine.
-//    For CPUs with Hyper Threading, the number should be 2 * #cores.
-//==============================================================================
-
 #ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_GAP_H_INCLUDED
 #define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_GAP_H_INCLUDED
 
@@ -140,12 +72,12 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   //----------------------------------------------------------------------------
   // STEP 1: build rank data structure over BWT.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "    Building rank: ");
+  fprintf(stderr, "    Build rank: ");
   long double start = utils::wclock();
   typedef rank4n<saidx_t, pagesize_log> rank_type;
   rank_type *rank = new rank_type(&bwtsa, left_block_size, max_threads);
   rank_init_time = utils::wclock() - start;
-  fprintf(stderr, "total: %.2Lf\n", rank_init_time);
+  fprintf(stderr, "total: %.2Lfs\n", rank_init_time);
 
   //----------------------------------------------------------------------------
   // STEP 2: compute symbol counts and the last symbol of the left block.
@@ -170,7 +102,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   while (max_stream_block_size & 7) ++max_stream_block_size;
   long n_threads = (right_block_size + max_stream_block_size - 1) / max_stream_block_size;
 
-  fprintf(stderr, "    Computing initial ranks: ");
+  fprintf(stderr, "    Compute initial ranks: ");
   start = utils::wclock();
   std::vector<long> initial_ranks(n_threads);
   std::vector<std::pair<long, long> > initial_ranges(n_threads);
@@ -208,7 +140,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   for (long i = 0; i + 1 < n_threads; ++i) threads[i]->join();
   for (long i = 0; i + 1 < n_threads; ++i) delete threads[i];
   delete[] threads;
-  fprintf(stderr, "%.2Lf ", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
 
   bool nontrivial_range = false;
   for (long j = 0; j < n_threads - 1; ++j)
@@ -224,7 +156,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     typedef sparse_isa<pagearray_type, rank_type, 12U> sparse_isa_type;
     sparse_isa_type *sp_isa = new sparse_isa_type(&bwtsa, text +
         left_block_beg, rank, left_block_size, i0, max_threads);
-    fprintf(stderr, "%.3Lf ", utils::wclock() - start);
+    fprintf(stderr, "%.3Lfs ", utils::wclock() - start);
 
     // 3.d
     //
@@ -265,7 +197,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     }
 
     delete sp_isa;
-    fprintf(stderr, "%.3Lf ", utils::wclock() - start);
+    fprintf(stderr, "%.3Lfs ", utils::wclock() - start);
   } else {
     for (long j = 0; j + 1 < n_threads; ++j)
       initial_ranks[j] = initial_ranges[j].first;
@@ -303,14 +235,14 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
   long double allocations_time = utils::wclock() - start;
   if (allocations_time > 0.05L)
-    fprintf(stderr, "    Allocations: %.2Lf\n", allocations_time);
+    fprintf(stderr, "    Allocations: %.2Lfs\n", allocations_time);
 
   //----------------------------------------------------------------------------
   // STEP 6: run the parallel streaming.
   //----------------------------------------------------------------------------
 
   // Start streaming threads.
-  fprintf(stderr, "    Streaming: ");
+  fprintf(stderr, "    Stream: ");
   start = utils::wclock();
   threads = new std::thread*[n_threads];
   for (long t = 0; t < n_threads; ++t) {
@@ -333,7 +265,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   streaming_time = utils::wclock() - start;
   long double streaming_speed =
     (right_block_size / (1024.L * 1024)) / streaming_time;
-  fprintf(stderr, "%.2Lf (%.2LfMiB/s)\n", streaming_time,
+  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", streaming_time,
       streaming_speed);
 
   //----------------------------------------------------------------------------
@@ -357,7 +289,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
 
   long double cleaning_time = utils::wclock() - start;
   if (cleaning_time > 0.1L)
-    fprintf(stderr, "    Cleaning: %.2Lf\n", cleaning_time);
+    fprintf(stderr, "    Clean: %.2Lfs\n", cleaning_time);
 }
 
 }  // namespace inmem_psascan_private

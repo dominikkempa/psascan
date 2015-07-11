@@ -287,10 +287,10 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   //----------------------------------------------------------------------------
 
   // Allocate ane zero-initialize (in parallel) bitvectors.
-  fprintf(stderr, "  Allocating: ");
+  fprintf(stderr, "  Allocate: ");
   start = utils::wclock();
   bitvector *undecided = new bitvector(text_length);
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
   // all_decided[i] == true, if all bits inside block i were
   // decided in the first stage. This can be used by threads in the
@@ -298,7 +298,7 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   bool *all_decided = new bool[n_blocks];
 
   // Process blocks right-to-left.
-  fprintf(stderr, "  Computing decided bits: ");
+  fprintf(stderr, "  Compute decided bits: ");
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
   for (long i = 0; i < n_blocks; ++i) {
@@ -317,7 +317,7 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   for (long i = 0; i < n_blocks; ++i) threads[i]->join();
   for (long i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 2: compute the undecided bits in the gt bitvectors.
@@ -330,7 +330,7 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
     ++max_microblock_size;
   long n_microblocks = (max_block_size + max_microblock_size - 1) / max_microblock_size;
 
-  fprintf(stderr, "  Computing undecided bits: ");
+  fprintf(stderr, "  Compute undecided bits: ");
   start = utils::wclock();
   threads = new std::thread*[n_microblocks];
   for (long i = 0; i < n_microblocks; ++i) {
@@ -344,7 +344,7 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
   // Wait for the threads to finish and clean up.
   for (long i = 0; i < n_microblocks; ++i) threads[i]->join();
   for (long i = 0; i < n_microblocks; ++i) delete threads[i];
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   
   // Fill in the skipped (due to parallel byte access issue) undecided bits.
   for (long i = 0; i < n_microblocks; ++i) {
@@ -355,12 +355,12 @@ void compute_initial_gt_bitvectors(const unsigned char *text, long text_length,
         gt, undecided, all_decided);
   }
 
-  fprintf(stderr, "  Deallocating: ");
+  fprintf(stderr, "  Deallocate: ");
   start = utils::wclock();
   delete[] threads;
   delete undecided;
   delete[] all_decided;
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 }
 
 }  // namespace inmem_psascan_private

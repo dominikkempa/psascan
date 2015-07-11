@@ -51,11 +51,6 @@ namespace utils {
 // Time
 long double wclock();
 
-// System
-void execute(std::string cmd);
-void unsafe_execute(std::string cmd);
-void drop_cache();
-
 // Basic file handling
 std::FILE *open_file(std::string fname, std::string mode);
 long file_size(std::string fname);

@@ -94,7 +94,7 @@ void inmem_psascan(
   long double start;
 
   if ((long)std::numeric_limits<saidx_t>::max() < text_length) {
-    fprintf(stderr, "Error: text is too long (%ld bytes),\n", text_length);
+    fprintf(stderr, "\n\nError: text is too long (%ld bytes),\n", text_length);
     fprintf(stderr, "       std::numeric_limits<saidx_t>::max() = %ld\n",
         (long)std::numeric_limits<saidx_t>::max());
     std::exit(EXIT_FAILURE);
@@ -114,7 +114,7 @@ void inmem_psascan(
   bool has_tail = (text_end != supertext_length);
 
   if (!has_tail && tail_prefix_preread != NULL) {
-    fprintf(stderr, "Error: has_tail == false but tail_prefix_preread != NULL\n");
+    fprintf(stderr, "\n\nError: has_tail == false but tail_prefix_preread != NULL\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -139,7 +139,7 @@ void inmem_psascan(
 
   if (!compute_gt_begin) {
     if (gt_begin) {
-      fprintf(stderr, "Error: check gt_begin == NULL failed\n");
+      fprintf(stderr, "\n\nError: check gt_begin == NULL failed\n");
       std::exit(EXIT_FAILURE);
     }
     if (n_blocks > 1 || has_tail)
@@ -187,13 +187,13 @@ void inmem_psascan(
     compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size,
         max_threads, text_end, supertext_length, tail_gt_begin_reversed,
         tail_prefix_background_reader, tail_prefix_preread);
-    fprintf(stderr, "Time: %.2Lf\n\n", utils::wclock() - start);
+    fprintf(stderr, "Total time: %.2Lfs\n\n", utils::wclock() - start);
   }
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
   initial_partial_sufsort(text, text_length, gt_begin, bwtsa, max_block_size, max_threads, has_tail);
-  fprintf(stderr, "Time: %.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "Total time: %.2Lfs\n\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 2: compute matrix of block ranks.
@@ -216,21 +216,20 @@ void inmem_psascan(
     } else free(tail_prefix_preread);
   }
 
-  fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n\n", utils::wclock() - start);
 
   //----------------------------------------------------------------------------
   // STEP 3: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging.
   //----------------------------------------------------------------------------
   if (n_blocks > 1 || compute_gt_begin) {
-    fprintf(stderr, "Overwriting gt_end with gt_begin: ");
+    fprintf(stderr, "Overwrite gt_end with gt_begin: ");
     start = utils::wclock();
     gt_end_to_gt_begin(text, text_length, gt_begin, max_block_size);
-    fprintf(stderr, "%.2Lf\n\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n\n", utils::wclock() - start);
   }
 
-
-  float rl_ratio = 10.L; // estimated empirically
+  float rl_ratio = 10.L;  // estimated empirically
   // Note that 9n for the 32-bit version and 10n for 40-bit version are the most reasonable
   // space usages we can get. In the worst case there are two blocks, thus during the
   // merging the rank + gap array for the left block will take 2.5n. This added to the 7.125n
@@ -239,7 +238,7 @@ void inmem_psascan(
   int max_left_size = std::max(1, (int)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(saidx_t))) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
   fprintf(stderr, "Max left size = %d\n", max_left_size);
-  fprintf(stderr, "Peak memory usage during last merging = %.3Lfn\n",
+  fprintf(stderr, "Peak memory usage during last merge = %.3Lfn\n",
       (2.125L + sizeof(saidx_t)) + (5.L * max_left_size) / n_blocks);
   MergeSchedule schedule(n_blocks, rl_ratio, max_left_size);
 
@@ -255,11 +254,11 @@ void inmem_psascan(
       long block_size = block_end - block_beg;
 
       if (block_id + 1 != n_blocks || compute_bwt) {
-        fprintf(stderr, "Computing BWT for block %ld: ", block_id + 1);
+        fprintf(stderr, "Compute BWT for block %ld: ", block_id + 1);
         long double bwt_start = utils::wclock();
         compute_bwt_in_bwtsa<saidx_t>(text + block_beg, block_size,
             bwtsa + block_beg, max_threads, i0_array[block_id]);
-        fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
+        fprintf(stderr, "%.2Lfs\n", utils::wclock() - bwt_start);
       }
     }
     fprintf(stderr, "\n");
@@ -276,10 +275,10 @@ void inmem_psascan(
     if (i0) *i0 = i0_result;
 
     // Permute SA to plain array.
-    fprintf(stderr, "\nPermuting the resulting SA to plain array: ");
+    fprintf(stderr, "\nPermute the resulting SA to plain array: ");
     start = utils::wclock();
     result->permute_to_plain_array(max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
     delete result;
   } else if (compute_bwt) {
@@ -298,35 +297,35 @@ void inmem_psascan(
   unsigned char *bwt = NULL;
   if (compute_bwt) {
     // Allocate aux, copy bwt into aux.
-    fprintf(stderr, "Copying bwtsa.bwt into aux memory: ");
+    fprintf(stderr, "Copy bwtsa.bwt into aux memory: ");
     start = utils::wclock();
     bwt = (unsigned char *)malloc(text_length);
     parallel_copy<bwtsa_t<saidx_t>, unsigned char>(bwtsa, bwt, text_length, max_threads);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
-  fprintf(stderr, "Shrinking bwtsa.sa into sa: ");
+  fprintf(stderr, "Shrink bwtsa.sa into sa: ");
   start = utils::wclock();
 
   parallel_shrink<bwtsa_t<saidx_t>, saidx_t>(bwtsa, text_length, max_threads);
 
-  fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+  fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
   if (compute_bwt) {
     // Copy from aux into the end of bwtsa.
-    fprintf(stderr, "Copying bwt from aux memory to the end of bwtsa: ");
+    fprintf(stderr, "Copy bwt from aux memory to the end of bwtsa: ");
     start = utils::wclock();
     unsigned char *dest = (unsigned char *)(((saidx_t *)bwtsa) + text_length);
     parallel_copy<unsigned char, unsigned char>(bwt, dest, text_length, max_threads);
     free(bwt);
-    fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
   long double total_sascan_time = utils::wclock() - absolute_start;
-  fprintf(stderr, "\nTotal time:\n");
-  fprintf(stderr, "\tabsolute: %.2Lf\n", total_sascan_time);
-  fprintf(stderr, "\trelative: %.4Lfs/MiB\n", total_sascan_time / ((long double)text_length / (1 << 20)));
-  fprintf(stderr, "Speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_sascan_time);
+  fprintf(stderr, "\n\nComputation finished. Summary:\n");
+  fprintf(stderr, "  elapsed time: %.2Lfs (%.4Lfs/MiB)\n", total_sascan_time,
+      total_sascan_time / ((long double)text_length / (1 << 20)));
+  fprintf(stderr, "  speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_sascan_time);
 }
 
 }  // namespace inmem_psascan_private

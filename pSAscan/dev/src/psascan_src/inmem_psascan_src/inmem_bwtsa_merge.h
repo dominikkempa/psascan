@@ -142,14 +142,14 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   //----------------------------------------------------------------------------
   // STEP 3: Merge partial SAs and BWTs.
   //----------------------------------------------------------------------------
-  fprintf(stderr, "Merging blocks %ld-%ld with %ld-%ld\n",
+  fprintf(stderr, "Merge blocks %ld-%ld with %ld-%ld\n",
       lrange_beg + 1, lrange_end, rrange_beg + 1, rrange_end);
   long double start = utils::wclock();
 
   // 3.a
   //
   // Compute gap
-  fprintf(stderr, "  Computing gap:\n");
+  fprintf(stderr, "  Compute gap:\n");
   inmem_gap_array *gap;
   long double rank_init_time;
   long double streaming_time;
@@ -158,12 +158,12 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
       rsize, *l_bwtsa, gt, gap, max_threads, need_gt, left_i0, (1L << 21),
       rank_init_time, streaming_time, block_rank_matrix, lrange_beg,
       lrange_size, rrange_size);
-  fprintf(stderr, "  Time: %.2Lf\n", utils::wclock() - start1);
+  fprintf(stderr, "  Total time: %.2Lfs\n", utils::wclock() - start1);
 
   // 3.b
   //
   // Merge partial SAs and BWTs
-  fprintf(stderr, "  Merging SA/BWT:  ");
+  fprintf(stderr, "  Merge SA/BWT:  ");
   start1 = utils::wclock();
   long delta_i0;
   if (need_bwt)
@@ -172,7 +172,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
       max_threads, left_i0, delta_i0, lsize);
   result_i0 = left_i0 + delta_i0;
   long double merging_time = utils::wclock() - start1;
-  fprintf(stderr, "total: %.2Lf\n", merging_time);
+  fprintf(stderr, "total: %.2Lfs\n", merging_time);
 
   // 3.c
   //
@@ -183,12 +183,12 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   delete gap;
   long double cleaning_time = utils::wclock() - start1;
   if (cleaning_time > 0.2L)
-    fprintf(stderr, "Cleaning: %.2Lf\n", cleaning_time);
+    fprintf(stderr, "Clean: %.2Lfs\n", cleaning_time);
 
   long double time_per_elem_left = merging_time / (lsize + rsize) + rank_init_time / lsize;
   long double time_per_elem_right = merging_time / (lsize + rsize) + streaming_time / rsize;
   long double ratio = time_per_elem_right / time_per_elem_left;
-  fprintf(stderr, "Time: %.2Lf (rl_ratio = %.3Lf)\n",
+  fprintf(stderr, "Total time: %.2Lfs (rl_ratio = %.3Lf)\n",
       utils::wclock() - start, ratio);
 
   return result;
