@@ -79,7 +79,6 @@ void parallel_stream(
     long gap_buf_size,
     const multifile *tail_gt_begin,
     long n_increasers) {
-
   static const int max_buckets = 4096;
   int *block_id_to_sblock_id = new int[max_buckets];
 
@@ -168,7 +167,7 @@ void parallel_stream(
       while (bucket_id_end < n_buckets && size < ideal_sblock_size)
         size += block_count[bucket_id_end++];
       b->sblock_size[t] = size;
-      max_sbucket_size = std::min(max_sbucket_size, size);
+      max_sbucket_size = std::max(max_sbucket_size, size);
       for (long id = bucket_id_beg; id < bucket_id_end; ++id)
         block_id_to_sblock_id[id] = t;
       bucket_id_beg = bucket_id_end;
