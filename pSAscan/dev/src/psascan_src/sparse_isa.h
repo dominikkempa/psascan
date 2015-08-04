@@ -8,7 +8,7 @@
  * Lempel-Ziv (LZ77) factorization described in
  *
  *   Dominik Kempa, Simon J. Puglisi:
- *   Lempel-Ziv factorization: Simple, fast, practical.
+ *   Lempel-Ziv Factorization: Simple, Fast, Practical.
  *   In Proc. ALENEX 2013, p. 103-112.
  *
  * @section LICENCE
