@@ -8,7 +8,7 @@
  * The paged array representation, as described in Appending B of
  *
  *   Juha Karkkainen, Peter Sanders, Stefan Burkhardt:
- *   Linear work suffix array construction.
+ *   Linear Work Suffix Array Construction.
  *   J. ACM 53(6), p. 918-936 (2006).
  *
  * @section LICENCE
@@ -72,7 +72,7 @@ struct pagearray {
   value_type *m_origin;
   value_type **m_pageindex;
 
-  // Initialize empty page array, possible it will be
+  // Initialize empty page array, possibly it will be
   // a result of merging two page arrays.
   pagearray(value_type *origin, long length) {
     m_length = length;
@@ -166,7 +166,7 @@ struct pagearray {
         while (selector < n_pages && a.m_pageindex[selector] == a.get_page_addr(selector))
           ++selector;
 
-        // Exit, if the selector does not give any candidate.
+        // Exit if the selector does not give any candidate.
         if (selector == n_pages) {
           lk.unlock();
           return;
@@ -178,16 +178,16 @@ struct pagearray {
         lk.unlock();
 
         // Lock a candidate page and check if it's still good.
-        // If yes, keep lock and proceed to process it.
+        // If yes, keep the lock and exit the loop to process the page.
         if (mutexes[start].try_lock() && a.m_pageindex[start] != a.get_page_addr(start)) break;
       }
 
-      // Invariant: we have found a good candidate
+      // Invariant: we found a good candidate
       // page and have lock on mutexes[start].
 
-      // First, we create temporary space for the
-      // content of page at index[start] and move
-      // the content at index[start] to that temp space.
+      // First, create temporary space for the content
+      // of page at index[start] and move the content
+      // at index[start] to that temp space.
       value_type *temp = new value_type[pagesize];
       std::copy(a.m_pageindex[start], a.m_pageindex[start] + pagesize, temp);
       std::swap(a.m_pageindex[start], temp);
