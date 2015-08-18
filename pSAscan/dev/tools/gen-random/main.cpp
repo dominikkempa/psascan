@@ -18,12 +18,19 @@ int main(int argc, char **argv) {
   fprintf(stderr, "length = %ld\n", length);
   fprintf(stderr, "sigma = %ld\n", sigma);
 
-  for (long i = 0; i < length; ++i) {
-    if (i % (1 << 22) == 0)
-      fprintf(stderr, "%.2Lf%%\r", (100.L * i) / length);
-    unsigned char c = utils::random_int(0, sigma - 1);
-    std::fputc(c, stdout);
+  static const long bufsize = (4L << 20);
+  unsigned char *buf = new unsigned char[bufsize];
+
+  long written = 0;
+  while (written < length) {
+    fprintf(stderr, "\r%.2Lf%%", (100.L * written) / length);
+    long towrite = std::min(length - written, bufsize);
+    for (long j = 0; j < towrite; ++j)
+      buf[j] = utils::random_int(0, sigma - 1);
+    fwrite(buf, 1, towrite, stdout);
+    written += towrite;
   }
-  fprintf(stderr, "Finished.\n");
+
+  fprintf(stderr, "\rFinished.\n");
 }
 
