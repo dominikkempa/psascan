@@ -5,7 +5,11 @@
  *
  * @section DESCRIPTION
  *
- * A general rank data structure. Basic idea of the encoding is from
+ * This file contains implementation of a data structure that answers
+ * general rank queries, i.e., queries of the form "how many occurrences
+ * of symbol c are in text[0..i)". The data structure needs about 4.2n
+ * bytes of RAM for text of length n bytes. Currently it supports only
+ * sequences over byte alphabet. The basic idea of the encoding is from
  * the rank data structure used in the external-memory algorithm for
  * constructing the Burrows-Wheeler transform called bwtdisk (available
  * at: http://people.unipmn.it/manzini/bwtdisk/) described in [1]. We
@@ -14,7 +18,9 @@
  * was described in [4]. This file extends the implementation used in [4]
  * by parallelizing the construction and introducting an alternative
  * encoding (called type-I in the code). Type-I encoding is a novel
- * encoding due to present authors.
+ * encoding due to present authors. This implementation is a part of
+ * pSAscan, the parallel external-memory suffix array construction
+ * algorithm described in [5].
  *
  * References:
  * [1] Paolo Ferragina, Travis Gagie, Giovanni Manzini:
@@ -30,6 +36,9 @@
  *     Engineering a Lightweight External Memory Suffix Array Construction
  *     Algorithm.
  *     In Proc. ICABD 2014, p. 53-60.
+ * [5] Juha Karkkäinen, Dominik Kempa, Simon J. Puglisi:
+ *     Parallel External Memory Suffix Sorting.
+ *     In Proc. CPM 2015, p. 329-342.
  *
  * @section LICENCE
  *
@@ -69,13 +78,10 @@
 #include <vector>
 #include <thread>
 
-#include "utils.h"
-
 
 namespace psascan_private {
 
-template<
-  unsigned k_sblock_size_log = 24,
+template<unsigned k_sblock_size_log = 24,
   unsigned k_cblock_size_log = 20,
   unsigned k_sigma_log = 8>
 class rank4n {
@@ -111,33 +117,9 @@ class rank4n {
     unsigned *m_freq_trunk;
     unsigned *m_rare_trunk;
 
-  public:
     unsigned long *m_count;  // symbol counts
 
-  public:
-    rank4n(const unsigned char *text, unsigned long length, unsigned max_threads) {
-      m_length = length;
-      n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
-      n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
-
-      m_count = (unsigned long *)malloc(256L * sizeof(unsigned long));
-      std::fill(m_count, m_count + 256, 0UL);
-      if (!m_length) return;
-
-      m_sblock_header = (unsigned long *)malloc(n_sblocks * sizeof(unsigned long) * k_sigma);
-      m_cblock_header = (unsigned long *)malloc(n_cblocks * sizeof(unsigned long));
-      m_cblock_header2 = (unsigned long *)malloc(n_cblocks * k_sigma * sizeof(unsigned long));
-      m_cblock_mapping = (unsigned char *)malloc(n_cblocks * k_sigma * 2);
-      m_cblock_type = (unsigned char *)malloc((n_cblocks + 7) / 8);
-      m_freq_trunk = (unsigned *)calloc(n_cblocks * k_cblock_size, sizeof(unsigned));
-      std::fill(m_cblock_type, m_cblock_type + (n_cblocks + 7) / 8, 0);
-
-      encode_type_I(text, max_threads);
-      encode_type_II(text, max_threads);
-
-      m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
-    }
-
+  private:
     void encode_type_I(const unsigned char *text, long max_threads) {
       //------------------------------------------------------------------------
       // STEP 1: split all cblocks into equal size ranges (except possible the
@@ -230,6 +212,12 @@ class rank4n {
       delete[] rare_trunk_size;
     }
 
+    inline static long log2ceil(long x) {
+      long pow2 = 1, ret = 0;
+      while (pow2 < x) { pow2 <<= 1; ++ret; }
+      return ret;
+    }
+
     static void encode_type_I_aux(rank4n &r, const unsigned char *text,
         unsigned long cblock_range_beg, unsigned long cblock_range_end,
         unsigned long *rare_trunk_size, bool *cblock_type, unsigned *occ) {
@@ -289,7 +277,7 @@ class rank4n {
         // for rare char marker) to the smallest power of two.
         // Note: rare_cnt > 0, so after rounding freq_cnt <= 256.
         unsigned freq_cnt = sorted_chars.size() - rare_cnt;
-        unsigned freq_cnt_log = utils::log2ceil(freq_cnt + 1);
+        unsigned freq_cnt_log = log2ceil(freq_cnt + 1);
         freq_cnt = (1 << freq_cnt_log);
 
         // Recompute rare_cnt (note the +1).
@@ -309,7 +297,7 @@ class rank4n {
         // rare_cnt to the smallest power of two.
         unsigned rare_cnt_log = 0;
         if (rare_cnt) {
-          rare_cnt_log = utils::log2ceil(rare_cnt);
+          rare_cnt_log = log2ceil(rare_cnt);
           rare_cnt = (1 << rare_cnt_log);
         }
 
@@ -351,7 +339,7 @@ class rank4n {
 
           // Precompute helper arrays and and store lookup bits into the header.
           for (unsigned c = 0; c < k_sigma; ++c) {
-            lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 2);
+            lookup_bits_precomputed[c] = log2ceil(cblock_count[c] + 2);
             r.m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
             if (cblock_count[c])
               min_block_size_precomputed[c] = k_cblock_size / cblock_count[c];
@@ -566,6 +554,30 @@ class rank4n {
       delete[] off;
     }
 
+  public:
+    rank4n(const unsigned char *text, unsigned long length, unsigned max_threads) {
+      m_length = length;
+      n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
+      n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
+
+      m_count = (unsigned long *)malloc(256L * sizeof(unsigned long));
+      std::fill(m_count, m_count + 256, 0UL);
+      if (!m_length) return;
+
+      m_sblock_header = (unsigned long *)malloc(n_sblocks * sizeof(unsigned long) * k_sigma);
+      m_cblock_header = (unsigned long *)malloc(n_cblocks * sizeof(unsigned long));
+      m_cblock_header2 = (unsigned long *)malloc(n_cblocks * k_sigma * sizeof(unsigned long));
+      m_cblock_mapping = (unsigned char *)malloc(n_cblocks * k_sigma * 2);
+      m_cblock_type = (unsigned char *)malloc((n_cblocks + 7) / 8);
+      m_freq_trunk = (unsigned *)calloc(n_cblocks * k_cblock_size, sizeof(unsigned));
+      std::fill(m_cblock_type, m_cblock_type + (n_cblocks + 7) / 8, 0);
+
+      encode_type_I(text, max_threads);
+      encode_type_II(text, max_threads);
+
+      m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
+    }
+
     inline long rank(long i, unsigned char c) const {
       if (i <= 0) return 0L;
       else if ((unsigned long)i >= m_length) return m_count[c];
@@ -723,7 +735,6 @@ class rank4n {
       free(m_count);
     }
 };
-
 
 template<unsigned k_sblock_size_log, unsigned k_cblock_size_log, unsigned k_sigma_log>
   const unsigned long rank4n<k_sblock_size_log, k_cblock_size_log, k_sigma_log>
