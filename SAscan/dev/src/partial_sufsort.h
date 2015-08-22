@@ -139,6 +139,7 @@ distributed_file<block_offset_type> *compute_partial_sa_and_bwt(
 template<typename block_offset_type>
 void compute_gap(
     rank4n<> *rank,
+    long block_size,
     buffered_gap_array *gap,
     long tail_begin,
     long tail_end,
@@ -153,8 +154,10 @@ void compute_gap(
   long tail_length = tail_end - tail_begin;
 
   // Obtain symbol counts from the rank data structure.
-  long count[256] = {0};
-  std::copy(rank->m_count, rank->m_count + 256, count);
+  long *count = new long[256];
+  for (unsigned j = 0; j < 256; ++j)
+    count[j] = rank->rank(block_size, (unsigned char)j);
+
   count[block_last_symbol]++;
   count[0]--;
   if (count[255]) {
@@ -213,6 +216,7 @@ void compute_gap(
 
   delete text_streamer;
   delete gt_out;
+  delete[] count;
 
 #ifdef DROP_CACHE
   utils::drop_cache();
@@ -301,7 +305,7 @@ distributed_file<block_offset_type> *process_block(long block_beg,
     // Allocate and compute the gap array.
     std::string gap_filename = output_filename + ".excess";
     buffered_gap_array *gap = new buffered_gap_array(block_size + 1, gap_filename);
-    compute_gap<block_offset_type>(rank, gap, block_end, text_length, text_length, text_filename,
+    compute_gap<block_offset_type>(rank, block_size, gap, block_end, text_length, text_length, text_filename,
         output_filename, 0, block_last, whole_suffix_rank, tail_gt_begin_rev, newtail_gt_begin_rev);
 
     delete rank;

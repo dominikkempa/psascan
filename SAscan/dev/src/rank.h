@@ -1,16 +1,84 @@
+/**
+ * @file    src/psascan_src/rank.h
+ * @author  Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *          Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * @section DESCRIPTION
+ *
+ * This file contains implementation of a data structure that answers
+ * general rank queries, i.e., queries of the form "how many occurrences
+ * of symbol c are in text[0..i)". The data structure needs about 4.2n
+ * bytes of RAM for text of length n bytes. Currently it supports only
+ * sequences over byte alphabet. The basic idea of the encoding is from
+ * the rank data structure used in the external-memory algorithm for
+ * constructing the Burrows-Wheeler transform called bwtdisk (available
+ * at: http://people.unipmn.it/manzini/bwtdisk/) described in [1]. We
+ * extended the data structure by applying the fixed block boosting [2]
+ * and alphabet partitioning [3] techniques. The resulting data structure
+ * was described in [4]. This file extends the implementation used in [4]
+ * by introducting an alternative encoding (called type-I in the code).
+ * Type-I encoding is a novel encoding due to present authors. This code
+ * is a simplified version of the rank data structure used in pSAscan,
+ * the parallel external-memory suffix array construction algorithm
+ * described in [5]. The original implementation from [5] additionally
+ * parallelizes the construction.
+ *
+ * References:
+ * [1] Paolo Ferragina, Travis Gagie, Giovanni Manzini:
+ *     Lightweight Data Indexing and Compression in External Memory.
+ *     Algorithmica 63(3), p. 707-730 (2012).
+ * [2] Juha Karkkainen, Simon J. Puglisi:
+ *     Fixed Block Compression Boosting in FM-Indexes.
+ *     In Proc. SPIRE 2011, p. 174-184.
+ * [3] Jeremy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
+ *     Alphabet Partitioning for Compressed Rank/Select and Applications.
+ *     In Proc. ISAAC 2010, p. 315-326.
+ * [4] Juha Karkkainen, Dominik Kempa:
+ *     Engineering a Lightweight External Memory Suffix Array Construction
+ *     Algorithm.
+ *     In Proc. ICABD 2014, p. 53-60.
+ * [5] Juha KarkkÃ¤inen, Dominik Kempa, Simon J. Puglisi:
+ *     Parallel External Memory Suffix Sorting.
+ *     In Proc. CPM 2015, p. 329-342.
+ *
+ * @section LICENCE
+ *
+ * This file contains customized code used in pSAscan v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2014-2015
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
 #ifndef __RANK4N_H_INCLUDED
 #define __RANK4N_H_INCLUDED
 
 #include <algorithm>
 #include <vector>
 
-#include "utils.h"
 
-
-//=============================================================================
-// Data structure answering rank queries over byte alphabet.
-// For an input sequence of length n the data structure occupies ~4.1n bytes.
-//=============================================================================
 template<unsigned k_sblock_size_log = 24,
   unsigned k_cblock_size_log = 20,
   unsigned k_sigma_log = 8>
@@ -47,8 +115,7 @@ class rank4n {
     unsigned *m_freq_trunk;
     unsigned *m_rare_trunk;
 
-  public:
-    unsigned long *m_count; // symbol counts
+    unsigned long *m_count;  // symbol counts
 
   public:
     rank4n(const unsigned char *text, unsigned long length) {
@@ -72,6 +139,13 @@ class rank4n {
       encode_type_II(text);
 
       m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
+    }
+
+  private:
+    inline static long log2ceil(long x) {
+      long pow2 = 1, ret = 0;
+      while (pow2 < x) { pow2 <<= 1; ++ret; }
+      return ret;
     }
 
     void encode_type_I(const unsigned char *text) {
@@ -148,7 +222,7 @@ class rank4n {
         // marker) to the smallest power of two. Note: rare_cnt > 0, so after
         // rounding freq_cnt <= 256.
         unsigned freq_cnt = sorted_chars.size() - rare_cnt;
-        unsigned freq_cnt_log = utils::log2ceil(freq_cnt + 1);
+        unsigned freq_cnt_log = log2ceil(freq_cnt + 1);
         freq_cnt = (1 << freq_cnt_log);
 
         // Recompute rare_cnt (note the +1).
@@ -168,7 +242,7 @@ class rank4n {
         // of two.
         unsigned rare_cnt_log = 0;
         if (rare_cnt) {
-          rare_cnt_log = utils::log2ceil(rare_cnt);
+          rare_cnt_log = log2ceil(rare_cnt);
           rare_cnt = (1 << rare_cnt_log);
         }
 
@@ -210,7 +284,7 @@ class rank4n {
 
           // Precompute helper arrays and and store lookup bits into the header.
           for (unsigned c = 0; c < k_sigma; ++c) {
-            lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 2);
+            lookup_bits_precomputed[c] = log2ceil(cblock_count[c] + 2);
             m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
             if (cblock_count[c])
               min_block_size_precomputed[c] = k_cblock_size / cblock_count[c];
@@ -414,6 +488,7 @@ class rank4n {
       delete[] off;
     }
 
+  public:
     inline long rank(long i, unsigned char c) const {
       if (i <= 0) return 0L;
       else if ((unsigned long)i >= m_length) return m_count[c];
