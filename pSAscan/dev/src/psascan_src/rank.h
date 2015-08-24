@@ -122,7 +122,7 @@ class rank4n {
   private:
     void encode_type_I(const unsigned char *text, long max_threads) {
       //------------------------------------------------------------------------
-      // STEP 1: split all cblocks into equal size ranges (except possible the
+      // STEP 1: split all cblocks into equal size ranges (except possibly the
       //         last one). Each range is processed by one thread. During this
       //         step we compute: (i) type of each cblock, (ii) encode all
       //         type-I cblocks and for all type-II cblocks, we compute and
