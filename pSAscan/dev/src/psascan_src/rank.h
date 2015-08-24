@@ -36,7 +36,7 @@
  *     Engineering a Lightweight External Memory Suffix Array Construction
  *     Algorithm.
  *     In Proc. ICABD 2014, p. 53-60.
- * [5] Juha Karkkäinen, Dominik Kempa, Simon J. Puglisi:
+ * [5] Juha Karkkainen, Dominik Kempa, Simon J. Puglisi:
  *     Parallel External Memory Suffix Sorting.
  *     In Proc. CPM 2015, p. 329-342.
  *
@@ -555,7 +555,7 @@ class rank4n {
     }
 
   public:
-    rank4n(const unsigned char *text, unsigned long length, unsigned max_threads) {
+    rank4n(const unsigned char *text, unsigned long length, unsigned max_threads = 1) {
       m_length = length;
       n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
       n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
