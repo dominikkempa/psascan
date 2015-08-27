@@ -74,7 +74,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   typedef async_vbyte_stream_reader<long> vbyte_reader_type;
   typedef async_stream_writer<uint40> output_writer_type;
 
-  output_writer_type *output = new output_writer_type(output_filename, sizeof(uint40) * buffer_size);
+  output_writer_type *output = new output_writer_type(output_filename, "w", sizeof(uint40) * buffer_size);
   vbyte_reader_type **gap = new vbyte_reader_type*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
     hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);
