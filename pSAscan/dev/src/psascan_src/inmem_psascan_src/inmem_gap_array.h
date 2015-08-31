@@ -156,7 +156,7 @@ struct inmem_gap_array {
   // point for search and then scans the gap array from there.
   //==============================================================================
   long answer_queries(long n_queries, const long *a, long *b, long *c,
-      long max_threads, long i0) const {
+      long max_threads, std::int64_t i0) const {
     //----------------------------------------------------------------------------
     // STEP 1: split gap array into at most max_threads blocks
     // and in parallel compute sum of values inside each block.
@@ -197,7 +197,7 @@ struct inmem_gap_array {
     for (long i = 0; i < n_queries; ++i) delete threads[i];
     delete[] threads;
 
-    long result = -1;
+    std::int64_t result = -1;
     if (i0 != -1) 
       result = compute_sum3(this, i0 + 1, max_block_size, gapsum);
   

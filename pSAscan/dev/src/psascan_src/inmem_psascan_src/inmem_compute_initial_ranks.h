@@ -117,7 +117,7 @@ void compute_range(const unsigned char *text, long block_beg, long block_size,
     } else  // Discrepancy is too small, use standard binary search.
       mid = (low + high) / 2;
 
-    if (lcp_compare(text, pat, pat_length, block_beg + (long)bwtsa[mid].sa, lcp) <= 0) {
+    if (lcp_compare(text, pat, pat_length, block_beg + (long)bwtsa[mid].m_sa, lcp) <= 0) {
       high = mid;
       rlcp = lcp;
     } else {
@@ -146,7 +146,7 @@ void compute_range(const unsigned char *text, long block_beg, long block_size,
         mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
       } else mid = (low + high) / 2;
 
-      if (lcp_compare(text, pat, pat_length, block_beg + (long)bwtsa[mid].sa, lcp) < 0) {
+      if (lcp_compare(text, pat, pat_length, block_beg + (long)bwtsa[mid].m_sa, lcp) < 0) {
         high = mid;
         rlcp = lcp;
       } else {
@@ -200,7 +200,7 @@ void refine_range(const unsigned char *text, long block_beg,
       mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
     } else mid = (low + high) / 2;
 
-    if (lcp_compare(text, pat, pat_length, block_beg + block_psa[mid].sa, lcp) <= 0) {
+    if (lcp_compare(text, pat, pat_length, block_beg + block_psa[mid].m_sa, lcp) <= 0) {
       high = mid;
       rlcp = lcp;
     } else {
@@ -228,7 +228,7 @@ void refine_range(const unsigned char *text, long block_beg,
         mid = high - 1 - ((high - low - 1) * balancing_factor * logd) / (d + balancing_factor * logd);
       } else mid = (low + high) / 2;
 
-      if (lcp_compare(text, pat, pat_length, block_beg + block_psa[mid].sa, lcp) < 0) {
+      if (lcp_compare(text, pat, pat_length, block_beg + block_psa[mid].m_sa, lcp) < 0) {
         high = mid;
         rlcp = lcp;
       } else {
@@ -290,7 +290,7 @@ void refine_range(const unsigned char *text, long text_length,
     } else mid = (low + high) / 2;
 
     if (lcp_compare(text, text_length, pat, pat_length, tail_gt_begin_reversed_length,
-          block_beg + block_psa[mid].sa, reader, lcp) <= 0) {
+          block_beg + block_psa[mid].m_sa, reader, lcp) <= 0) {
       high = mid;
       rlcp = lcp;
     } else {
@@ -319,7 +319,7 @@ void refine_range(const unsigned char *text, long text_length,
       } else mid = (low + high) / 2;
 
       if (lcp_compare(text, text_length, pat, pat_length, tail_gt_begin_reversed_length,
-          block_beg + block_psa[mid].sa, reader, lcp) < 0) {
+          block_beg + block_psa[mid].m_sa, reader, lcp) < 0) {
         high = mid;
         rlcp = lcp;
       } else {
@@ -869,8 +869,8 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
         long next_psa_first = 0L;
         long next_psa_second = 0L;
         if (next_primary_range_size > 1) {
-          next_psa_first = next_block_psa[next_primary_range_beg].sa;
-          next_psa_second = next_block_psa[next_primary_range_beg + 1].sa;
+          next_psa_first = next_block_psa[next_primary_range_beg].m_sa;
+          next_psa_second = next_block_psa[next_primary_range_beg + 1].m_sa;
           delta = next_psa_second - next_psa_first;
         }
 
@@ -906,7 +906,7 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
         while (left != right) {
           // Valid values for mid are in [left..right).
           long mid = (left + right) / 2;
-          long suf = (long)cur_block_psa[mid].sa + shift;
+          long suf = (long)cur_block_psa[mid].m_sa + shift;
 
           // Locate suf in next_block_psa using invariants 1. and 2.
           long pos = next_primary_range_beg;

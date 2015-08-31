@@ -61,7 +61,7 @@ struct sparse_isa {
   static void compute_sparse_isa_aux(const pagearray_type &bwtsa, long block_beg,
       long block_end, long psa_size, long *sparse_isa, long &last) {
     for (long j = block_beg; j < block_end; ++j) {
-      long sa_j = bwtsa[j].sa;
+      long sa_j = bwtsa[j].m_sa;
       if (!(sa_j & isa_sampling_rate_mask))
         sparse_isa[sa_j >> isa_sampling_rate_log] = j;
       if (sa_j == psa_size - 1) last = j;
@@ -127,7 +127,7 @@ struct sparse_isa {
       int delta = (isa_i > m_i0 && c == 0);
 
       isa_i = m_count[c] + m_rank->rank(isa_i, c) - delta;
-      if (isa_i < 0 || ((long)((*m_bwtsa)[isa_i].sa)) != i - 1)
+      if (isa_i < 0 || ((long)((*m_bwtsa)[isa_i].m_sa)) != i - 1)
         ++isa_i;
 
       --i;

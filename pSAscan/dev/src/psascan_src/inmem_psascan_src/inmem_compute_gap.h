@@ -181,11 +181,11 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
         // Check if suffix starting at position suf_start is larger
         // than the one starting at block_beg + bwtsa[mid].sa in the text.
         // We know they have a common prefix of length prev_stream_block_size.
-        if ((long)bwtsa[mid].sa + prev_stream_block_size >= left_block_size) {
-          if (gt->get(text_length - 1 - (suf_start + left_block_size - (long)bwtsa[mid].sa - 1))) left = mid + 1;
+        if ((long)bwtsa[mid].m_sa + prev_stream_block_size >= left_block_size) {
+          if (gt->get(text_length - 1 - (suf_start + left_block_size - (long)bwtsa[mid].m_sa - 1))) left = mid + 1;
           else right = mid;
         } else {
-          long j = bwtsa[mid].sa + prev_stream_block_size;
+          long j = bwtsa[mid].m_sa + prev_stream_block_size;
           if (sp_isa->query(j) < prev_rank) left = mid + 1;
           else right = mid;
         }

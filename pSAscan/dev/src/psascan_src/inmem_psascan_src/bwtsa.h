@@ -42,30 +42,30 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename sa_type>
-struct bwtsa_t {
-  sa_type sa;
-  unsigned char bwt;
+template<typename uint_type>
+class bwtsa_t {
+  public:
+    uint_type m_sa;
+    unsigned char m_bwt;
 
-  inline operator sa_type() const {
-    return sa;
-  }
+  public:
+    bwtsa_t() {}
 
-  bwtsa_t() {
-  }
+    bwtsa_t(std::int64_t x) {
+      m_sa = (uint_type)x;
+    }
 
-  bwtsa_t(long x) {
-    sa = (sa_type)x;
-  }
+    bwtsa_t(std::int32_t x) {
+      m_sa = (uint_type)x;
+    }
 
-  bwtsa_t(int x) {
-    sa = (sa_type)x;
-  }
+    bwtsa_t(uint40 x) {
+      m_sa = (uint_type)x;
+    }
 
-  bwtsa_t(uint40 x) {
-    sa = (sa_type)x;
-  }
-
+    inline operator uint_type() const {
+      return m_sa;
+    }
 } __attribute__((packed));
 
 }  // namespace inmem_psascan_private

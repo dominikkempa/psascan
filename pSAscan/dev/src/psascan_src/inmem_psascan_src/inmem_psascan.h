@@ -77,7 +77,7 @@ void inmem_psascan(
     unsigned char *text,
     long text_length,
     unsigned char *sa_bwt,
-    long max_threads = 1,
+    std::uint64_t max_threads = 1,
     bool compute_bwt = false,
     bool compute_gt_begin = false,
     bitvector *gt_begin = NULL,
@@ -87,7 +87,7 @@ void inmem_psascan(
     long supertext_length = 0,
     std::string supertext_filename = "",
     const multifile *tail_gt_begin_reversed = NULL,
-    long *i0 = NULL,
+    std::int64_t *i0 = NULL,
     unsigned char *tail_prefix_preread = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
@@ -155,7 +155,7 @@ void inmem_psascan(
   fprintf(stderr, "Max block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
   fprintf(stderr, "Max blocks = %ld\n", max_blocks);
   fprintf(stderr, "Number of blocks = %ld\n", n_blocks);
-  fprintf(stderr, "Max threads = %ld\n", max_threads);
+  fprintf(stderr, "Max threads = %lu\n", max_threads);
   fprintf(stderr, "sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
   fprintf(stderr, "Pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "Compute bwt = %s\n", compute_bwt ? "true" : "false");
@@ -246,7 +246,7 @@ void inmem_psascan(
   print_schedule(schedule, n_blocks);
   fprintf(stderr, "\n");
 
-  long *i0_array = new long[n_blocks];
+  std::int64_t *i0_array = new std::int64_t[n_blocks];
   if (n_blocks > 1 || compute_bwt) {
     for (long block_id = 0; block_id < n_blocks; ++block_id) {
       long block_end = text_length - (n_blocks - 1 - block_id) * max_block_size;
@@ -265,7 +265,7 @@ void inmem_psascan(
   }
 
   if (n_blocks > 1) {
-    long i0_result;
+    std::int64_t i0_result;
     pagearray<bwtsa_t<saidx_t>, pagesize_log> *result =
       inmem_bwtsa_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
           gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,

@@ -287,7 +287,7 @@ class rank4n {
         value_type *cur_page = ptext->m_pageindex[page_id++];
         unsigned long page_offset = ptext->get_page_offset(cblock_beg);
         for (unsigned long j = cblock_beg; j < maxj; ++j) {
-          unsigned char c = cur_page[page_offset].bwt;
+          unsigned char c = cur_page[page_offset].m_bwt;
           bwt[j] = c;
           ++cblock_count[c];
           ++page_offset;

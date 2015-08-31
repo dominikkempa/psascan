@@ -57,14 +57,14 @@ void parallel_copy_aux(const src_type *src, dest_type *dest, std::uint64_t lengt
 template<>
 void parallel_copy_aux(const bwtsa_t<uint40> *src, unsigned char *dest, std::uint64_t length) {
   for (std::uint64_t i = 0; i < length; ++i)
-    dest[i] = src[i].bwt;
+    dest[i] = src[i].m_bwt;
 }
 
 // Specilization
 template<>
 void parallel_copy_aux(const bwtsa_t<int> *src, unsigned char *dest, std::uint64_t length) {
   for (std::uint64_t i = 0; i < length; ++i)
-    dest[i] = src[i].bwt;
+    dest[i] = src[i].m_bwt;
 }
 
 // Conversion from src_type to dest_type has to make sense.

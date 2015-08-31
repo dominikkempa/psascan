@@ -47,6 +47,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <vector>
 #include <stack>
 #include <algorithm>
@@ -115,7 +116,7 @@ void parallel_merge_aux(
       --remaining_gap;
       // The next element comes from the right subarray.
       dest[filled] = rpage[rpage_offset++];
-      dest[filled++].sa += what_to_add;
+      dest[filled++].m_sa += what_to_add;
       rpage_read++;
       if (rpage_offset == pagesize) {
         // We reached the end of page in the right subarray.
@@ -171,7 +172,7 @@ void parallel_merge_aux(
 template<typename pagearray_type>
 pagearray_type *parallel_merge(pagearray_type *l_pagearray,
     pagearray_type *r_pagearray, const inmem_gap_array *gap, long max_threads,
-    long i0, long &aux_result, long what_to_add) {
+    std::int64_t i0, long &aux_result, long what_to_add) {
   static const unsigned pagesize_log = pagearray_type::pagesize_log;
   static const unsigned pagesize = pagearray_type::pagesize;
   typedef typename pagearray_type::value_type value_type;
