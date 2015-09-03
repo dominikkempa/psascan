@@ -83,7 +83,7 @@ void parallel_merge_aux(
   static const unsigned pagesize = pagearray_type::pagesize;
 
   long res_beg = std::max(0L, output->get_page_addr(page_range_beg) - output->m_origin);
-  long res_end = std::min(output->m_length, output->get_page_addr(page_range_end) - output->m_origin);
+  long res_end = std::min((std::int64_t)output->m_length, output->get_page_addr(page_range_end) - output->m_origin);
   long res_size = res_end - res_beg;
 
   long lpage_read = 0L;
