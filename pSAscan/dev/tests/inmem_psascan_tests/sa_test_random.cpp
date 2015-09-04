@@ -112,63 +112,56 @@ int main() {
   dup2(redir, 2);
   close(redir);
 
-  test_random<1>(100, 300, 5);
-  test_random<1>(100, 300, 128);
-  test_random<3>(100, 300, 5);
-  test_random<3>(100, 300, 128);
-  test_random<5>(100, 300, 5);
-  test_random<5>(100, 300, 128);
+  test_random<1> (100, 300, 5);
+  test_random<1> (100, 300, 128);
+  test_random<3> (100, 300, 5);
+  test_random<3> (100, 300, 128);
+  test_random<5> (100, 300, 5);
+  test_random<5> (100, 300, 128);
   test_random<12>(100, 300, 5);
   test_random<12>(100, 300, 128);
-  test_random<1>(100, 300, 255);
-  test_random<3>(100, 300, 255);
-  test_random<5>(100, 300, 255);
+  test_random<1> (100, 300, 255);
+  test_random<3> (100, 300, 255);
+  test_random<5> (100, 300, 255);
   test_random<12>(100, 300, 255);
 
-  test_random<1>(100, 1000, 5);
-  test_random<1>(100, 1000, 128);
-  test_random<3>(100, 1000, 5);
-  test_random<3>(100, 1000, 128);
-  test_random<5>(100, 1000, 5);
-  test_random<5>(100, 1000, 128);
+  test_random<1> (100, 1000, 5);
+  test_random<1> (100, 1000, 128);
+  test_random<3> (100, 1000, 5);
+  test_random<3> (100, 1000, 128);
+  test_random<5> (100, 1000, 5);
+  test_random<5> (100, 1000, 128);
   test_random<12>(100, 1000, 5);
   test_random<12>(100, 1000, 128);
-  test_random<1>(100, 1000, 255);
-  test_random<3>(100, 1000, 255);
-  test_random<5>(100, 1000, 255);
+  test_random<1> (100, 1000, 255);
+  test_random<3> (100, 1000, 255);
+  test_random<5> (100, 1000, 255);
   test_random<12>(100, 1000, 255);
 
-
-
-
-
-
-//  test_random<7> (20, 1000, 5);
-  test_random<12>(10000, 1000, 5);
-//  test_random<7> (20, 1000, 20);
-  test_random<12>(10000, 1000, 20);
-//  test_random<7> (20, 1000, 128);
-  test_random<12>(10000, 1000, 128);
-//  test_random<7> (20, 1000, 255);
-  test_random<12>(10000, 1000, 255);
-  
-//  test_random<7> (20, 10000, 5);
-  test_random<12>(10000, 10000, 5);
-//  test_random<7> (20, 10000, 20);
-  test_random<12>(10000, 10000, 20);
-//  test_random<7> (20, 10000, 128);
-  test_random<12>(10000, 10000, 128);
-//  test_random<7> (20, 10000, 255);
-  test_random<12>(10000, 10000, 255);
-
-//  test_random<7> (20, 1000000, 5);
-  test_random<12>(100, 100000, 5);
-//  test_random<7> (20, 1000000, 20);
-  test_random<12>(100, 100000, 20);
-//  test_random<7> (20, 1000000, 128);
-  test_random<12>(100, 100000, 128);
-//  test_random<7> (20, 1000000, 255);
-  test_random<12>(100, 100000, 255);
+  test_random<7> (1000, 1000,    5);
+  test_random<12>(1000, 1000,    5);
+  test_random<7> (1000, 1000,    20);
+  test_random<12>(1000, 1000,    20);
+  test_random<7> (1000, 1000,    128);
+  test_random<12>(1000, 1000,    128);
+  test_random<7> (1000, 1000,    255);
+  test_random<12>(1000, 1000,    255);
+  test_random<7> (500,  10000,   5);
+  test_random<12>(500,  10000,   5);
+  test_random<7> (500,  10000,   20);
+  test_random<12>(500,  10000,   20);
+  test_random<7> (500,  10000,   128);
+  test_random<12>(500,  10000,   128);
+  test_random<7> (500,  10000,   255);
+  test_random<12>(500,  10000,   255);
+  test_random<7> (100,  1000000, 5);
+  test_random<12>(100,  1000000, 5);
+  test_random<7> (100,  1000000, 20);
+  test_random<12>(100,  1000000, 20);
+  test_random<7> (100,  1000000, 128);
+  test_random<12>(100,  1000000, 128);
+  test_random<7> (100,  1000000, 255);
+  test_random<12>(100,  1000000, 255);
 
   fprintf(stdout, "All tests passed.\n");
 }
