@@ -73,7 +73,7 @@ void parallel_merge_aux(
     const pagearray_type *r_pagearray,
     pagearray_type *output,
     const inmem_gap_array *gap,
-    long left_idx, long right_idx,
+    std::uint64_t left_idx, long right_idx,
     long remaining_gap,
     long page_range_beg,
     long page_range_end,
@@ -102,7 +102,7 @@ void parallel_merge_aux(
   output->m_pageindex[pageid++] = dest;
 
   std::stack<value_type*> freepages;
-  size_t excess_ptr = std::lower_bound(gap->m_excess.begin(),
+  std::uint64_t excess_ptr = std::lower_bound(gap->m_excess.begin(),
       gap->m_excess.end(), left_idx + 1) - gap->m_excess.begin();
 
   for (long i = 0; i < res_size; ++i) {
@@ -171,7 +171,7 @@ void parallel_merge_aux(
 
 template<typename pagearray_type>
 pagearray_type *parallel_merge(pagearray_type *l_pagearray,
-    pagearray_type *r_pagearray, const inmem_gap_array *gap, long max_threads,
+    pagearray_type *r_pagearray, const inmem_gap_array *gap, std::uint64_t max_threads,
     std::int64_t i0, long &aux_result, long what_to_add) {
   static const unsigned pagesize_log = pagearray_type::pagesize_log;
   static const unsigned pagesize = pagearray_type::pagesize;
@@ -186,7 +186,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   long length = l_pagearray->m_length + r_pagearray->m_length;
   long n_pages = (length + pagesize - 1) / pagesize;
   long pages_per_thread = (n_pages + max_threads - 1) / max_threads;
-  long n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
+  std::uint64_t n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
   output_type *result = new output_type(l_pagearray->m_origin, length);
 
   long *left_idx = new long[n_threads];
@@ -194,22 +194,22 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   long *remaining_gap = new long[n_threads];
 
   // Prepare gap queries.
-  long *gap_query = new long[n_threads];
-  long *gap_answer_a = new long[n_threads];
-  long *gap_answer_b = new long[n_threads];
-  for (long i = 0; i < n_threads; ++i) {
-    long page_range_beg = i * pages_per_thread;
-    long res_beg = std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
+  std::uint64_t *gap_query = new std::uint64_t[n_threads];
+  std::uint64_t *gap_answer_a = new std::uint64_t[n_threads];
+  std::uint64_t *gap_answer_b = new std::uint64_t[n_threads];
+  for (std::uint64_t i = 0; i < n_threads; ++i) {
+    std::uint64_t page_range_beg = i * pages_per_thread;
+    std::uint64_t res_beg = (std::uint64_t)std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
     gap_query[i] = res_beg;
   }
 
   // Answer these queries in parallel and convert the answers
   // to left_idx, right_idx and remaining_gap values.
   aux_result = gap->answer_queries(n_threads, gap_query, gap_answer_a, gap_answer_b, max_threads, i0);
-  for (long i = 0; i < n_threads; ++i) {
-    long page_range_beg = i * pages_per_thread;
-    long res_beg = std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
-    long j = gap_answer_a[i], s = gap_answer_b[i];
+  for (std::uint64_t i = 0; i < n_threads; ++i) {
+    std::uint64_t page_range_beg = i * pages_per_thread;
+    std::uint64_t res_beg = (std::uint64_t)std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
+    std::uint64_t j = gap_answer_a[i], s = gap_answer_b[i];
     left_idx[i] = j;
     right_idx[i] = res_beg - j;
     remaining_gap[i] = j + s - res_beg;
@@ -226,7 +226,7 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   start = utils::wclock();
 
   std::thread **threads = new std::thread*[n_threads];
-  for (long t = 0; t < n_threads; ++t) {
+  for (std::uint64_t t = 0; t < n_threads; ++t) {
     long page_range_beg = t * pages_per_thread;
     long page_range_end = std::min(page_range_beg + pages_per_thread, n_pages);
 
@@ -234,8 +234,8 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
         l_pagearray, r_pagearray, result, gap,  left_idx[t], right_idx[t],
         remaining_gap[t], page_range_beg, page_range_end, what_to_add);
   }
-  for (long t = 0; t < n_threads; ++t) threads[t]->join();
-  for (long t = 0; t < n_threads; ++t) delete threads[t];
+  for (std::uint64_t t = 0; t < n_threads; ++t) threads[t]->join();
+  for (std::uint64_t t = 0; t < n_threads; ++t) delete threads[t];
   delete[] threads;
   delete[] left_idx;
   delete[] right_idx;

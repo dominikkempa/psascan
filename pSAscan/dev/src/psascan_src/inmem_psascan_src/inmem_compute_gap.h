@@ -163,7 +163,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     // Narrow nontrivial ranges to single elements.
     start = utils::wclock();
     prev_stream_block_size = last_stream_block_end - last_stream_block_beg;
-    long prev_rank = initial_ranks[n_threads - 1];
+    std::uint64_t prev_rank = initial_ranks[n_threads - 1];
     for (long i = n_threads - 2; i >= 0; --i) {
       long stream_block_beg = right_block_beg + i * max_stream_block_size;
       long stream_block_end = std::min(stream_block_beg + max_stream_block_size, right_block_end);
