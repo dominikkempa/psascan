@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <mutex>
@@ -140,12 +141,12 @@ void parallel_stream(
     empty_gap_buffers->m_cv.notify_one(); // let others know they should re-check
 
     // Process buffer -- fill with gap values.
-    long left = j - stream_block_beg;
+    std::uint64_t left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
     dbg += b->m_filled;
     std::fill(block_count, block_count + n_buckets, 0);
 
-    for (long t = 0L; t < b->m_filled; ++t, --j) {
+    for (std::uint64_t t = 0L; t < b->m_filled; ++t, --j) {
       unsigned char c = text_streamer->read();
 
       gt_out->write(i > whole_suffix_rank);
@@ -178,13 +179,13 @@ void parallel_stream(
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       // Permute the elements of the buffer.
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         long id = (temp[t] >> bucket_size_bits);
         long sblock_id = block_id_to_sblock_id[id];
         oracle[t] = ptr[sblock_id]++;
       }
 
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         long addr = oracle[t];
         b->m_content[addr] = temp[t];
       }
@@ -209,7 +210,7 @@ void parallel_stream(
 
       // Compute bucket sizes and sblock id into oracle array.
       std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         block_offset_type x = temp[t];
         int id = n_increasers;
         while (bucket_lbound[id] > x) --id;
@@ -221,12 +222,12 @@ void parallel_stream(
       for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         long sblock_id = oracle[t];
         oracle[t] = ptr[sblock_id]++;
       }
 
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         long addr = oracle[t];
         b->m_content[addr] = temp[t];
       }

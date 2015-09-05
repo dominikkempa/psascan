@@ -122,7 +122,6 @@ class rank4n {
     std::uint32_t *m_freq_trunk;
     std::uint32_t *m_rare_trunk;
 
-  public:
     std::uint64_t *m_count;  // symbol counts
 
   public:

@@ -110,7 +110,9 @@ class sparse_isa {
       delete[] threads;
 
       m_count = (std::uint64_t *)malloc(k_sigma * sizeof(std::uint64_t));
-      std::copy(rank->m_count, rank->m_count + k_sigma, m_count);
+      for (std::uint64_t j = 0; j < k_sigma; ++j)
+        m_count[j] = rank->rank(length, (std::uint8_t)j);
+
       ++m_count[text[length - 1]];
       --m_count[0];
 

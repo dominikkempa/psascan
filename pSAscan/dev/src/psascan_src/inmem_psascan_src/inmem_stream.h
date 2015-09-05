@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <iostream>
 #include <queue>
@@ -66,46 +67,46 @@ namespace inmem_psascan_private {
 //==============================================================================
 template<typename rank_type, typename block_offset_type>
 void inmem_parallel_stream(
-    const unsigned char *text,
-    long text_length,
-    long stream_block_beg,
-    long stream_block_end,
-    unsigned char last,
-    const long *count,
+    const std::uint8_t *text,
+    std::uint64_t text_length,
+    std::uint64_t stream_block_beg,
+    std::uint64_t stream_block_end,
+    std::uint8_t last,
+    const std::uint64_t *count,
     gap_buffer_poll<block_offset_type> *full_gap_buffers,
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
     block_offset_type i,
     block_offset_type i0,
     const rank_type *rank,
-    long gap_range_size,
-    long n_increasers,
+    std::uint64_t gap_range_size,
+    std::uint64_t n_increasers,
     bitvector *gt,
     block_offset_type *temp,
-    int *oracle,
+    std::uint32_t *oracle,
     bool need_gt) {
 
   //----------------------------------------------------------------------------
   // STEP 1: initialize structures necessary to do the buffer partitions.
   //----------------------------------------------------------------------------
-  static const int max_buckets = 4096;
-  int *block_id_to_sblock_id = new int[max_buckets];
+  static const std::uint64_t max_buckets = 4096;
+  std::uint32_t *block_id_to_sblock_id = new std::uint32_t[max_buckets];
 
-  long bucket_size = 1;
-  long bucket_size_bits = 0;
+  std::uint64_t bucket_size = 1;
+  std::uint64_t bucket_size_bits = 0;
   while ((gap_range_size + bucket_size - 1) / bucket_size > max_buckets)
     bucket_size <<= 1, ++bucket_size_bits;
-  long n_buckets = (gap_range_size + bucket_size - 1) / bucket_size;
-  int *block_count = new int[n_buckets];
+  std::uint64_t n_buckets = (gap_range_size + bucket_size - 1) / bucket_size;
+  std::uint32_t *block_count = new std::uint32_t[n_buckets];
 
-  static const long buffer_sample_size = 512;
+  static const std::uint64_t buffer_sample_size = 512;
   std::vector<block_offset_type> samples(buffer_sample_size);
-  long *ptr = new long[n_increasers];
+  std::uint64_t *ptr = new std::uint64_t[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
   //----------------------------------------------------------------------------
   // STEP 2: perform the actual streaming.
   //----------------------------------------------------------------------------
-  long j = stream_block_end;
+  std::uint64_t j = stream_block_end;
   bool gt_bit = gt->get(text_length - j);
   while (j > stream_block_beg) {
     // 2.a
@@ -120,21 +121,21 @@ void inmem_parallel_stream(
     // 2.b
     //
     // Process buffer, i.e., fill with gap values.
-    long left = j - stream_block_beg;
+    std::uint64_t left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
-    std::fill(block_count, block_count + n_buckets, 0);
+    std::fill(block_count, block_count + n_buckets, 0U);
 
     if (need_gt) {
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         bool new_gt_bit = (i > i0);
         if (new_gt_bit) gt->set(text_length - j);
         else gt->reset(text_length - j);
 
-        unsigned char c = text[j - 1];
+        std::uint8_t c = text[j - 1];
 
         // Compute new i.
-        int delta = (new_gt_bit && c == 0);
-        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+        std::uint64_t delta = (new_gt_bit && c == 0);
+        i = (block_offset_type)((count[c] + rank->rank(i, c)) - delta);
         if (c == last && gt_bit) ++i;
 
         temp[t] = i;
@@ -144,14 +145,14 @@ void inmem_parallel_stream(
         gt_bit = gt->get(text_length - j);
       }
     } else {
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         bool new_gt_bit = (i > i0);
 
-        unsigned char c = text[j - 1];
+        std::uint8_t c = text[j - 1];
 
         // Compute new i.
-        int delta = (new_gt_bit && c == 0);
-        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+        std::uint64_t delta = (new_gt_bit && c == 0);
+        i = (block_offset_type)((count[c] + rank->rank(i, c)) - delta);
         if (c == last && gt_bit) ++i;
 
         temp[t] = i;
@@ -168,34 +169,34 @@ void inmem_parallel_stream(
     // Partition the buffer into equal n_increasers parts.
 
     // Compute super-buckets.
-    long ideal_sblock_size = (b->m_filled + n_increasers - 1) / n_increasers;
-    long max_sbucket_size = 0;
-    long bucket_id_beg = 0;
-    for (long t = 0; t < n_increasers; ++t) {
-      long bucket_id_end = bucket_id_beg, size = 0L;
+    std::uint64_t ideal_sblock_size = (b->m_filled + n_increasers - 1) / n_increasers;
+    std::uint64_t max_sbucket_size = 0;
+    std::uint64_t bucket_id_beg = 0;
+    for (std::uint64_t t = 0; t < n_increasers; ++t) {
+      std::uint64_t bucket_id_end = bucket_id_beg, size = 0L;
       while (bucket_id_end < n_buckets && size < ideal_sblock_size)
         size += block_count[bucket_id_end++];
       b->sblock_size[t] = size;
       max_sbucket_size = std::max(max_sbucket_size, size);
-      for (long id = bucket_id_beg; id < bucket_id_end; ++id)
+      for (std::uint64_t id = bucket_id_beg; id < bucket_id_end; ++id)
         block_id_to_sblock_id[id] = t;
       bucket_id_beg = bucket_id_end;
     }
 
     if (max_sbucket_size < 4L * ideal_sblock_size) {
       // The quick partition was good enough.
-      for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      for (std::uint64_t t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       // Permute the elements of the buffer.
-      for (long t = 0; t < b->m_filled; ++t) {
-        long id = (temp[t] >> bucket_size_bits);
-        long sblock_id = block_id_to_sblock_id[id];
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
+        std::uint64_t id = (temp[t] >> bucket_size_bits);
+        std::uint64_t sblock_id = block_id_to_sblock_id[id];
         oracle[t] = ptr[sblock_id]++;
       }
 
-      for (long t = 0; t < b->m_filled; ++t) {
-        long addr = oracle[t];
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
+        std::uint64_t addr = oracle[t];
         b->m_content[addr] = temp[t];
       }
     } else {
@@ -204,40 +205,40 @@ void inmem_parallel_stream(
       // and is expected to happen very rarely.
       
       // Compute random sample of elements in the buffer.
-      for (long t = 0; t < buffer_sample_size; ++t)
+      for (std::uint64_t t = 0; t < buffer_sample_size; ++t)
         samples[t] = temp[utils::random_long(0L, b->m_filled - 1)];
       std::sort(samples.begin(), samples.end());
       samples.erase(std::unique(samples.begin(), samples.end()), samples.end());
 
       // Compute bucket boundaries (lower bound is enough).
-      std::fill(bucket_lbound, bucket_lbound + n_increasers + 1, gap_range_size);
+      std::fill(bucket_lbound, bucket_lbound + n_increasers + 1, (block_offset_type)gap_range_size);
 
-      long step = (samples.size() + n_increasers - 1) / n_increasers;
-      for (size_t t = 1, p = step; p < samples.size(); ++t, p += step)
+      std::uint64_t step = (samples.size() + n_increasers - 1) / n_increasers;
+      for (std::uint64_t t = 1, p = step; p < samples.size(); ++t, p += step)
         bucket_lbound[t] = (samples[p - 1] + samples[p] + 1) / 2;
       bucket_lbound[0] = 0;
 
       // Compute bucket sizes and sblock id into oracle array.
       std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
-      for (long t = 0; t < b->m_filled; ++t) {
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
         block_offset_type x = temp[t];
-        int id = n_increasers;
+        std::uint32_t id = n_increasers;
         while (bucket_lbound[id] > x) --id;
         oracle[t] = id;
         b->sblock_size[id]++;
       }
 
       // Permute elements into their own buckets using oracle.
-      for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      for (std::uint64_t t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
-      for (long t = 0; t < b->m_filled; ++t) {
-        long sblock_id = oracle[t];
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
+        std::uint64_t sblock_id = oracle[t];
         oracle[t] = ptr[sblock_id]++;
       }
 
-      for (long t = 0; t < b->m_filled; ++t) {
-        long addr = oracle[t];
+      for (std::uint64_t t = 0; t < b->m_filled; ++t) {
+        std::uint64_t addr = oracle[t];
         b->m_content[addr] = temp[t];
       }
     }

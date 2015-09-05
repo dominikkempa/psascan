@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
@@ -47,8 +48,8 @@ namespace psascan_private {
 
 template<typename value_type>
 struct gap_buffer {  
-  gap_buffer(long size_bytes, long n_increasers)
-      : m_filled(0L),
+  gap_buffer(std::uint64_t size_bytes, std::uint64_t n_increasers)
+      : m_filled(0UL),
         m_size(size_bytes / sizeof(value_type)) {
     m_content = new value_type[m_size];
 
@@ -62,7 +63,8 @@ struct gap_buffer {
     delete[] sblock_beg;
   }
 
-  long m_filled, m_size;
+  std::uint64_t m_filled;
+  std::uint64_t m_size;
   value_type *m_content;
 
   long *sblock_size;
