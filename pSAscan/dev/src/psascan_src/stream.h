@@ -51,9 +51,9 @@
 #include "stream_info.h"
 #include "multifile.h"
 #include "multifile_bit_stream_reader.h"
-#include "async_multifile_bit_stream_reader.h"
+#include "async_scatterfile_bit_reader.h"
 #include "async_backward_skip_stream_reader.h"
-#include "async_bit_stream_writer.h"
+#include "async_multifile_bit_writer.h"
 
 
 namespace psascan_private {
@@ -73,13 +73,13 @@ void parallel_stream(
     unsigned char last,
     std::string text_filename,
     long length,
-    std::string &tail_gt_filename,
     stream_info *info,
     int thread_id,
     long gap_range_size,
     long gap_buf_size,
     const multifile *tail_gt_begin,
-    long n_increasers) {
+    long n_increasers,
+    async_multifile_bit_writer *gt_bit_writer) {
   static const int max_buckets = 4096;
   int *block_id_to_sblock_id = new int[max_buckets];
 
@@ -99,12 +99,10 @@ void parallel_stream(
   long *ptr = new long[n_increasers];
   block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
 
-  typedef async_multifile_bit_stream_reader bit_stream_reader_type;
+  typedef async_scatterfile_bit_reader bit_stream_reader_type;
   typedef async_backward_skip_stream_reader<unsigned char> text_reader_type;
-  typedef async_bit_stream_writer bit_stream_writer_type;
 
   text_reader_type *text_streamer = new text_reader_type(text_filename, length - stream_block_end, 4L << 20);
-  bit_stream_writer_type *gt_out = new bit_stream_writer_type(tail_gt_filename, 1L << 20);
   bit_stream_reader_type gt_in(tail_gt_begin, length - stream_block_end, 1L << 20);
 
   long j = stream_block_end, dbg = 0L;
@@ -149,7 +147,7 @@ void parallel_stream(
     for (std::uint64_t t = 0L; t < b->m_filled; ++t, --j) {
       unsigned char c = text_streamer->read();
 
-      gt_out->write(i > whole_suffix_rank);
+      gt_bit_writer->write_to_ith_file(thread_id, (std::uint8_t)(i > whole_suffix_rank));
       bool next_gt = (gt_in.read());
 
       int delta = (i > whole_suffix_rank && c == 0);
@@ -241,7 +239,6 @@ void parallel_stream(
   }
 
   delete text_streamer;
-  delete gt_out;
   
   // Report that another worker thread has finished.
   std::unique_lock<std::mutex> lk(full_gap_buffers->m_mutex);

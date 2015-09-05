@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -52,6 +53,7 @@
 #include "update.h"
 #include "stream_info.h"
 #include "multifile.h"
+#include "async_multifile_bit_writer.h"
 
 
 namespace psascan_private {
@@ -68,7 +70,7 @@ void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap
     const multifile *tail_gt_begin_rev, multifile *newtail_gt_begin_rev) {
   long tail_length = tail_end - tail_begin;
   long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
-  long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
+  std::uint64_t n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
 
   fprintf(stderr, "    Stream:");
   long double stream_start = utils::wclock();
@@ -108,23 +110,31 @@ void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap
   for (long i = 0L; i < n_gap_buffers; ++i)
     empty_gap_buffers->add(gap_buffers[i]);
 
+  // Create the async multifile bit writer.
+  typedef async_multifile_bit_writer gt_writer_type;
+  gt_writer_type *gt_bit_writer = new gt_writer_type();
+  for (std::uint64_t t = 0; t < n_threads; ++t) {
+    long stream_block_beg = tail_begin + t * stream_max_block_size;
+    long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
+
+    std::string filename = output_filename + ".gt_tail." + utils::random_string_hash();
+    newtail_gt_begin_rev->add_file(text_length - stream_block_end, text_length - stream_block_beg, filename);
+    gt_bit_writer->add_file(filename);
+  }
+
   // 5
   //
   // Start threads doing the backward search.
   stream_info info(n_threads, tail_length);
   std::thread **streamers = new std::thread*[n_threads];
-  std::vector<std::string> gt_filenames(n_threads);
 
-  for (long t = 0L; t < n_threads; ++t) {
+  for (std::uint64_t t = 0; t < n_threads; ++t) {
     long stream_block_beg = tail_begin + t * stream_max_block_size;
     long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
 
-    gt_filenames[t] = output_filename + ".gt_tail." + utils::random_string_hash();
-    newtail_gt_begin_rev->add_file(text_length - stream_block_end, text_length - stream_block_beg, gt_filenames[t]);
-
     streamers[t] = new std::thread(parallel_stream<block_offset_type, rank_type>, full_gap_buffers, empty_gap_buffers, stream_block_beg,
         stream_block_end, initial_ranks[t], count, block_isa0, rank, block_last_symbol, text_filename, text_length,
-        std::ref(gt_filenames[t]), &info, t, gap->m_length, gap_buf_size, tail_gt_begin_rev, max_threads);
+        &info, t, gap->m_length, gap_buf_size, tail_gt_begin_rev, max_threads, gt_bit_writer);
   }
 
   // 6
@@ -136,13 +146,13 @@ void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap
   // 7
   //
   // Wait for all threads to finish.
-  for (long i = 0L; i < n_threads; ++i) streamers[i]->join();
+  for (std::uint64_t i = 0; i < n_threads; ++i) streamers[i]->join();
   updater->join();
 
   // 8
   //
   // Clean up.
-  for (long i = 0L; i < n_threads; ++i) delete streamers[i];
+  for (std::uint64_t i = 0; i < n_threads; ++i) delete streamers[i];
   for (long i = 0L; i < n_gap_buffers; ++i) delete gap_buffers[i];
   delete updater;
   delete[] streamers;
@@ -150,6 +160,7 @@ void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap
   delete empty_gap_buffers;
   delete full_gap_buffers;
   delete[] count;
+  delete gt_bit_writer;
 
   // 9
   //

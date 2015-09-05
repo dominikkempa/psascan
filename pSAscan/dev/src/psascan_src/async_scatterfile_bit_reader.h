@@ -1,5 +1,5 @@
 /**
- * @file    src/psascan_src/async_multifile_bit_stream_reader.h
+ * @file    src/psascan_src/async_scatterfile_bit_reader.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
  * @section LICENCE
@@ -33,8 +33,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_ASYNC_MULTIFILE_BIT_STREAM_READER_H_INCLUDED
-#define __PSASCAN_SRC_ASYNC_MULTIFILE_BIT_STREAM_READER_H_INCLUDED
+#ifndef __PSASCAN_SRC_ASYNC_SCATTERFILE_BIT_READER_H_INCLUDED
+#define __PSASCAN_SRC_ASYNC_SCATTERFILE_BIT_READER_H_INCLUDED
 
 #include <thread>
 #include <mutex>
@@ -48,8 +48,8 @@
 
 namespace psascan_private {
 
-struct async_multifile_bit_stream_reader {
-  async_multifile_bit_stream_reader(const multifile *m, long start_pos = 0L,
+struct async_scatterfile_bit_reader {
+  async_scatterfile_bit_reader(const multifile *m, long start_pos = 0L,
       long bufsize = (4L << 20)) {
     m_files_info = m->files_info;
   
@@ -121,7 +121,7 @@ struct async_multifile_bit_stream_reader {
     return result;
   }
 
-  ~async_multifile_bit_stream_reader() {
+  ~async_scatterfile_bit_reader() {
     // Let the I/O thread know that we are done.
     std::unique_lock<std::mutex> lk(m_mutex);
     m_finished = true;
@@ -139,7 +139,7 @@ struct async_multifile_bit_stream_reader {
       std::fclose(m_file);
   }
 
-  static void async_io_code(async_multifile_bit_stream_reader *file) {
+  static void async_io_code(async_scatterfile_bit_reader *file) {
     while (true) {
       // Wait until the passive buffer is available.
       std::unique_lock<std::mutex> lk(file->m_mutex);
@@ -233,4 +233,4 @@ private:
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_ASYNC_MULTIFILE_BIT_STREAM_READER_H_INCLUDED
+#endif  // __PSASCAN_SRC_ASYNC_SCATTERFILE_BIT_READER_H_INCLUDED
