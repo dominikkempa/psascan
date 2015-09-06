@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <algorithm>
@@ -41,7 +42,7 @@ void compute_gt_begin_reversed(unsigned char *text, long text_length, psascan_pr
 
 template<typename saidx_t, unsigned pagesize_log>
 void test(unsigned char *supertext, long supertext_length,
-    long text_beg, long text_end, long max_threads) {
+    long text_beg, long text_end, std::uint64_t max_threads) {
 
   long text_length = text_end - text_beg;
   psascan_private::bitvector *text_gt_begin_correct = new psascan_private::bitvector(text_length);
@@ -107,7 +108,7 @@ void test(unsigned char *supertext, long supertext_length,
   if (!eq) {
     fprintf(stdout, "Error:\n");
     fprintf(stdout, "\tsupertext_length = %ld\n", supertext_length);
-    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
+    fprintf(stdout, "\tmax threads = %lu\n", max_threads);
     fprintf(stderr, "\tmax blocks = %ld\n", max_blocks);
     fprintf(stdout, "\tsupertext = ");
     for (long j = 0; j < supertext_length; ++j)
@@ -159,7 +160,7 @@ void test_random(int testcases, long max_length, int max_sigma) {
     int sigma = utils::random_int(2, max_sigma);
     if (max_sigma <= 26) utils::fill_random_letters(supertext, supertext_length, sigma);
     else utils::fill_random_string(supertext, supertext_length, sigma);
-    long max_threads = utils::random_long(1, 50);
+    std::uint64_t max_threads = utils::random_long(1, 50);
     long text_beg = utils::random_long(0, supertext_length - 1);
     long text_end = utils::random_long(text_beg + 1, supertext_length);
 

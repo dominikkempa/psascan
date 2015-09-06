@@ -64,10 +64,10 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
     long max_block_size,
     long range_beg,
     long range_end,
-    long max_threads,
+    std::uint64_t max_threads,
     bool need_gt,
     bool need_bwt,
-    std::int64_t &result_i0,
+    std::uint64_t &result_i0,
     MergeSchedule &schedule,
     long text_beg,
     long text_end,
@@ -113,7 +113,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   lend -= shift;
   rend -= shift;
 
-  long lsize = lend - lbeg;
+  std::uint64_t lsize = lend - lbeg;
   long rsize = rend - rbeg;
 
   //----------------------------------------------------------------------------
@@ -123,7 +123,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   // 2.a
   //
   // Left block
-  std::int64_t left_i0;
+  std::uint64_t left_i0;
   pagearray_type *l_bwtsa = inmem_bwtsa_merge<saidx_t, pagesize_log>(text,
       text_length, bwtsa, gt, max_block_size, lrange_beg, lrange_end,
       max_threads, need_gt, true, left_i0, schedule, text_beg, text_end,
@@ -133,7 +133,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   // 2.b
   // 
   // Right block
-  std::int64_t right_i0;
+  std::uint64_t right_i0;
   pagearray_type *r_bwtsa = inmem_bwtsa_merge<saidx_t, pagesize_log>(text,
       text_length, bwtsa, gt, max_block_size, rrange_beg, rrange_end,
       max_threads, true, need_bwt, right_i0, schedule, text_beg, text_end,
@@ -166,7 +166,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   // Merge partial SAs and BWTs
   fprintf(stderr, "  Merge SA/BWT:  ");
   start1 = utils::wclock();
-  std::int64_t delta_i0;
+  std::uint64_t delta_i0;
   if (need_bwt)
     (*r_bwtsa)[right_i0].m_bwt = text[rbeg - 1];
   pagearray_type *result = parallel_merge(l_bwtsa, r_bwtsa, gap,

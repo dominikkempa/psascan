@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <ctime>
 #include <unistd.h>
 #include <sys/types.h>
@@ -13,7 +14,7 @@
 
 
 template<unsigned pagesize_log>
-void test(unsigned char *text, long text_length, long max_threads) {
+void test(unsigned char *text, long text_length, std::uint64_t max_threads) {
   //----------------------------------------------------------------------------
   // STEP 1: compute correct answer.
   //----------------------------------------------------------------------------
@@ -36,7 +37,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   if (!std::equal(correct_sa, correct_sa + text_length, computed_sa)) {
     fprintf(stdout, "\nError:\n");
     fprintf(stdout, "\tlength = %ld\n", text_length);
-    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
+    fprintf(stdout, "\tmax threads = %lu\n", max_threads);
     if (text_length <= 1000) {
       fprintf(stdout, "\ttext: ");
       for (long j = 0; j < text_length; ++j)
@@ -77,7 +78,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
     // Generate input.
     long length = utils::random_long(1L, max_length);
-    long max_threads = utils::random_long(1L, 50L);
+    std::uint64_t max_threads = utils::random_long(1L, 50L);
 
     long sigma;
     if (length <= 10000) sigma = utils::random_long(1L, max_sigma);

@@ -19,7 +19,7 @@ void read_sa(saidx_t* &sa, std::string filename) {
 
 
 template<typename saidx_t>
-void test(unsigned char *text, long text_length, long max_threads,
+void test(unsigned char *text, long text_length, std::uint64_t max_threads,
     long max_blocks, std::string filename) {
   long double start;
 
@@ -38,7 +38,7 @@ void test(unsigned char *text, long text_length, long max_threads,
   unsigned char *computed_sa_temp = (unsigned char *)malloc(text_length * (sizeof(saidx_t) + 1));
   saidx_t *computed_sa = (saidx_t *)computed_sa_temp;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  long computed_i0;
+  std::uint64_t computed_i0;
   inmem_psascan<saidx_t>(text, text_length, computed_sa_temp, max_threads, true, false,
       NULL, max_blocks, 0, 0, 0, "", NULL, &computed_i0);
 
@@ -46,7 +46,7 @@ void test(unsigned char *text, long text_length, long max_threads,
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
-  long correct_i0 = -1;
+  std::uint64_t correct_i0 = 0;
   for (long i = 0, dbg = 0; i < text_length; ++i) {
     ++dbg;
     ++compared;

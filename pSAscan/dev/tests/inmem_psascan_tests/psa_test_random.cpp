@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstring>
+#include <cstdint>
 #include <ctime>
 #include <algorithm>
 #include <thread>
@@ -31,7 +32,7 @@ void compute_gt_begin_reversed(unsigned char *text, long text_length, psascan_pr
 
 template<typename saidx_t, unsigned pagesize_log>
 void test(unsigned char *supertext, long supertext_length,
-    long text_beg, long text_end, long max_threads) {
+    long text_beg, long text_end, std::uint64_t max_threads) {
 
   // Sort supertext using divsufsort.
   long *supertext_sa = (long *)malloc(supertext_length * sizeof(long));
@@ -163,7 +164,7 @@ void test_random(int testcases, long max_length, int max_sigma) {
     int sigma = utils::random_int(1, max_sigma);
     if (max_sigma <= 26) utils::fill_random_letters(supertext, supertext_length, sigma);
     else utils::fill_random_string(supertext, supertext_length, sigma);
-    long max_threads = utils::random_long(1, 50);
+    std::uint64_t max_threads = utils::random_long(1, 50);
     long text_beg = utils::random_long(0, supertext_length - 1);
     long text_end = utils::random_long(text_beg + 1, supertext_length);
 

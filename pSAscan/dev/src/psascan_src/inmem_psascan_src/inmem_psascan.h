@@ -87,7 +87,7 @@ void inmem_psascan(
     long supertext_length = 0,
     std::string supertext_filename = "",
     const multifile *tail_gt_begin_reversed = NULL,
-    std::int64_t *i0 = NULL,
+    std::uint64_t *i0 = NULL,
     unsigned char *tail_prefix_preread = NULL) {
   static const unsigned pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
@@ -265,7 +265,7 @@ void inmem_psascan(
   }
 
   if (n_blocks > 1) {
-    std::int64_t i0_result;
+    std::uint64_t i0_result;
     pagearray<bwtsa_t<saidx_t>, pagesize_log> *result =
       inmem_bwtsa_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
           gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,

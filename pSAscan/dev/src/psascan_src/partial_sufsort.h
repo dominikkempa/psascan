@@ -135,8 +135,8 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   std::vector<long> block_initial_ranks;
   unsigned char block_last_symbol = 0;
 
-  long right_block_i0 = 0;
-  long left_block_i0 = 0;
+  std::uint64_t right_block_i0 = 0;
+  std::uint64_t left_block_i0 = 0;
 
   std::string right_block_pbwt_fname = output_filename + "." + utils::random_string_hash();
   std::string right_block_gt_begin_rev_fname = output_filename + "." + utils::random_string_hash();

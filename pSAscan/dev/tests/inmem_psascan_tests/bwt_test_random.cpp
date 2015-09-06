@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <ctime>
 #include <unistd.h>
 #include <sys/types.h>
@@ -13,7 +14,7 @@
 
 
 template<unsigned pagesize_log>
-void test(unsigned char *text, long text_length, long max_threads) {
+void test(unsigned char *text, long text_length, std::uint64_t max_threads) {
   //----------------------------------------------------------------------------
   // STEP 1: compute correct answer.
   //----------------------------------------------------------------------------
@@ -29,7 +30,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   unsigned char *computed_sa_temp = new unsigned char[text_length * (sizeof(int) + 1)];
   int *computed_sa = (int *)computed_sa_temp;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  long computed_i0;
+  std::uint64_t computed_i0;
   inmem_psascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads,
       true, false, NULL, -1, 0, 0, 0, "", NULL, &computed_i0);
 
@@ -37,7 +38,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
   // STEP 3: compare answers.
   //----------------------------------------------------------------------------
   bool eq = true;
-  long correct_i0 = 0;
+  std::uint64_t correct_i0 = 0;
   for (long i = 0; i < text_length; ++i) {
     unsigned char correct_bwt = ((correct_sa[i] == 0) ? 0 : text[correct_sa[i] - 1]);
     if (computed_bwt[i] != correct_bwt) { eq = false; break; }
@@ -54,7 +55,7 @@ void test(unsigned char *text, long text_length, long max_threads) {
         fprintf(stdout, "%c", text[j]);
       fprintf(stdout, "\n");
     }
-    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
+    fprintf(stdout, "\tmax threads = %lu\n", max_threads);
     fprintf(stdout, "\tcorrect bwt: ");
     for (long i = 0; i < text_length; ++i)
       fprintf(stdout, "%c", ((correct_sa[i] == 0) ? 0 : text[correct_sa[i] - 1]));
@@ -89,7 +90,7 @@ void test_random(long testcases, long max_length, long max_sigma) {
 
     // Generate input.
     long length = utils::random_long(1L, max_length);
-    long max_threads = utils::random_long(1L, 50L);
+    std::uint64_t max_threads = utils::random_long(1L, 50L);
 
     long sigma;
     if (length <= 10000) sigma = utils::random_long(1L, max_sigma);

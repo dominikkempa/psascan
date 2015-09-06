@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 #include <algorithm>
@@ -31,7 +32,7 @@ void compute_gt_begin_reversed(unsigned char *text, long text_length, psascan_pr
 }
 
 template<typename saidx_t, unsigned pagesize_log>
-void test(std::string supertext_filename, long text_length, long max_threads) {
+void test(std::string supertext_filename, long text_length, std::uint64_t max_threads) {
   long double start;
 
   fprintf(stderr, "Input filename: %s\n", supertext_filename.c_str());
@@ -98,7 +99,7 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  long computed_i0;
+  std::uint64_t computed_i0;
   inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, true,
       false, NULL, -1, text_beg, text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile, &computed_i0);
@@ -108,7 +109,7 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   stream_reader<long> *sa_reader = new stream_reader<long>(sa_filename);
   bool eq = true;
   long compared = 0;
-  long correct_i0 = -1;
+  std::uint64_t correct_i0 = 0;
   for (long i = 0, dbg = 0; i < supertext_length; ++i) {
     ++dbg;
     ++compared;
