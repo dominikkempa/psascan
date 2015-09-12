@@ -17,7 +17,7 @@ void inmem_psascan(
     bool compute_bwt = false,
     bool compute_gt_begin = false,
     psascan_private::bitvector *gt_begin = NULL,
-    long max_blocks = -1,
+    long max_blocks = 0,
     long text_beg = 0,
     long text_end = 0,
     long supertext_length = 0,

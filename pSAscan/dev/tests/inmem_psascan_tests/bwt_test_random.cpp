@@ -32,7 +32,7 @@ void test(unsigned char *text, long text_length, std::uint64_t max_threads) {
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
   std::uint64_t computed_i0;
   inmem_psascan<int, pagesize_log>(text, text_length, computed_sa_temp, max_threads,
-      true, false, NULL, -1, 0, 0, 0, "", NULL, &computed_i0);
+      true, false, NULL, 0, 0, 0, 0, "", NULL, &computed_i0);
 
   //----------------------------------------------------------------------------
   // STEP 3: compare answers.

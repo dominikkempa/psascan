@@ -58,24 +58,24 @@ namespace inmem_psascan_private {
 template<typename saidx_t, unsigned pagesize_log>
 pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
     const unsigned char *text,
-    long text_length,
+    std::uint64_t text_length,
     bwtsa_t<saidx_t> *bwtsa,
     bitvector *gt,
-    long max_block_size,
-    long range_beg,
-    long range_end,
+    std::uint64_t max_block_size,
+    std::uint64_t range_beg,
+    std::uint64_t range_end,
     std::uint64_t max_threads,
     bool need_gt,
     bool need_bwt,
     std::uint64_t &result_i0,
     MergeSchedule &schedule,
-    long text_beg,
-    long text_end,
-    long supertext_length,
+    std::uint64_t text_beg,
+    std::uint64_t text_end,
+    std::uint64_t supertext_length,
     std::string supertext_filename,
     const multifile *tail_gt_begin_reversed,
     std::int64_t *i0_array,
-    long **block_rank_matrix) {
+    std::uint64_t **block_rank_matrix) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 
   long shift = (max_block_size - text_length % max_block_size) % max_block_size;

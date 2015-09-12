@@ -89,7 +89,7 @@ void test(unsigned char *supertext, long supertext_length,
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
-  long max_blocks = -1;
+  long max_blocks = 0;
   if (utils::random_long(0, 1)) max_blocks = utils::random_long(1L, 50L);
   std::uint64_t computed_i0;
   inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, true,

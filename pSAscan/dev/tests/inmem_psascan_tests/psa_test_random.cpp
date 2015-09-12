@@ -88,7 +88,7 @@ void test(unsigned char *supertext, long supertext_length,
   unsigned char *text = supertext + text_beg;
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
-  long max_blocks = -1; // -1 is setting max_blocks := max_threads
+  long max_blocks = 0; // 0 is setting max_blocks := max_threads
   if (utils::random_long(0, 1)) max_blocks = utils::random_long(1L, 50L);
   bool compute_bwt = (bool)utils::random_long(0L, 1L);
   long tail_prefix_length = std::min(text_length, tail_length);

@@ -37,6 +37,7 @@
 #define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_GAP_H_INCLUDED
 
 #include <cstdio>
+#include <cstdint>
 #include <map>
 #include <vector>
 #include <thread>
@@ -65,7 +66,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     bitvector *gt, inmem_gap_array* &gap, std::uint64_t max_threads, bool need_gt, long i0,
     long gap_buf_size, long double &rank_init_time, long double &streaming_time,
-    long **block_rank_matrix, long lrange_beg, long lrange_size, long rrange_size) {
+    std::uint64_t **block_rank_matrix, long lrange_beg, long lrange_size, long rrange_size) {
   long lrange_end = lrange_beg + lrange_size;
   long rrange_end = lrange_end + rrange_size;
 

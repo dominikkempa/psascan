@@ -91,7 +91,7 @@ void test(unsigned char *supertext, long supertext_length,
   unsigned char *text = supertext + text_beg;
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   psascan_private::bitvector *text_gt_begin_computed = new psascan_private::bitvector(text_length);
-  long max_blocks = -1;
+  long max_blocks = 0;
   if (utils::random_long(0, 1)) max_blocks = utils::random_long(1, 50L);
   bool compute_bwt = (bool)utils::random_long(0, 1);
   inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, compute_bwt,

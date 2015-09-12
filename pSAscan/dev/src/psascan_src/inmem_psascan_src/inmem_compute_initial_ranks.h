@@ -39,6 +39,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <string>
 
 #include "../background_block_reader.h"
@@ -750,7 +751,7 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
     const bwtsa_t<saidx_t> *bwtsa, long max_block_size, long text_beg,
     long supertext_length, std::string,
     const multifile *tail_gt_begin_reversed,  background_block_reader *reader,
-    const unsigned char *next_block, long **block_rank_matrix) {
+    const unsigned char *next_block, std::uint64_t **block_rank_matrix) {
   long n_blocks = (text_length + max_block_size - 1) / max_block_size;
   long text_end = text_beg + text_length;
   long tail_length = supertext_length - text_end;
@@ -909,7 +910,7 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
           long suf = (long)cur_block_psa[mid].m_sa + shift;
 
           // Locate suf in next_block_psa using invariants 1. and 2.
-          long pos = next_primary_range_beg;
+          std::uint64_t pos = next_primary_range_beg;
           if (next_primary_range_size > 1)
             pos += (suf - next_psa_first) / delta;
 

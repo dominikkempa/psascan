@@ -101,7 +101,7 @@ void test(std::string supertext_filename, long text_length, std::uint64_t max_th
   unsigned char *computed_bwt = (unsigned char *)(computed_sa + text_length);
   std::uint64_t computed_i0;
   inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, true,
-      false, NULL, -1, text_beg, text_end, supertext_length, supertext_filename,
+      false, NULL, 0, text_beg, text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile, &computed_i0);
 
   ptr = 0;

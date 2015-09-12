@@ -75,32 +75,32 @@ namespace inmem_psascan_private {
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_psascan(
     unsigned char *text,
-    long text_length,
+    std::uint64_t text_length,
     unsigned char *sa_bwt,
     std::uint64_t max_threads = 1,
     bool compute_bwt = false,
     bool compute_gt_begin = false,
     bitvector *gt_begin = NULL,
-    long max_blocks = -1,
-    long text_beg = 0,
-    long text_end = 0,
-    long supertext_length = 0,
+    std::uint64_t max_blocks = 0,
+    std::uint64_t text_beg = 0,
+    std::uint64_t text_end = 0,
+    std::uint64_t supertext_length = 0,
     std::string supertext_filename = "",
     const multifile *tail_gt_begin_reversed = NULL,
     std::uint64_t *i0 = NULL,
     unsigned char *tail_prefix_preread = NULL) {
-  static const unsigned pagesize = (1U << pagesize_log);
+  static const std::uint32_t pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
   long double start;
 
-  if ((long)std::numeric_limits<saidx_t>::max() < text_length) {
-    fprintf(stderr, "\n\nError: text is too long (%ld bytes),\n", text_length);
-    fprintf(stderr, "       std::numeric_limits<saidx_t>::max() = %ld\n",
-        (long)std::numeric_limits<saidx_t>::max());
+  if ((std::uint64_t)std::numeric_limits<saidx_t>::max() < text_length) {
+    fprintf(stderr, "\n\nError: text is too long (%lu bytes),\n", text_length);
+    fprintf(stderr, "       std::numeric_limits<saidx_t>::max() = %lu\n",
+        (std::uint64_t)std::numeric_limits<saidx_t>::max());
     std::exit(EXIT_FAILURE);
   }
 
-  if (max_blocks == -1)
+  if (max_blocks == 0)
     max_blocks = max_threads;
 
   if (text_end == 0) {
@@ -130,12 +130,12 @@ void inmem_psascan(
   // block).
   //----------------------------------------------------------------------------
 
-  long alignment_unit = (long)std::max(pagesize, 8U);
-  long max_block_size = (text_length + max_blocks - 1) / max_blocks;
+  std::uint64_t alignment_unit = std::max(pagesize, 8U);
+  std::uint64_t max_block_size = (text_length + max_blocks - 1) / max_blocks;
   while ((max_block_size & (alignment_unit - 1)) && max_block_size < text_length)
     ++max_block_size;
 
-  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   if (!compute_gt_begin) {
     if (gt_begin) {
@@ -151,18 +151,18 @@ void inmem_psascan(
     }
   }
 
-  fprintf(stderr, "Text length = %ld (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
-  fprintf(stderr, "Max block size = %ld (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
-  fprintf(stderr, "Max blocks = %ld\n", max_blocks);
+  fprintf(stderr, "Text length = %lu (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
+  fprintf(stderr, "Max block size = %lu (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
+  fprintf(stderr, "Max blocks = %lu\n", max_blocks);
   fprintf(stderr, "Number of blocks = %ld\n", n_blocks);
   fprintf(stderr, "Max threads = %lu\n", max_threads);
   fprintf(stderr, "sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
   fprintf(stderr, "Pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "Compute bwt = %s\n", compute_bwt ? "true" : "false");
   fprintf(stderr, "Compute gt begin = %s\n", compute_gt_begin ? "true" : "false");
-  fprintf(stderr, "Text beg = %ld\n", text_beg);
-  fprintf(stderr, "Text end = %ld\n", text_end);
-  fprintf(stderr, "Supertext length = %ld (%.2LfMiB)\n", supertext_length, supertext_length / (1024.L * 1024));
+  fprintf(stderr, "Text beg = %lu\n", text_beg);
+  fprintf(stderr, "Text end = %lu\n", text_end);
+  fprintf(stderr, "Supertext length = %lu (%.2LfMiB)\n", supertext_length, supertext_length / (1024.L * 1024));
   fprintf(stderr, "Supertext filename = %s\n", supertext_filename.c_str());
   fprintf(stderr, "Has tail = %s\n", has_tail ? "true" : "false");
   fprintf(stderr, "\n");
@@ -170,8 +170,8 @@ void inmem_psascan(
   bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
 
   // Initialize reading of the tail prefix in the background.
-  long tail_length = supertext_length - text_end;
-  long tail_prefix_length = std::min(text_length, tail_length);
+  std::uint64_t tail_length = supertext_length - text_end;
+  std::uint64_t tail_prefix_length = std::min(text_length, tail_length);
 
   background_block_reader *tail_prefix_background_reader = NULL;
   if (has_tail && tail_prefix_preread == NULL)
@@ -200,9 +200,9 @@ void inmem_psascan(
   //----------------------------------------------------------------------------
   fprintf(stderr, "Compute matrix of initial ranks: ");
   start = utils::wclock();
-  long **block_rank_matrix = new long*[n_blocks];
-  for (long j = 0; j < n_blocks; ++j)
-    block_rank_matrix[j] = new long[n_blocks];
+  std::uint64_t **block_rank_matrix = new std::uint64_t*[n_blocks];
+  for (std::uint64_t j = 0; j < n_blocks; ++j)
+    block_rank_matrix[j] = new std::uint64_t[n_blocks];
   compute_block_rank_matrix<saidx_t>(text, text_length, bwtsa,
       max_block_size, text_beg, supertext_length, supertext_filename,
       tail_gt_begin_reversed, tail_prefix_background_reader,
@@ -234,10 +234,11 @@ void inmem_psascan(
   // space usages we can get. In the worst case there are two blocks, thus during the
   // merging the rank + gap array for the left block will take 2.5n. This added to the 7.125n
   // (for 40-bit) and 6.125n (for 32-bit) gives 9.6125n and 8.625n space usages.
-  long max_ram_usage_per_input_byte = 10L;  // peak ram usage = 10n
-  int max_left_size = std::max(1, (int)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(saidx_t))) / 5.L)));
+  std::uint64_t max_ram_usage_per_input_byte = 10L;  // peak ram usage = 10n
+  std::uint32_t max_left_size = (std::uint32_t)std::max(1,
+      (std::int32_t)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(saidx_t))) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
-  fprintf(stderr, "Max left size = %d\n", max_left_size);
+  fprintf(stderr, "Max left size = %u\n", max_left_size);
   fprintf(stderr, "Peak memory usage during last merge = %.3Lfn\n",
       (2.125L + sizeof(saidx_t)) + (5.L * max_left_size) / n_blocks);
   MergeSchedule schedule(n_blocks, rl_ratio, max_left_size);
@@ -248,10 +249,10 @@ void inmem_psascan(
 
   std::int64_t *i0_array = new std::int64_t[n_blocks];
   if (n_blocks > 1 || compute_bwt) {
-    for (long block_id = 0; block_id < n_blocks; ++block_id) {
-      long block_end = text_length - (n_blocks - 1 - block_id) * max_block_size;
-      long block_beg = std::max(0L, block_end - max_block_size);
-      long block_size = block_end - block_beg;
+    for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - block_id) * max_block_size;
+      std::uint64_t block_beg = (std::uint64_t)std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
       if (block_id + 1 != n_blocks || compute_bwt) {
         fprintf(stderr, "Compute BWT for block %ld: ", block_id + 1);
@@ -285,7 +286,7 @@ void inmem_psascan(
     if (i0) *i0 = i0_array[0];
   }
   delete[] i0_array;
-  for (long j = 0; j < n_blocks; ++j)
+  for (std::uint64_t j = 0; j < n_blocks; ++j)
     delete[] block_rank_matrix[j];
   delete[] block_rank_matrix;
 

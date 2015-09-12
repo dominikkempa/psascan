@@ -98,7 +98,7 @@ void test(std::string supertext_filename, long text_length, long max_threads) {
   unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
   inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, false,
-      false, NULL, -1, text_beg, text_end, supertext_length, supertext_filename,
+      false, NULL, 0, text_beg, text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile);
 
   ptr = 0;

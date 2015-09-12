@@ -211,7 +211,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
     // Run in-memory pSAscan.
     inmem_psascan_private::inmem_psascan<block_offset_type>(right_block, right_block_size, right_block_sabwt,
-        max_threads, !last_block, true, right_block_gt_begin_rev_bv, -1, right_block_beg, right_block_end,
+        max_threads, !last_block, true, right_block_gt_begin_rev_bv, 0, right_block_beg, right_block_end,
         text_length, text_filename, tail_gt_begin_rev, &right_block_i0);
 
     // Restore stderr.
@@ -339,7 +339,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   // Run in-memory pSAscan.
   inmem_psascan_private::inmem_psascan<block_offset_type>(left_block, left_block_size, left_block_sabwt,
-      max_threads, (right_block_size > 0), !first_block, left_block_gt_begin_rev_bv, -1, left_block_beg,
+      max_threads, (right_block_size > 0), !first_block, left_block_gt_begin_rev_bv, 0, left_block_beg,
       left_block_end, text_length, text_filename, right_block_gt_begin_rev, &left_block_i0, right_block);
 
   // Restore stderr.
