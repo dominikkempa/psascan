@@ -37,6 +37,7 @@
 #define __PSASCAN_SRC_MULTIFILE_BIT_STREAM_READER_H_INCLUDED
 
 #include <cstdio>
+#include <cstdint>
 #include <vector>
 
 #include "utils.h"
@@ -139,7 +140,7 @@ private:
     cur_bit_buffer = 0;
   }
 
-  void open_file_for_index(long i) {
+  void open_file_for_index(std::uint64_t i) {
     // Close current file (if any is open).
     if (m_file) std::fclose(m_file);
 

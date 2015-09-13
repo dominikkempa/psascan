@@ -37,6 +37,7 @@
 #define __PSASCAN_SRC_MERGE_H_INCLUDED
 
 #include <cstdio>
+#include <cstdint>
 #include <cmath>
 #include <string>
 #include <vector>
@@ -59,7 +60,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   long text_length = 0;
 
   std::sort(hblock_info.begin(), hblock_info.end());
-  for (size_t j = 0; j < hblock_info.size(); ++j)
+  for (std::uint64_t j = 0; j < hblock_info.size(); ++j)
     text_length += hblock_info[j].end - hblock_info[j].beg;
 
   long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
@@ -79,7 +80,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   for (long i = 0; i < n_block; ++i) {
     hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);
     if (i + 1 != n_block)
-      gap[i] = new vbyte_reader_type(hblock_info[i].gap_filename, buffer_size);
+      gap[i] = new vbyte_reader_type(hblock_info[i].gap_filename, 0, buffer_size);
   }
 
   long *gap_head = new long[n_block];

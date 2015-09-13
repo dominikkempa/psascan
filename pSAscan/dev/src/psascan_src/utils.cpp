@@ -35,6 +35,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
 #include <errno.h>
 #include <stdint.h>
@@ -67,13 +68,17 @@ std::FILE *open_file(std::string fname, std::string mode) {
   return f;
 }
 
-long file_size(std::string fname) {
+std::uint64_t file_size(std::string fname) {
   std::FILE *f = open_file(fname, "rt");
   std::fseek(f, 0L, SEEK_END);
   long size = std::ftell(f);
+  if (size < 0) {
+    fprintf(stderr, "\nError: cannot find file size of %s.\n", fname.c_str());
+    std::exit(EXIT_FAILURE);
+  }
   std::fclose(f);
 
-  return size;
+  return (std::uint64_t)size;
 }
 
 bool file_exists(std::string fname) {
@@ -114,36 +119,37 @@ std::string absolute_path(std::string fname) {
   return std::string(path);
 }
 
-void read_block(std::FILE *f, long beg, long length, unsigned char *b) {
+void read_block(std::FILE *f, std::uint64_t beg, std::uint64_t length, unsigned char *b) {
   std::fseek(f, beg, SEEK_SET);
   read_n_objects_from_file<unsigned char>(b, length, f);
 }
 
-void read_block(std::string fname, long beg, long length, unsigned char *b) {
+void read_block(std::string fname, std::uint64_t beg, std::uint64_t length, unsigned char *b) {
   std::FILE *f = open_file(fname.c_str(), "r");
   read_block(f, beg, length, b);
   std::fclose(f);
 }
 
-int random_int(int p, int r) {
+std::int32_t random_int32(std::int32_t p, std::int32_t r) {
   return p + rand() % (r - p + 1);
 }
 
-long random_long(long p, long r) {
-  long x = random_int(0, 1000000000);
-  long y = random_int(0, 1000000000);
-  long z = x * 1000000000L + y;
+std::int64_t random_int64(std::int64_t p, std::int64_t r) {
+  std::int64_t x = random_int32(0, 1000000000);
+  std::int64_t y = random_int32(0, 1000000000);
+  std::int64_t z = x * 1000000000L + y;
   return p + z % (r - p + 1);
 }
 
-void fill_random_string(unsigned char* &s, long length, int sigma) {
-  for (long i = 0; i < length; ++i)
-    s[i] = random_int(0, sigma - 1);
+void fill_random_string(unsigned char* &s, std::uint64_t length, std::uint64_t sigma) {
+  for (std::uint64_t i = 0; i < length; ++i)
+    s[i] = random_int32(0, sigma - 1);
 }
 
-void fill_random_letters(unsigned char* &s, long n, int sigma) {
-  fill_random_string(s, n, sigma);
-  for (long i = 0; i < n; ++i) s[i] += 'a';
+void fill_random_letters(unsigned char* &s, std::uint64_t length, std::uint64_t sigma) {
+  fill_random_string(s, length, sigma);
+  for (std::uint64_t i = 0; i < length; ++i)
+    s[i] += 'a';
 }
 
 std::string random_string_hash() {
@@ -153,14 +159,14 @@ std::string random_string_hash() {
   return ss.str();
 }
 
-long log2ceil(long x) {
-  long pow2 = 1, w = 0;
+std::uint64_t log2ceil(std::uint64_t x) {
+  std::uint64_t pow2 = 1, w = 0;
   while (pow2 < x) { pow2 <<= 1; ++w; }
   return w;
 }
 
-long log2floor(long x) {
-  long pow2 = 1, w = 0;
+std::uint64_t log2floor(std::uint64_t x) {
+  std::uint64_t pow2 = 1, w = 0;
   while ((pow2 << 1) <= x) { pow2 <<= 1; ++w; }
   return w;
 }

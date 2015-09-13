@@ -194,7 +194,7 @@ void parallel_stream(
 
       // Compute random sample of elements in the buffer.
       for (long t = 0; t < buffer_sample_size; ++t)
-        samples[t] = temp[utils::random_long(0L, b->m_filled - 1)];
+        samples[t] = temp[utils::random_int64(0L, b->m_filled - 1)];
       std::sort(samples.begin(), samples.end());
       samples.erase(std::unique(samples.begin(), samples.end()), samples.end());
 

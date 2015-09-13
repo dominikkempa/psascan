@@ -36,6 +36,8 @@
 #ifndef __PSASCAN_SRC_ASYNC_STREAM_WRITER_H_INCLUDED
 #define __PSASCAN_SRC_ASYNC_STREAM_WRITER_H_INCLUDED
 
+#include <cstdio>
+#include <cstdint>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -99,7 +101,7 @@ class async_stream_writer {
   public:
     async_stream_writer(std::string filename = std::string(""),
         std::string write_mode = std::string("w"),
-        std::size_t buf_size_bytes = (2UL << 20)) {
+        std::uint64_t buf_size_bytes = (2UL << 20)) {
       if (filename.empty()) m_file = stdout;
       else m_file = utils::open_file(filename.c_str(), write_mode);
 
@@ -149,9 +151,9 @@ class async_stream_writer {
         send_active_buf_to_write();
     }
 
-    inline void write(const value_type *values, std::size_t length) {
+    inline void write(const value_type *values, std::uint64_t length) {
       while (length > 0) {
-        std::size_t tocopy = std::min(length, m_items_per_buf - m_active_buf_filled);
+        std::uint64_t tocopy = std::min(length, m_items_per_buf - m_active_buf_filled);
         std::copy(values, values + tocopy, m_active_buf + m_active_buf_filled);
         m_active_buf_filled += tocopy;
         values += tocopy;
@@ -161,7 +163,7 @@ class async_stream_writer {
       }
     }
 
-    inline std::size_t bytes_written() const {
+    inline std::uint64_t bytes_written() const {
       return m_bytes_written;
     }
 
@@ -169,10 +171,10 @@ class async_stream_writer {
     value_type *m_active_buf;
     value_type *m_passive_buf;
 
-    std::size_t m_items_per_buf;
-    std::size_t m_active_buf_filled;
-    std::size_t m_passive_buf_filled;
-    std::size_t m_bytes_written;
+    std::uint64_t m_items_per_buf;
+    std::uint64_t m_active_buf_filled;
+    std::uint64_t m_passive_buf_filled;
+    std::uint64_t m_bytes_written;
 
     // Used for synchronization with the I/O thread.
     bool m_avail;     // signals availability of buffer for I/O thread

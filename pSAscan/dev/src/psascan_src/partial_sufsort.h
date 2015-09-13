@@ -100,12 +100,12 @@ namespace psascan_private {
 //   should save some I/O.
 //==============================================================================
 template<typename block_offset_type>
-void process_block(long block_beg, long block_end, long text_length, long ram_use,
+void process_block(long block_beg, long block_end, long text_length, std::uint64_t ram_use,
     long max_threads, long gap_buf_size, std::string text_filename,
     std::string output_filename, std::string gap_filename,
     multifile *newtail_gt_begin_rev, const multifile *tail_gt_begin_rev,
     std::vector<half_block_info<block_offset_type> > &hblock_info, bool verbose) {
-  long block_size = block_end - block_beg;
+  std::uint64_t block_size = block_end - block_beg;
 
   if (block_end != text_length && block_size <= 1) {
     fprintf(stderr, "Error: any block other than the last one has to be of length at least two.\n");
@@ -118,10 +118,10 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   bool last_block = (block_end == text_length);
   bool first_block = (block_beg == 0);
 
-  long left_block_size;
-  if (!last_block) left_block_size = std::max(1L, block_size / 2L);
-  else left_block_size = std::min(block_size, std::max(1L, ram_use / 10L));
-  long right_block_size = block_size - left_block_size;
+  std::uint64_t left_block_size;
+  if (!last_block) left_block_size = std::max(1UL, block_size / 2);
+  else left_block_size = std::min(block_size, std::max(1UL, ram_use / 10));
+  std::uint64_t right_block_size = block_size - left_block_size;
   long left_block_beg = block_beg;
   long left_block_end = block_beg + left_block_size;
   long right_block_beg = left_block_end;
@@ -250,7 +250,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
     // Write the partial SA of the right half-block to disk.
     fprintf(stderr, "    Write partial SA to disk: ");
     long double right_psa_save_start = utils::wclock();
-    long right_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 20L);
+    long right_psa_max_part_length = std::max(sizeof(block_offset_type), ram_use / 20);
     info_right.psa = new distributed_file<block_offset_type>(output_filename,
         right_psa_max_part_length, right_block_psa_ptr, right_block_psa_ptr + right_block_size);
     long double right_psa_save_time = utils::wclock() - right_psa_save_start;
@@ -383,7 +383,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
   // Write the partial SA of the left half-block to disk.
   fprintf(stderr, "    Write partial SA to disk: ");
   long double left_psa_save_start = utils::wclock();
-  long left_psa_max_part_length = std::max((long)sizeof(block_offset_type), ram_use / 20L);
+  long left_psa_max_part_length = std::max(sizeof(block_offset_type), ram_use / 20);
   info_left.psa = new distributed_file<block_offset_type>(output_filename,
       left_psa_max_part_length, left_block_psa_ptr, left_block_psa_ptr + left_block_size);
   long double left_psa_save_time = utils::wclock() - left_psa_save_start;
@@ -681,7 +681,7 @@ void process_block(long block_beg, long block_end, long text_length, long ram_us
 
   gap_array_2n *block_gap_2n = new gap_array_2n(block_gap, max_threads);
   delete block_gap;
-  block_gap_2n->apply_excess_from_disk(std::max((1L << 20), block_size), max_threads);
+  block_gap_2n->apply_excess_from_disk(std::max((1UL << 20), block_size), max_threads);
 
   long ram_budget = std::max(1L << 20, (long)(0.875L * block_size));
   compute_right_gap(left_block_size, right_block_size, block_gap_2n, left_block_gap_bv, info_right.gap_filename, max_threads, ram_budget);  

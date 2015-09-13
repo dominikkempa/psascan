@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -57,7 +58,7 @@ namespace psascan_private {
 void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
     long *range_gap, const gap_array_2n *block_gap, const bitvector *bv,
     const ranksel_support *bv_ranksel, long &res_sum, long &res_rank) {
-  size_t excess_ptr = std::lower_bound(block_gap->m_excess.begin(),
+  std::uint64_t excess_ptr = std::lower_bound(block_gap->m_excess.begin(),
       block_gap->m_excess.end(), part_beg) - block_gap->m_excess.begin();
 
   // Initialize j.

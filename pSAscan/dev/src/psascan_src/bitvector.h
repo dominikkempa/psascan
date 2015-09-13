@@ -38,7 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <stdint.h>
+#include <cstdint>
 
 #include "utils.h"
 
@@ -47,7 +47,7 @@ namespace psascan_private {
 
 struct bitvector {
   private:
-    long m_alloc_bytes;
+    std::uint64_t m_alloc_bytes;
     unsigned char *m_data;
 
   public:
