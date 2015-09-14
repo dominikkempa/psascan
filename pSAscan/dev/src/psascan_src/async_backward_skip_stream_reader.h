@@ -81,7 +81,7 @@ struct async_backward_skip_stream_reader {
   }
 
   async_backward_skip_stream_reader(std::string filename, long skip_elems, long bufsize = (4 << 20)) {
-    m_file = utils::open_file(filename.c_str(), "r");
+    m_file = utils::file_open(filename.c_str(), "r");
     std::fseek(m_file, -(skip_elems * sizeof(value_type)), SEEK_END);
 
 

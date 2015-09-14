@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -49,11 +50,11 @@
 
 namespace psascan_private {
 
-struct background_chunk_reader {
+class background_chunk_reader {
   private:
     std::FILE *m_file;
-    long m_chunk_length;
-    long m_end;
+    std::uint64_t m_chunk_length;
+    std::uint64_t m_end;
     
     std::condition_variable m_cv;
     std::mutex m_mutex;
@@ -62,12 +63,12 @@ struct background_chunk_reader {
     bool m_signal_read_next_chunk;
     bool m_signal_stop;
 
-    long m_cur;
-    unsigned char *m_passive_chunk;
+    std::uint64_t m_cur;
+    std::uint8_t *m_passive_chunk;
 
   public:
-    unsigned char *m_chunk;
-    
+    std::uint8_t *m_chunk;
+
   private:
     static void async_io_code(background_chunk_reader &r) {
       while (true) {
@@ -81,7 +82,7 @@ struct background_chunk_reader {
         
         if (sig_stop) break;
         
-        long next_chunk_length = std::min(r.m_chunk_length, r.m_end - r.m_cur);
+        std::uint64_t next_chunk_length = std::min(r.m_chunk_length, r.m_end - r.m_cur);
         utils::read_n_objects_from_file(r.m_passive_chunk, next_chunk_length, r.m_file);
         
         lk.lock();
@@ -92,23 +93,22 @@ struct background_chunk_reader {
     }
 
   public:
-    background_chunk_reader(std::string filename, long beg,
-        long end, long chunk_length = (1L << 20)) {
+    background_chunk_reader(std::string filename, std::uint64_t beg,
+        std::uint64_t end, std::uint64_t chunk_length = (1UL << 20)) {
       if (beg > end) {
         fprintf(stderr, "Error: beg > end in background_chunk_reader.\n");
         std::exit(EXIT_FAILURE);
       }
-      
+
       if (beg == end) return;
 
       m_cur = beg;
       m_end = end;
-
       m_chunk_length = chunk_length;
-      m_chunk = (unsigned char *)malloc(m_chunk_length);
-      m_passive_chunk = (unsigned char *)malloc(m_chunk_length);
+      m_chunk = (std::uint8_t *)malloc(m_chunk_length);
+      m_passive_chunk = (std::uint8_t *)malloc(m_chunk_length);
       
-      m_file = utils::open_file(filename, "r");
+      m_file = utils::file_open(filename, "r");
       std::fseek(m_file, m_cur, SEEK_SET);
 
       m_signal_stop = false;
@@ -116,7 +116,7 @@ struct background_chunk_reader {
       m_thread = new std::thread(async_io_code, std::ref(*this));
     }
 
-    inline void wait(long end) {
+    inline void wait(std::uint64_t end) {
       if (end > m_end) {
         fprintf(stderr, "Error: end > m_end in background_chunk_reader.\n");
         std::exit(EXIT_FAILURE);
@@ -156,7 +156,7 @@ struct background_chunk_reader {
       free(m_passive_chunk);
     }
 
-    inline long get_chunk_size() const {
+    inline std::uint64_t get_chunk_size() const {
       return m_chunk_length;
     }
 };

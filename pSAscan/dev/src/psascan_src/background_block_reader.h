@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <algorithm>
 #include <thread>
 #include <mutex>
@@ -48,17 +49,17 @@
 
 namespace psascan_private {
 
-struct background_block_reader {
+class background_block_reader {
   public:
-    unsigned char *m_data;
-    long m_start;
-    long m_size;
+    std::uint8_t *m_data;
+    std::uint64_t m_start;
+    std::uint64_t m_size;
 
   private:
-    static const long k_chunk_size;
+    static const std::uint64_t k_chunk_size;
 
     // These variables are protected by m_mutex.
-    long m_fetched;
+    std::uint64_t m_fetched;
     bool m_signal_stop;
     bool m_joined;
 
@@ -75,14 +76,14 @@ struct background_block_reader {
     static void io_thread_main(background_block_reader &reader) {
       while (true) {
         std::unique_lock<std::mutex> lk(reader.m_mutex);
-        long fetched = reader.m_fetched;
+        std::uint64_t fetched = reader.m_fetched;
         bool signal_stop = reader.m_signal_stop;
         lk.unlock();
 
         if (fetched == reader.m_size || signal_stop) break;
 
-        long toread = std::min(reader.m_size - fetched, reader.k_chunk_size);
-        unsigned char *dest = reader.m_data + fetched;
+        std::uint64_t toread = std::min(reader.m_size - fetched, reader.k_chunk_size);
+        std::uint8_t *dest = reader.m_data + fetched;
         utils::read_n_objects_from_file(dest, toread, reader.m_file);
 
         lk.lock();
@@ -96,13 +97,13 @@ struct background_block_reader {
     }
 
   public:
-    background_block_reader(std::string filename, long start, long size) {
+    background_block_reader(std::string filename, std::uint64_t start, std::uint64_t size) {
       m_start = start;
       m_size = size;
          
       // Initialize file and buffer.
-      m_data = (unsigned char *)malloc(m_size);
-      m_file = utils::open_file(filename, "r");
+      m_data = (std::uint8_t *)malloc(m_size);
+      m_file = utils::file_open(filename, "r");
       std::fseek(m_file, m_start, SEEK_SET);
       m_fetched = 0;
 
@@ -140,7 +141,7 @@ struct background_block_reader {
       lk.unlock();
     }
 
-    inline void wait(long target_fetched) {
+    inline void wait(std::uint64_t target_fetched) {
       std::unique_lock<std::mutex> lk(m_mutex);
       while (m_fetched < target_fetched)
         m_cv.wait(lk);
@@ -148,7 +149,7 @@ struct background_block_reader {
     }
 };
 
-const long background_block_reader::k_chunk_size = (1L << 20);
+const std::uint64_t background_block_reader::k_chunk_size = (1UL << 20);
 
 }  // namespace psascan_private
 

@@ -218,7 +218,7 @@ class async_multifile_bit_writer {
     void add_file(std::string filename, std::string write_mode =
         std::string("w")) {
       m_buffers.push_back(new buffer(m_buf_size_bytes));
-      m_files.push_back(utils::open_file(filename, write_mode));
+      m_files.push_back(utils::file_open(filename, write_mode));
     }
 
     // Write value to i-th file. Files are numbered according

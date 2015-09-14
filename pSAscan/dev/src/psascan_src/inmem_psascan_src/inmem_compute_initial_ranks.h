@@ -88,8 +88,8 @@ void compute_range(const unsigned char *text, long block_beg, long block_size,
     const unsigned char *pat, long pat_length, const pagearray_type &bwtsa,
     std::pair<long, long> &ret) {
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -180,8 +180,8 @@ void refine_range(const unsigned char *text, long block_beg,
   long rlcp = old_pat_length;
 
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -269,8 +269,8 @@ void refine_range(const unsigned char *text, long text_length,
   long rlcp = old_pat_length;
 
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -532,7 +532,7 @@ void compute_ranges_2(const unsigned char *text, long text_length,
     // lengths) even if the whole next block is available. This is for
     // debugging purpose.
     while (left != right && cur_pat_length < pat_length) {
-      long next_chunk = utils::random_long(1L, pat_length - cur_pat_length);
+      long next_chunk = utils::random_int64(1L, pat_length - cur_pat_length);
       long new_pat_length = cur_pat_length + next_chunk;
 
       long newleft = 0L;
@@ -629,7 +629,7 @@ void compute_ranges_3(const unsigned char *text, long text_length,
     // lengths) even if the whole next block is available. This is for
     // debugging purpose.
     while (left != right && cur_pat_length < first_range_pat_length) {
-      long next_chunk = utils::random_long(1L,
+      long next_chunk = utils::random_int64(1L,
           first_range_pat_length - cur_pat_length);
       long new_pat_length = cur_pat_length + next_chunk;
 
@@ -682,7 +682,7 @@ void compute_ranges_3(const unsigned char *text, long text_length,
     // lengths) even if the whole next block is available. This is for
     // debugging purpose.
     while (left != right && cur_pat_length < pat_length) {
-      long next_chunk = utils::random_long(1L, pat_length - cur_pat_length);
+      long next_chunk = utils::random_int64(1L, pat_length - cur_pat_length);
       long new_pat_length = cur_pat_length + next_chunk;
 
       long newleft = 0L;

@@ -100,8 +100,8 @@ void refine_range(
   long rlcp = old_lcp;
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -188,7 +188,7 @@ void em_compute_single_initial_rank(
 
   // Reads text[pat_beg..pat_end) in chunks.
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long chunk_length = utils::random_long(1L, 10L); 
+  long chunk_length = utils::random_int64(1L, 10L); 
   background_chunk_reader *chunk_reader =
     new background_chunk_reader(text_filename, pat_beg, pat_end, chunk_length);
 #else
@@ -202,7 +202,7 @@ void em_compute_single_initial_rank(
   long lcp = 0;
 
   while (left != right && lcp < max_lcp) {
-    long this_chunk_length = std::min(max_lcp - lcp, chunk_reader->get_chunk_size());
+    long this_chunk_length = std::min(max_lcp - lcp, (std::int64_t)chunk_reader->get_chunk_size());
     long new_lcp = lcp + this_chunk_length;
     chunk_reader->wait(pat_beg + new_lcp);
 
@@ -389,8 +389,8 @@ void refine_range_2(
   long rlcp = old_lcp;
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -479,7 +479,7 @@ void em_compute_single_initial_rank_2(
 
   // Reads text[pat_beg..pat_end) in chunks.
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long chunk_length = utils::random_long(1L, 10L); 
+  long chunk_length = utils::random_int64(1L, 10L); 
   background_chunk_reader *chunk_reader =
     new background_chunk_reader(text_filename, pat_beg, pat_end, chunk_length);
 #else
@@ -493,7 +493,7 @@ void em_compute_single_initial_rank_2(
   long lcp = 0;
 
   while (left != right && lcp < max_lcp) {
-    long this_chunk_length = std::min(max_lcp - lcp, chunk_reader->get_chunk_size());
+    long this_chunk_length = std::min(max_lcp - lcp, (std::int64_t)chunk_reader->get_chunk_size());
     long new_lcp = lcp + this_chunk_length;
     chunk_reader->wait(pat_beg + new_lcp);
 

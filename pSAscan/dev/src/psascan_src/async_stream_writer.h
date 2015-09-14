@@ -103,7 +103,7 @@ class async_stream_writer {
         std::string write_mode = std::string("w"),
         std::uint64_t buf_size_bytes = (2UL << 20)) {
       if (filename.empty()) m_file = stdout;
-      else m_file = utils::open_file(filename.c_str(), write_mode);
+      else m_file = utils::file_open(filename.c_str(), write_mode);
 
       // Initialize buffers.
       m_bytes_written = 0;

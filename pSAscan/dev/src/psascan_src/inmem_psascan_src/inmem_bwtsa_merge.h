@@ -78,13 +78,13 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
     std::uint64_t **block_rank_matrix) {
   typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
 
-  long shift = (max_block_size - text_length % max_block_size) % max_block_size;
-  long range_size = range_end - range_beg;
+  std::uint64_t shift = (max_block_size - text_length % max_block_size) % max_block_size;
+  std::uint64_t range_size = range_end - range_beg;
 
   if (range_size == 1) {
-    long block_beg = range_beg * max_block_size;
-    long block_end = block_beg + max_block_size;
-    block_beg = std::max(0L, block_beg - shift);
+    std::uint64_t block_beg = range_beg * max_block_size;
+    std::uint64_t block_end = block_beg + max_block_size;
+    block_beg = (std::uint64_t)std::max(0L, (std::int64_t)block_beg - (std::int64_t)shift);
     block_end -= shift;
 
     result_i0 = i0_array[range_beg];
@@ -96,25 +96,25 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   //----------------------------------------------------------------------------
   // STEP 1: Split the blocks in the left and right group.
   //----------------------------------------------------------------------------
-  long lrange_size = schedule.left_size(range_size);
-  long rrange_size = range_size - lrange_size;
+  std::uint64_t lrange_size = schedule.left_size(range_size);
+  std::uint64_t rrange_size = range_size - lrange_size;
 
-  long lrange_beg = range_beg;
-  long lrange_end = range_beg + lrange_size;
-  long rrange_beg = lrange_end;
-  long rrange_end = rrange_beg + rrange_size;
+  std::uint64_t lrange_beg = range_beg;
+  std::uint64_t lrange_end = range_beg + lrange_size;
+  std::uint64_t rrange_beg = lrange_end;
+  std::uint64_t rrange_end = rrange_beg + rrange_size;
 
-  long lbeg = lrange_beg * max_block_size;
-  long rbeg = rrange_beg * max_block_size;
-  long lend = rbeg;
-  long rend = rbeg + rrange_size * max_block_size;
-  lbeg = std::max(0L, lbeg - shift);
+  std::uint64_t lbeg = lrange_beg * max_block_size;
+  std::uint64_t rbeg = rrange_beg * max_block_size;
+  std::uint64_t lend = rbeg;
+  std::uint64_t rend = rbeg + rrange_size * max_block_size;
+  lbeg = (std::uint64_t)std::max(0L, (std::int64_t)lbeg - (std::int64_t)shift);
   rbeg -= shift;
   lend -= shift;
   rend -= shift;
 
   std::uint64_t lsize = lend - lbeg;
-  long rsize = rend - rbeg;
+  std::uint64_t rsize = rend - rbeg;
 
   //----------------------------------------------------------------------------
   // STEP 2: Compute partial SAs and BWTs for left and right block.

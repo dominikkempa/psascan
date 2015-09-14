@@ -108,7 +108,7 @@ class async_vbyte_stream_reader {
         std::uint64_t bufsize = (4UL << 20)) {
       if (filename.empty()) m_file = stdin;
       else {
-        m_file = utils::open_file(filename.c_str(), "r");
+        m_file = utils::file_open(filename.c_str(), "r");
         if (pos != 0)
           std::fseek(m_file, pos, SEEK_SET);
       }

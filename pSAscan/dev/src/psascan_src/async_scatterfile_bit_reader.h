@@ -69,7 +69,7 @@ class async_scatterfile_bit_reader {
           for (std::uint64_t j = 0; j < file->m_files_info.size(); ++j) {
             if (file->m_files_info[j].m_beg == file->m_total_read_buf) {
               file->m_file_id = j;
-              file->m_file = utils::open_file(file->m_files_info[j].m_filename, "r");
+              file->m_file = utils::file_open(file->m_files_info[j].m_filename, "r");
               break;
             }
           }
@@ -104,7 +104,7 @@ class async_scatterfile_bit_reader {
       for (std::uint64_t j = 0; j < m_files_info.size(); ++j) {
         if (m_files_info[j].m_beg <= start_pos && start_pos < m_files_info[j].m_end) {
           m_file_id = j;
-          m_file = utils::open_file(m_files_info[j].m_filename, "r");
+          m_file = utils::file_open(m_files_info[j].m_filename, "r");
           break;
         }
       }

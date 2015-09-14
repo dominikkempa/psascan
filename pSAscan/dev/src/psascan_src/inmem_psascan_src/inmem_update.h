@@ -62,7 +62,7 @@ template<typename block_offset_type>
 struct gap_parallel_updater {
 
   template<typename T>
-  static void parallel_update(gap_parallel_updater<T> *updater, int id) {
+  static void parallel_update(gap_parallel_updater<T> *updater, std::uint64_t id) {
     while (true) {
       // Wait until there is a gap buffer available or the
       // message 'no more buffers' arrives.
@@ -82,10 +82,10 @@ struct gap_parallel_updater {
       // Safely perform the update.
       const gap_buffer<T> *buf = updater->m_buffer;
       inmem_gap_array *gap = updater->m_gap_array;
-      int beg = buf->sblock_beg[id];
-      int end = beg + buf->sblock_size[id];
+      std::uint64_t beg = buf->sblock_beg[id];
+      std::uint64_t end = beg + buf->sblock_size[id];
 
-      for (int i = beg; i < end; ++i) {
+      for (std::uint64_t i = beg; i < end; ++i) {
         T x = buf->m_content[i];
         gap->m_count[x]++;
 
@@ -111,7 +111,7 @@ struct gap_parallel_updater {
     }
   }
 
-  gap_parallel_updater(inmem_gap_array *gap_array, int threads_cnt)
+  gap_parallel_updater(inmem_gap_array *gap_array, std::uint64_t threads_cnt)
       : m_gap_array(gap_array),
         m_threads_cnt(threads_cnt),
         m_avail_no_more(false) {
@@ -120,7 +120,7 @@ struct gap_parallel_updater {
     m_threads = new std::thread*[m_threads_cnt];
 
     // After this, threads immediately hang up on m_avail_cv.
-    for (int i = 0; i < m_threads_cnt; ++i)
+    for (std::uint64_t i = 0; i < m_threads_cnt; ++i)
       m_threads[i] = new std::thread(parallel_update<block_offset_type>, this, i);
   }
 
@@ -132,7 +132,7 @@ struct gap_parallel_updater {
     m_avail_cv.notify_all();
 
     // Wait until all threads finish and release memory.
-    for (int i = 0; i < m_threads_cnt; ++i) {
+    for (std::uint64_t i = 0; i < m_threads_cnt; ++i) {
       m_threads[i]->join();
       delete m_threads[i];
     }
@@ -145,7 +145,7 @@ struct gap_parallel_updater {
     std::unique_lock<std::mutex> lk(m_avail_mutex);
     m_finished = 0;
     m_buffer = buffer;
-    for (int i = 0; i < m_threads_cnt; ++i)
+    for (std::uint64_t i = 0; i < m_threads_cnt; ++i)
       m_avail[i] = true;
     lk.unlock();
 
@@ -166,7 +166,7 @@ private:
   inmem_gap_array *m_gap_array;
 
   std::thread **m_threads;
-  int m_threads_cnt;
+  std::uint64_t m_threads_cnt;
 
   const gap_buffer<block_offset_type> *m_buffer;
 
@@ -179,7 +179,7 @@ private:
   // The mutex below is to protect m_finished. The condition
   // variable allows the caller to wait (and to be notified when done)
   // until threads complete processing their section of the buffer.
-  int m_finished;
+  std::uint64_t m_finished;
   std::mutex m_finished_mutex;
   std::condition_variable m_finished_cv;
 };
@@ -187,7 +187,7 @@ private:
 template<typename block_offset_type>
 void inmem_gap_updater(gap_buffer_poll<block_offset_type> *full_gap_buffers,
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
-    inmem_gap_array *gap, long n_increasers) {
+    inmem_gap_array *gap, std::uint64_t n_increasers) {
 
   gap_parallel_updater<block_offset_type> *updater =
     new gap_parallel_updater<block_offset_type>(gap, n_increasers);

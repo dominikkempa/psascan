@@ -469,7 +469,7 @@ struct gap_array_2n {
     long elems = std::max(1L, ram_budget / (2L * (long)sizeof(long)));
     long *buffer = (long *)malloc(elems * sizeof(long));
 
-    std::FILE *f = utils::open_file(m_storage_filename.c_str(), "r");
+    std::FILE *f = utils::file_open(m_storage_filename.c_str(), "r");
     std::thread **threads = new std::thread*[max_threads];
 
     // After sorting the buffer, when we split it equally between threads

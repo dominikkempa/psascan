@@ -149,7 +149,7 @@ private:
     while (i < files_info[id].m_beg || files_info[id].m_end <= i)
       ++id;
 
-    m_file = utils::open_file(files_info[id].m_filename, "r");
+    m_file = utils::file_open(files_info[id].m_filename, "r");
     m_file_beg = files_info[id].m_beg;
     m_file_end = files_info[id].m_end;
 

@@ -58,7 +58,7 @@ long double wclock() {
   return tim.tv_sec + (tim.tv_usec / 1000000.0L);
 }
 
-std::FILE *open_file(std::string fname, std::string mode) {
+std::FILE *file_open(std::string fname, std::string mode) {
   std::FILE *f = std::fopen(fname.c_str(), mode.c_str());
   if (f == NULL) {
     std::perror(fname.c_str());
@@ -69,7 +69,7 @@ std::FILE *open_file(std::string fname, std::string mode) {
 }
 
 std::uint64_t file_size(std::string fname) {
-  std::FILE *f = open_file(fname, "rt");
+  std::FILE *f = file_open(fname, "rt");
   std::fseek(f, 0L, SEEK_END);
   long size = std::ftell(f);
   if (size < 0) {
@@ -105,7 +105,7 @@ std::string absolute_path(std::string fname) {
 
   if (!file_exists(fname)) {
     // We need to create the file, since realpath fails on non-existing files.
-    std::fclose(open_file(fname, "w"));
+    std::fclose(file_open(fname, "w"));
     created = true;
   }
   if (!realpath(fname.c_str(), path)) {
@@ -125,7 +125,7 @@ void read_block(std::FILE *f, std::uint64_t beg, std::uint64_t length, unsigned 
 }
 
 void read_block(std::string fname, std::uint64_t beg, std::uint64_t length, unsigned char *b) {
-  std::FILE *f = open_file(fname.c_str(), "r");
+  std::FILE *f = file_open(fname.c_str(), "r");
   read_block(f, beg, length, b);
   std::fclose(f);
 }

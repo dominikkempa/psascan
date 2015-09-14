@@ -301,7 +301,7 @@ struct distributed_file {
     }
 
     ++m_cur_file;
-    m_file = utils::open_file(m_filename + ".part" + utils::intToStr(m_cur_file), "r");
+    m_file = utils::file_open(m_filename + ".part" + utils::intToStr(m_cur_file), "r");
     m_cur_file_read = 0;
   }
 
@@ -311,7 +311,7 @@ struct distributed_file {
       std::exit(EXIT_FAILURE);
     }
 
-    m_file = utils::open_file(m_filename + ".part" + utils::intToStr(m_files_cnt), "w");
+    m_file = utils::file_open(m_filename + ".part" + utils::intToStr(m_files_cnt), "w");
     ++m_files_cnt;
     m_cur_file_write = 0;
   }
