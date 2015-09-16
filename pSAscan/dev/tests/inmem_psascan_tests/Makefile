@@ -1,6 +1,6 @@
 BSHELL = /bin/sh
 
-CC = g++
+CC = $(CXX)
 CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x -march=native
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x
 

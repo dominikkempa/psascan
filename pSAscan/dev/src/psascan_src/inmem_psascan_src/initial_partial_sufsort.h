@@ -53,14 +53,14 @@ namespace inmem_psascan_private {
 //==============================================================================
 // Rename the given block using its gt bitvector.
 //==============================================================================
-void rename_block(unsigned char *text, long text_length, long block_beg,
-    long block_length, bitvector *gt, bool &renaming_error) {
-  long block_end = block_beg + block_length;
-  long beg_rev = text_length - block_end;
-  unsigned char *block = text + block_beg;
-  unsigned char last = block[block_length - 1];
+void rename_block(std::uint8_t *text, std::uint64_t text_length, std::uint64_t block_beg,
+    std::uint64_t block_length, bitvector *gt, bool &renaming_error) {
+  std::uint64_t block_end = block_beg + block_length;
+  std::uint64_t beg_rev = text_length - block_end;
+  std::uint8_t *block = text + block_beg;
+  std::uint8_t last = block[block_length - 1];
   bool err = false;
-  for (long i = 0; i + 1 < block_length; ++i)
+  for (std::uint64_t i = 0; i + 1 < block_length; ++i)
     if (block[i] > last || (block[i] == last && gt->get(beg_rev + i + 1))) {
       if (block[i] == 255)
         err = true;
@@ -74,34 +74,32 @@ void rename_block(unsigned char *text, long text_length, long block_beg,
     renaming_error = true;
 }
 
-
 //==============================================================================
 // Re-rename block back to original.
 //==============================================================================
-void rerename_block(unsigned char *block, long block_length) {
-  unsigned char last = block[block_length - 1] - 1;
-  for (long i = 0; i < block_length; ++i)
+void rerename_block(std::uint8_t *block, std::uint64_t block_length) {
+  std::uint8_t last = block[block_length - 1] - 1;
+  for (std::uint64_t i = 0; i < block_length; ++i)
     if (block[i] > last) --block[i];
 }
-
 
 //==============================================================================
 // Given gt bitvectors, compute partial suffix arrays of blocks.
 //==============================================================================
 template<typename saidx_t>
-void initial_partial_sufsort(unsigned char *, long, bitvector *,
-    bwtsa_t<saidx_t> *, long, long, bool) {
+void initial_partial_sufsort(std::uint8_t *, std::uint64_t, bitvector *,
+    bwtsa_t<saidx_t> *, std::uint64_t, std::uint64_t, bool) {
   fprintf(stderr, "\n\nError: initial_partial_sufsort: given saidx_t is "
-      "not supported, sizeof(saidx_t) = %ld\n", (long)sizeof(saidx_t));
+      "not supported, sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
   std::exit(EXIT_FAILURE);
 }
 
 template<>
-void initial_partial_sufsort(unsigned char *text, long text_length,
-    bitvector* gt, bwtsa_t<uint40> *bwtsa, long max_block_size,
-    long max_threads, bool has_tail) {
+void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
+    bitvector* gt, bwtsa_t<uint40> *bwtsa, std::uint64_t max_block_size,
+    std::uint64_t max_threads, bool has_tail) {
   long double start = utils::wclock();
-  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
@@ -114,23 +112,23 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     bool *renaming_error = new bool[n_blocks];
     std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
-    for (long i = 0; i < n_blocks; ++i) {
-      long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      long block_beg = std::max(0L, block_end - max_block_size);
-      long block_size = block_end - block_beg;
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
-      threads[i] = new std::thread(rename_block, text, text_length, block_beg,
-          block_size, gt, std::ref(renaming_error[i]));
+      threads[i] = new std::thread(rename_block, text, text_length,
+          block_beg, block_size, gt, std::ref(renaming_error[i]));
     }
 
-    for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-    for (long i = 0; i < n_blocks; ++i) delete threads[i];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
     bool err = false;
-    for (long i = 0; i < n_blocks; ++i)
+    for (std::uint64_t i = 0; i < n_blocks; ++i)
       if (renaming_error[i]) err = true;
     delete[] renaming_error;
 
@@ -142,13 +140,13 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     }
   }
 
-  if (max_block_size >= (2L << 30)) {  // Use 64-bit divsufsort.
+  if (max_block_size >= (2UL << 30)) {  // Use 64-bit divsufsort.
     fprintf(stdout, "\n\nError: 2GiB+ partial suffix arrays are not "
         "yet supported by the internal-memory pSAscan.\n");
     std::fflush(stdout);
     std::exit(EXIT_FAILURE);
   } else {  // Use 32-bit divsufsort.
-    int *temp_sa = (int *)bwtsa;
+    std::int32_t *temp_sa = (std::int32_t *)bwtsa;
 
     //--------------------------------------------------------------------------
     // STEP 2: Compute suffix arrays in parallel.
@@ -156,24 +154,24 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     fprintf(stderr, "  Run divsufsort32: ");
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
-    for (long i = 0; i < n_blocks; ++i) {
-      long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      long block_beg = std::max(0L, block_end - max_block_size);
-      long block_size = block_end - block_beg;
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
-      threads[i] = new std::thread(run_divsufsort<int>,
+      threads[i] = new std::thread(run_divsufsort<std::int32_t>,
           text + block_beg, temp_sa + block_beg, block_size);
     }
 
-    for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-    for (long i = 0; i < n_blocks; ++i) delete threads[i];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
     fprintf(stderr, "  Expand 32-bit integers to bwtsa objects: ");
     start = utils::wclock();
-    parallel_expand<int, bwtsa_t<uint40> >(temp_sa, text_length, max_threads);
+    parallel_expand<std::int32_t, bwtsa_t<uint40> >(temp_sa, text_length, max_threads);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -184,17 +182,17 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     fprintf(stderr, "  Rerename blocks: ");
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
-    for (long i = 0; i < n_blocks; ++i) {
-      long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      long block_beg = std::max(0L, block_end - max_block_size);
-      long block_size = block_end - block_beg;
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rerename_block,
           text + block_beg, block_size);
     }
 
-    for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-    for (long i = 0; i < n_blocks; ++i) delete threads[i];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
@@ -202,11 +200,11 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
 }
 
 template<>
-void initial_partial_sufsort(unsigned char *text, long text_length,
-    bitvector* gt, bwtsa_t<int> *bwtsa, long max_block_size, long max_threads,
+void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
+    bitvector* gt, bwtsa_t<int> *bwtsa, std::uint64_t max_block_size, std::uint64_t max_threads,
     bool has_tail) {
   long double start = utils::wclock();
-  long n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
@@ -218,23 +216,23 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     bool *renaming_error = new bool[n_blocks];
     std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
-    for (long i = 0; i < n_blocks; ++i) {
-      long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      long block_beg = std::max(0L, block_end - max_block_size);
-      long block_size = block_end - block_beg;
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rename_block, text, text_length, block_beg,
           block_size, gt, std::ref(renaming_error[i]));
     }
 
-    for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-    for (long i = 0; i < n_blocks; ++i) delete threads[i];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
     bool err = false;
-    for (long i = 0; i < n_blocks; ++i)
+    for (std::uint64_t i = 0; i < n_blocks; ++i)
       if (renaming_error[i]) err = true;
     delete[] renaming_error;
 
@@ -254,17 +252,17 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
   fprintf(stderr, "  Run divsufsort32: ");
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
-  for (long i = 0; i < n_blocks; ++i) {
-    long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-    long block_beg = std::max(0L, block_end - max_block_size);
-    long block_size = block_end - block_beg;
+  for (std::uint64_t i = 0; i < n_blocks; ++i) {
+    std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+    std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+    std::uint64_t block_size = block_end - block_beg;
 
     threads[i] = new std::thread(run_divsufsort<int>,
         text + block_beg, temp_sa + block_beg, block_size);
   }
 
-  for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-  for (long i = 0; i < n_blocks; ++i) delete threads[i];
+  for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+  for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;
   fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
@@ -281,17 +279,17 @@ void initial_partial_sufsort(unsigned char *text, long text_length,
     fprintf(stderr, "  Rerename blocks: ");
     start = utils::wclock();
     threads = new std::thread*[n_blocks];
-    for (long i = 0; i < n_blocks; ++i) {
-      long block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      long block_beg = std::max(0L, block_end - max_block_size);
-      long block_size = block_end - block_beg;
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rerename_block,
           text + block_beg, block_size);
     }
 
-    for (long i = 0; i < n_blocks; ++i) threads[i]->join();
-    for (long i = 0; i < n_blocks; ++i) delete threads[i];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
     delete[] threads;
 
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);

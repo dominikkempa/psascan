@@ -1,5 +1,5 @@
 SHELL = /bin/sh
-CC = g++
+CC = $(CXX)
 CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -pthread -std=c++0x -DNDEBUG -O3 -march=native
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -pthread -std=c++0x -g2
 
