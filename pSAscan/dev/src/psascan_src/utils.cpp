@@ -104,7 +104,7 @@ std::string absolute_path(std::string filename) {
     created = true;
   }
   if (!realpath(filename.c_str(), path)) {
-    fprintf(stderr, "\nError: realpath failed for %s\n", filename.c_str());
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
   if (created)
