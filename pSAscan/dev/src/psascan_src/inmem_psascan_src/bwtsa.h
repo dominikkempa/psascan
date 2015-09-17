@@ -36,6 +36,7 @@
 #ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_BWTSA_H_INCLUDED
 #define __PSASCAN_SRC_INMEM_PSASCAN_SRC_BWTSA_H_INCLUDED
 
+#include <cstdint>
 #include "../uint40.h"
 
 
@@ -46,7 +47,7 @@ template<typename uint_type>
 class bwtsa_t {
   public:
     uint_type m_sa;
-    unsigned char m_bwt;
+    std::uint8_t m_bwt;
 
   public:
     bwtsa_t() {}

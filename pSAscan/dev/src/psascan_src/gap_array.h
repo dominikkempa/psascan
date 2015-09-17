@@ -83,7 +83,9 @@ struct buffered_gap_array {
     if (m_excess_filled == k_excess_limit) {
       m_gap_writing_mutex.lock();  // XXX necessary?
       m_excess_disk += m_excess_filled;
-      utils::add_objects_to_file(m_excess, m_excess_filled, m_storage_filename);
+      std::FILE *f = utils::file_open(m_storage_filename, "a");
+      utils::write_to_file(m_excess, m_excess_filled, f);
+      std::fclose(f);
       m_excess_filled = 0L;
       m_gap_writing_mutex.unlock();
     }
@@ -91,7 +93,9 @@ struct buffered_gap_array {
 
   void flush_excess_to_disk() {
     if (m_excess_filled > 0) {
-      utils::add_objects_to_file(m_excess, m_excess_filled, m_storage_filename);
+      std::FILE *f = utils::file_open(m_storage_filename, "a");
+      utils::write_to_file(m_excess, m_excess_filled, f);
+      std::fclose(f);
       m_excess_disk += m_excess_filled;
       m_excess_filled = 0L;
     }
@@ -106,7 +110,7 @@ struct buffered_gap_array {
       if (m_excess_disk > 0L) {
         long *dest = m_sorted_excess + m_excess_filled;
         long toread = m_excess_disk;
-        utils::read_n_objects_from_file(dest, toread, m_storage_filename.c_str());
+        utils::read_from_file(dest, toread, m_storage_filename.c_str());
       }
       std::sort(m_sorted_excess, m_sorted_excess + m_total_excess);
     }
@@ -484,7 +488,7 @@ struct gap_array_2n {
     while (m_excess_disk > 0) {
       // Read a portion of excess values from disk.
       long toread = std::min(m_excess_disk, elems);
-      utils::read_n_objects_from_file(buffer, toread, f);
+      utils::read_from_file(buffer, toread, f);
 
       // Sort excess values in parallel.
       __gnu_parallel::sort(buffer, buffer + toread);

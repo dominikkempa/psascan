@@ -74,9 +74,9 @@ namespace inmem_psascan_private {
 //==============================================================================
 template<typename saidx_t, unsigned pagesize_log = 12>
 void inmem_psascan(
-    unsigned char *text,
+    std::uint8_t *text,
     std::uint64_t text_length,
-    unsigned char *sa_bwt,
+    std::uint8_t *sa_bwt,
     std::uint64_t max_threads = 1,
     bool compute_bwt = false,
     bool compute_gt_begin = false,
@@ -88,7 +88,7 @@ void inmem_psascan(
     std::string supertext_filename = "",
     const multifile *tail_gt_begin_reversed = NULL,
     std::uint64_t *i0 = NULL,
-    unsigned char *tail_prefix_preread = NULL) {
+    std::uint8_t *tail_prefix_preread = NULL) {
   static const std::uint32_t pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
   long double start;
@@ -295,13 +295,13 @@ void inmem_psascan(
     gt_begin = NULL;
   }
 
-  unsigned char *bwt = NULL;
+  std::uint8_t *bwt = NULL;
   if (compute_bwt) {
     // Allocate aux, copy bwt into aux.
     fprintf(stderr, "Copy bwtsa.bwt into aux memory: ");
     start = utils::wclock();
-    bwt = (unsigned char *)malloc(text_length);
-    parallel_copy<bwtsa_t<saidx_t>, unsigned char>(bwtsa, bwt, text_length, max_threads);
+    bwt = (std::uint8_t *)malloc(text_length);
+    parallel_copy<bwtsa_t<saidx_t>, std::uint8_t>(bwtsa, bwt, text_length, max_threads);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -316,8 +316,8 @@ void inmem_psascan(
     // Copy from aux into the end of bwtsa.
     fprintf(stderr, "Copy bwt from aux memory to the end of bwtsa: ");
     start = utils::wclock();
-    unsigned char *dest = (unsigned char *)(((saidx_t *)bwtsa) + text_length);
-    parallel_copy<unsigned char, unsigned char>(bwt, dest, text_length, max_threads);
+    std::uint8_t *dest = (std::uint8_t *)(((saidx_t *)bwtsa) + text_length);
+    parallel_copy<std::uint8_t, std::uint8_t>(bwt, dest, text_length, max_threads);
     free(bwt);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }

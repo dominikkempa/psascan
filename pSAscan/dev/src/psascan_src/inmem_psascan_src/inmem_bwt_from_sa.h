@@ -48,7 +48,7 @@ namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename saidx_t>
-void compute_bwt_in_bwtsa_aux(const unsigned char *text, std::uint64_t beg,
+void compute_bwt_in_bwtsa_aux(const std::uint8_t *text, std::uint64_t beg,
     std::uint64_t end, bwtsa_t<saidx_t> *dest, std::int64_t *i0) {
   *i0 = -1;
   for (std::uint64_t j = beg; j < end; ++j) {
@@ -58,7 +58,7 @@ void compute_bwt_in_bwtsa_aux(const unsigned char *text, std::uint64_t beg,
 }
 
 template<typename saidx_t>
-void compute_bwt_in_bwtsa(const unsigned char *text, std::uint64_t length,
+void compute_bwt_in_bwtsa(const std::uint8_t *text, std::uint64_t length,
   bwtsa_t<saidx_t> *dest, std::uint64_t max_threads, std::int64_t &result) {
   std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
   std::uint64_t n_blocks = (length + max_block_size - 1) / max_block_size;

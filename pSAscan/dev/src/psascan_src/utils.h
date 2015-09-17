@@ -46,93 +46,78 @@
 namespace psascan_private {
 namespace utils {
 
-#define STRX(x) #x
-#define STR(x) STRX(x)
-
-// Time
 long double wclock();
 
-// Basic file handling
 std::FILE *file_open(std::string fname, std::string mode);
 std::uint64_t file_size(std::string fname);
 bool file_exists(std::string fname);
 void file_delete(std::string fname);
 std::string absolute_path(std::string fname);
-
-// File I/O
-void read_block(std::string fname, std::uint64_t beg, std::uint64_t length, unsigned char *b);
-void read_block(std::FILE *f, std::uint64_t beg, std::uint64_t length, unsigned char *b);
+void drop_disk_pages(std::string filename);
 
 template<typename value_type>
-void write_objects_to_file(const value_type *tab, std::uint64_t length, std::string fname) {
+void write_to_file(const value_type *src, std::uint64_t length, std::FILE *f) {
+  std::uint64_t fwrite_ret = std::fwrite(src, sizeof(value_type), length, f);
+  if (fwrite_ret != length) {
+    fprintf(stderr, "Error: fwrite failed.\n");
+    std::exit(EXIT_FAILURE);
+  }
+}
+
+template<typename value_type>
+void write_to_file(const value_type *src, std::uint64_t length, std::string fname) {
   std::FILE *f = file_open(fname, "w");
-  std::uint64_t fwrite_ret = std::fwrite(tab, sizeof(value_type), length, f);
-  if (fwrite_ret != length) {
-    fprintf(stderr, "\nError: fwrite in line %s of %s returned %lu\n",
-        STR(__LINE__), STR(__FILE__), fwrite_ret);
-    std::exit(EXIT_FAILURE);
-  }
-
+  write_to_file(src, length, f);
   std::fclose(f);
 }
 
 template<typename value_type>
-void add_objects_to_file(const value_type *tab, std::uint64_t length, std::FILE *f) {
-  std::uint64_t fwrite_ret = std::fwrite(tab, sizeof(value_type), length, f);
-  if (fwrite_ret != length) {
-    fprintf(stderr, "\nError: fwrite in line %s of %s returned %lu\n",
-        STR(__LINE__), STR(__FILE__), fwrite_ret);
-    std::exit(EXIT_FAILURE);
-  }
-}
-
-template<typename value_type>
-void add_objects_to_file(const value_type *tab, std::uint64_t length, std::string fname) {
-  std::FILE *f = file_open(fname.c_str(), "a");
-  add_objects_to_file<value_type>(tab, length, f);
-  std::fclose(f);
-}
-
-template<typename value_type>
-void read_n_objects_from_file(value_type* tab, std::uint64_t length, std::FILE *f) {
-  std::uint64_t fread_ret = std::fread(tab, sizeof(value_type), length, f);
+void read_from_file(value_type* dest, std::uint64_t length, std::FILE *f) {
+  std::uint64_t fread_ret = std::fread(dest, sizeof(value_type), length, f);
   if (fread_ret != length) {
-    fprintf(stderr, "\nError: fread in line %s of %s returned %lu\n",
-        STR(__LINE__), STR(__FILE__), fread_ret);
+    fprintf(stderr, "\nError: fread failed.\n");
     std::exit(EXIT_FAILURE);
   }
 }
 
 template<typename value_type>
-void read_n_objects_from_file(value_type* tab, std::uint64_t length, std::string fname) {
+void read_from_file(value_type* dest, std::uint64_t length, std::string fname) {
   std::FILE *f = file_open(fname, "r");
-  read_n_objects_from_file<value_type>(tab, length, f);
+  read_from_file<value_type>(dest, length, f);
   std::fclose(f);
 }
 
 template<typename value_type>
-void read_objects_from_file(value_type* &tab, std::uint64_t &length, std::string fname) {
-  std::FILE *f = file_open(fname, "r");
-  std::fseek(f, 0L, SEEK_END);
-  length = std::ftell(f) / sizeof(value_type);
-  std::rewind(f);
-  tab = (value_type *)malloc(length * sizeof(value_type));
-  read_n_objects_from_file<value_type>(tab, length, f);
+void read_at_offset(value_type *dest, std::uint64_t offset,
+    std::uint64_t length, std::FILE *f) {
+  std::fseek(f, sizeof(value_type) * offset, SEEK_SET);
+  read_from_file(dest, length, f);
+}
+
+template<typename value_type>
+void read_at_offset(value_type *dest, std::uint64_t offset,
+    std::uint64_t length, std::string filename) {
+  std::FILE *f = file_open(filename, "r");
+  read_at_offset(dest, offset, length, f);
   std::fclose(f);
 }
 
-// Randomness
+template<typename value_type>
+value_type read_at_offset(std::uint64_t offset, std::FILE *f) {
+  value_type result;
+  read_at_offset(&result, offset, 1, f);
+  return result;
+}
+
 std::int32_t random_int32(std::int32_t p, std::int32_t r);
 std::int64_t random_int64(std::int64_t p, std::int64_t r);
-void fill_random_string(unsigned char* &s, std::uint64_t length, std::uint64_t sigma);
-void fill_random_letters(unsigned char* &s, std::uint64_t length, std::uint64_t sigma);
+void fill_random_string(std::uint8_t* &s, std::uint64_t length, std::uint64_t sigma);
+void fill_random_letters(std::uint8_t* &s, std::uint64_t length, std::uint64_t sigma);
 std::string random_string_hash();
 
-// Math
 std::uint64_t log2ceil(std::uint64_t x);
 std::uint64_t log2floor(std::uint64_t x);
 
-// Misc
 template<typename int_type>
 std::string intToStr(int_type x) {
   std::stringstream ss;

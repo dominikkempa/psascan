@@ -83,7 +83,7 @@ class background_chunk_reader {
         if (sig_stop) break;
         
         std::uint64_t next_chunk_length = std::min(r.m_chunk_length, r.m_end - r.m_cur);
-        utils::read_n_objects_from_file(r.m_passive_chunk, next_chunk_length, r.m_file);
+        utils::read_from_file(r.m_passive_chunk, next_chunk_length, r.m_file);
         
         lk.lock();
         r.m_cur += next_chunk_length;

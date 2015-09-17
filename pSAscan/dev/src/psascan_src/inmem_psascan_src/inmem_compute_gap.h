@@ -61,7 +61,7 @@ namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
-void inmem_compute_gap(const unsigned char *text, long text_length, long left_block_beg,
+void inmem_compute_gap(const std::uint8_t *text, long text_length, long left_block_beg,
     long left_block_size, long right_block_size,
     const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
     bitvector *gt, inmem_gap_array* &gap, std::uint64_t max_threads, bool need_gt, long i0,
@@ -87,8 +87,8 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   for (std::uint32_t j = 0; j < 256; ++j)
     count[j] = rank->rank(left_block_size, (std::uint8_t)j);
 
-  const unsigned char *left_block = text + left_block_beg;
-  unsigned char last = left_block[left_block_size - 1];
+  const std::uint8_t *left_block = text + left_block_beg;
+  std::uint8_t last = left_block[left_block_size - 1];
   ++count[last];
   --count[0];
 

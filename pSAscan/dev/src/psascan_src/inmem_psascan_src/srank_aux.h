@@ -36,6 +36,8 @@
 #ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_H_INCLUDED
 #define __PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_H_INCLUDED
 
+#include <cstdint>
+
 
 namespace psascan_private {
 namespace inmem_psascan_private {
@@ -45,7 +47,7 @@ namespace inmem_psascan_private {
 // text[0..length - 1). The result is returned via updated values s, p, r.
 //==============================================================================
 template<typename uint_type>
-inline void update_ms(const unsigned char *text, uint_type length,
+inline void update_ms(const std::uint8_t *text, uint_type length,
     uint_type &s, uint_type &p) {
   if (length == 1) {
     s = 0;
@@ -55,8 +57,8 @@ inline void update_ms(const unsigned char *text, uint_type length,
 
   uint_type i = length - 1;
   while (i < length) {
-    unsigned char a = text[i - p];
-    unsigned char b = text[i];
+    std::uint8_t a = text[i - p];
+    std::uint8_t b = text[i];
 
     if (a > b) p = i - s + 1;
     else if (a < b) {

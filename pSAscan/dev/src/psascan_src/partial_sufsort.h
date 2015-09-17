@@ -178,7 +178,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     fprintf(stderr, "    Read: ");
     right_block = (unsigned char *)malloc(right_block_size);
     long double right_block_read_start = utils::wclock();
-    utils::read_block(text_filename, right_block_beg, right_block_size, right_block);
+    utils::read_at_offset(right_block, right_block_beg, right_block_size, text_filename);
     block_last_symbol = right_block[right_block_size - 1];
     long double right_block_read_time = utils::wclock() - right_block_read_start;
     long double right_block_read_io = (right_block_size / (1024.L * 1024)) / right_block_read_time;
@@ -263,7 +263,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     if (!last_block) {
       fprintf(stderr, "    Write BWT to disk: ");
       long double right_bwt_save_start = utils::wclock();
-      utils::write_objects_to_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
+      utils::write_to_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
       long double right_bwt_save_time = utils::wclock() - right_bwt_save_start;
       long double right_bwt_save_io = (right_block_size / (1024.L * 1024)) / right_bwt_save_time;
       fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_bwt_save_time, right_bwt_save_io);
@@ -305,7 +305,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   fprintf(stderr, "    Read: ");
   long double left_block_read_start = utils::wclock();
   unsigned char *left_block = (unsigned char *)malloc(left_block_size);
-  utils::read_block(text_filename, left_block_beg, left_block_size, left_block);
+  utils::read_at_offset(left_block, left_block_beg, left_block_size, text_filename);
   unsigned char left_block_last = left_block[left_block_size - 1];
   long double left_block_read_time = utils::wclock() - left_block_read_start;
   long double left_block_read_io = (left_block_size / (1024.L * 1024)) / left_block_read_time;
@@ -578,8 +578,8 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   // Read the BWT of the right half-block into RAM.
   fprintf(stderr, "    Read BWT of right half-block: ");
   long double right_block_bwt_read_start = utils::wclock();
-  unsigned char *right_block_bwt = NULL;
-  utils::read_objects_from_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
+  std::uint8_t *right_block_bwt = (std::uint8_t *)malloc(right_block_size);
+  utils::read_from_file(right_block_bwt, right_block_size, right_block_pbwt_fname);
   long double right_block_bwt_read_time = utils::wclock() - right_block_bwt_read_start;
   long double right_block_bwt_read_io = (right_block_size / (1024.L * 1024)) / right_block_bwt_read_time;
   fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_block_bwt_read_time, right_block_bwt_read_io);

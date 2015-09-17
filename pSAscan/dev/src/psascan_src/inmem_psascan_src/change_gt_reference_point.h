@@ -62,10 +62,10 @@ namespace inmem_psascan_private {
 // Compute range [microblock_beg..microblock_end) of bits in the output
 // bitvector gt_out.
 //==============================================================================
-void gt_end_to_gt_begin_aux(const unsigned char *text, std::uint64_t text_length,
+void gt_end_to_gt_begin_aux(const std::uint8_t *text, std::uint64_t text_length,
     std::uint64_t block_beg, std::uint64_t block_end, bitvector *gt) {
   std::uint64_t block_size = block_end - block_beg;
-  const unsigned char *pat = text + block_beg, *txt = pat;
+  const std::uint8_t *pat = text + block_beg, *txt = pat;
 
   std::uint64_t i = 1, el = 0, s = 0, p = 0;
   std::uint64_t i_max = i, el_max = 0, s_max = 0, p_max = 0;
@@ -123,7 +123,7 @@ void gt_end_to_gt_begin_aux(const unsigned char *text, std::uint64_t text_length
 //==============================================================================
 // Change gt_end bitvector into gt_begin using string range matching.
 //==============================================================================
-void gt_end_to_gt_begin(const unsigned char *text, std::uint64_t text_length,
+void gt_end_to_gt_begin(const std::uint8_t *text, std::uint64_t text_length,
     bitvector *gt, std::uint64_t max_block_size) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 

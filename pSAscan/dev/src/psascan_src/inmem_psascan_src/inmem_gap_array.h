@@ -51,7 +51,7 @@ namespace inmem_psascan_private {
 
 class inmem_gap_array {
   public:
-    unsigned char *m_count;
+    std::uint8_t *m_count;
     std::uint64_t m_length;
 
     std::vector<std::uint64_t> m_excess;
@@ -60,7 +60,7 @@ class inmem_gap_array {
   public:
     inmem_gap_array(std::uint64_t length)
       : m_length(length) {
-      m_count = (unsigned char *)calloc(m_length, sizeof(unsigned char));
+      m_count = (std::uint8_t *)calloc(m_length, 1);
     }
 
     ~inmem_gap_array() {

@@ -64,7 +64,7 @@ class async_bit_stream_writer {
         lk.unlock();
 
         // Safely write the data to disk.
-        utils::add_objects_to_file(writer->m_passive_buf,
+        utils::write_to_file(writer->m_passive_buf,
             writer->m_passive_buf_filled, writer->m_file);
 
         // Let the caller know that the I/O thread finished writing.

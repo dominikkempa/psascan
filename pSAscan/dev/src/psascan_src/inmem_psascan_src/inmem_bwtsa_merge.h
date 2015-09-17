@@ -57,7 +57,7 @@ namespace inmem_psascan_private {
 
 template<typename saidx_t, unsigned pagesize_log>
 pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
-    const unsigned char *text,
+    const std::uint8_t *text,
     std::uint64_t text_length,
     bwtsa_t<saidx_t> *bwtsa,
     bitvector *gt,

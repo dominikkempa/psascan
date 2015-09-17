@@ -37,10 +37,12 @@
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
-#include <errno.h>
-#include <stdint.h>
-#include <unistd.h>
+#include <cerrno>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <string>
 #include <fstream>
 #include <algorithm>
@@ -54,80 +56,72 @@ namespace utils {
 long double wclock() {
   timeval tim;
   gettimeofday(&tim, NULL);
-
   return tim.tv_sec + (tim.tv_usec / 1000000.0L);
 }
 
-std::FILE *file_open(std::string fname, std::string mode) {
-  std::FILE *f = std::fopen(fname.c_str(), mode.c_str());
+std::FILE *file_open(std::string filename, std::string mode) {
+  std::FILE *f = std::fopen(filename.c_str(), mode.c_str());
   if (f == NULL) {
-    std::perror(fname.c_str());
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
-
   return f;
 }
 
-std::uint64_t file_size(std::string fname) {
-  std::FILE *f = file_open(fname, "rt");
-  std::fseek(f, 0L, SEEK_END);
+std::uint64_t file_size(std::string filename) {
+  std::FILE *f = file_open(filename, "r");
+  std::fseek(f, 0, SEEK_END);
   long size = std::ftell(f);
   if (size < 0) {
-    fprintf(stderr, "\nError: cannot find file size of %s.\n", fname.c_str());
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
   std::fclose(f);
-
   return (std::uint64_t)size;
 }
 
-bool file_exists(std::string fname) {
-  std::FILE *f = std::fopen(fname.c_str(), "r");
-  bool ret = (f != NULL);
+bool file_exists(std::string filename) {
+  std::FILE *f = std::fopen(filename.c_str(), "r");
+  bool result = (f != NULL);
   if (f != NULL)
     std::fclose(f);
-
-  return ret;
+  return result;
 }
 
-void file_delete(std::string fname) {
-  int res = std::remove(fname.c_str());
-  if (res) {
-    fprintf(stderr, "Failed to delete %s: %s\n",
-        fname.c_str(), strerror(errno));
+void file_delete(std::string filename) {
+  int res = std::remove(filename.c_str());
+  if (res != 0) {
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
 }
 
-std::string absolute_path(std::string fname) {
+std::string absolute_path(std::string filename) {
   char path[1 << 12];
   bool created = false;
-
-  if (!file_exists(fname)) {
-    // We need to create the file, since realpath fails on non-existing files.
-    std::fclose(file_open(fname, "w"));
+  if (!file_exists(filename)) {
+    std::fclose(file_open(filename, "w"));
     created = true;
   }
-  if (!realpath(fname.c_str(), path)) {
-    fprintf(stderr, "\nError: realpath failed for %s\n", fname.c_str());
+  if (!realpath(filename.c_str(), path)) {
+    fprintf(stderr, "\nError: realpath failed for %s\n", filename.c_str());
     std::exit(EXIT_FAILURE);
   }
-
   if (created)
-    file_delete(fname);
-
+    file_delete(filename);
   return std::string(path);
 }
 
-void read_block(std::FILE *f, std::uint64_t beg, std::uint64_t length, unsigned char *b) {
-  std::fseek(f, beg, SEEK_SET);
-  read_n_objects_from_file<unsigned char>(b, length, f);
-}
-
-void read_block(std::string fname, std::uint64_t beg, std::uint64_t length, unsigned char *b) {
-  std::FILE *f = file_open(fname.c_str(), "r");
-  read_block(f, beg, length, b);
-  std::fclose(f);
+void drop_disk_pages(std::string filename) {
+  int fd = open(filename.c_str(), O_RDWR);
+  if (fd == -1) {
+    std::perror(filename.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  off_t length = lseek(fd, 0, SEEK_END);
+  lseek(fd, 0L, SEEK_SET);
+  posix_fadvise(fd, 0, length, POSIX_FADV_DONTNEED);
+  close(fd);
 }
 
 std::int32_t random_int32(std::int32_t p, std::int32_t r) {
@@ -141,12 +135,12 @@ std::int64_t random_int64(std::int64_t p, std::int64_t r) {
   return p + z % (r - p + 1);
 }
 
-void fill_random_string(unsigned char* &s, std::uint64_t length, std::uint64_t sigma) {
+void fill_random_string(std::uint8_t* &s, std::uint64_t length, std::uint64_t sigma) {
   for (std::uint64_t i = 0; i < length; ++i)
     s[i] = random_int32(0, sigma - 1);
 }
 
-void fill_random_letters(unsigned char* &s, std::uint64_t length, std::uint64_t sigma) {
+void fill_random_letters(std::uint8_t* &s, std::uint64_t length, std::uint64_t sigma) {
   fill_random_string(s, length, sigma);
   for (std::uint64_t i = 0; i < length; ++i)
     s[i] += 'a';

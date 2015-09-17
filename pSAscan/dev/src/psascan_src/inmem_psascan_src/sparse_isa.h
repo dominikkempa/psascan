@@ -76,7 +76,7 @@ class sparse_isa {
     }
 
   public:
-    sparse_isa(const pagearray_type *bwtsa, const unsigned char *text,
+    sparse_isa(const pagearray_type *bwtsa, const std::uint8_t *text,
         const rank_type *rank, std::uint64_t length, std::uint64_t i0,
         std::uint64_t max_threads) {
       m_bwtsa = bwtsa;
@@ -141,7 +141,7 @@ class sparse_isa {
         //   isa_i >= 0
         //   isa_i = ISA[i]
         //   j <= i
-        unsigned char c = m_text[i - 1];
+        std::uint8_t c = m_text[i - 1];
         std::int64_t delta = ((std::uint64_t)isa_i > m_i0 && c == 0);
 
         isa_i = (std::int64_t)m_count[c] + (std::int64_t)m_rank->rank(isa_i, c) - delta;
@@ -167,7 +167,7 @@ class sparse_isa {
     std::uint64_t *m_count;
     std::uint64_t *m_sparse_isa;
 
-    const unsigned char *m_text;
+    const std::uint8_t *m_text;
     const pagearray_type *m_bwtsa;
     const rank_type *m_rank;
 };

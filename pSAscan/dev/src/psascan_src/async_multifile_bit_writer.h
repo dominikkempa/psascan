@@ -56,7 +56,7 @@ class async_multifile_bit_writer {
 
       void flush_to_file(std::FILE *f) {
         if (m_bit_pos != 0) ++m_filled;
-        utils::add_objects_to_file(m_content, m_filled, f);
+        utils::write_to_file(m_content, m_filled, f);
         m_filled = 0;
         m_bit_pos = 0;
         m_content[m_filled] = 0;

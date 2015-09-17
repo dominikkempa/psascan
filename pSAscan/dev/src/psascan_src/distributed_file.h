@@ -91,7 +91,7 @@ struct distributed_file {
     if (m_cur_file_write != m_max_items) {
       long left = m_max_items - m_cur_file_write;
       long towrite = std::min(left, end - begin);
-      utils::add_objects_to_file(begin, towrite, m_file);
+      utils::write_to_file(begin, towrite, m_file);
       m_cur_file_write += towrite;
       m_total_write += towrite;
       begin += towrite;
@@ -103,7 +103,7 @@ struct distributed_file {
       make_new_file();
 
       long towrite = std::min(m_max_items, end - begin);
-      utils::add_objects_to_file(begin, towrite, m_file);
+      utils::write_to_file(begin, towrite, m_file);
       m_cur_file_write += towrite;
       m_total_write += towrite;
       begin += towrite;
@@ -259,8 +259,7 @@ struct distributed_file {
       file->m_passive_buf_filled = std::min(left, file->m_buf_size);
       file->m_cur_file_read += file->m_passive_buf_filled;
       file->m_total_read_buf += file->m_passive_buf_filled;
-      utils::read_n_objects_from_file(file->m_passive_buf,
-          file->m_passive_buf_filled, file->m_file);
+      utils::read_from_file(file->m_passive_buf, file->m_passive_buf_filled, file->m_file);
 
       // Let the caller know that the I/O thread finished reading.
       lk.lock();

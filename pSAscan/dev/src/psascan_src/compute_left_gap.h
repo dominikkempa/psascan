@@ -44,6 +44,7 @@
 #include <condition_variable>
 #include <algorithm>
 
+#include "utils.h"
 #include "bitvector.h"
 #include "ranksel_support.h"
 #include "gap_array.h"
@@ -127,7 +128,7 @@ void lblock_handle_bv_part(long part_beg, long part_end, long range_beg,
 
 
 void lblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx,
-    std::condition_variable &cv, bool &avail, bool &finished, std::string filename) {
+    std::condition_variable &cv, bool &avail, bool &finished, std::FILE *f) {
   while (true) {
     // Wait until the passive buffer is available.
     std::unique_lock<std::mutex> lk(mtx);
@@ -142,7 +143,7 @@ void lblock_async_write_code(unsigned char* &slab, long &length, std::mutex &mtx
     lk.unlock();
 
     // Safely write the data to disk.
-    utils::add_objects_to_file(slab, length, filename);
+    utils::write_to_file(slab, length, f);
 
     // Let the caller know that the I/O thread finished writing.
     lk.lock();
@@ -167,6 +168,7 @@ void compute_left_gap(long left_block_size, long right_block_size,
     long max_threads, long ram_budget) {
   long block_size = left_block_size + right_block_size;
   long left_gap_size = left_block_size + 1;
+  std::FILE *f_out = utils::file_open(out_filename, "w");
 
   // NOTE: we require that bv has room for one extra bit at the end
   //       which we use as a sentinel. The actual value of that bit
@@ -208,12 +210,11 @@ void compute_left_gap(long left_block_size, long right_block_size,
   std::condition_variable cv;
   bool avail = false;
   bool finished = false;
-  
+
   // Start the thread doing asynchronous writes.
   std::thread *async_writer = new std::thread(lblock_async_write_code,
       std::ref(passive_vbyte_slab), std::ref(passive_vbyte_slab_length),
-      std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished),
-      out_filename);
+      std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished), f_out);
 
   for (long range_id = 0L; range_id < n_ranges; ++range_id) {
     // Compute the range [range_beg..range_end) of values in the left gap
@@ -302,6 +303,7 @@ void compute_left_gap(long left_block_size, long right_block_size,
   free(range_gap);
   free(active_vbyte_slab);
   free(passive_vbyte_slab);
+  std::fclose(f_out);
 
   long double compute_gap_time = utils::wclock() - compute_gap_start;
   long double compute_gap_speed = (block_size / (1024.L * 1024)) / compute_gap_time;

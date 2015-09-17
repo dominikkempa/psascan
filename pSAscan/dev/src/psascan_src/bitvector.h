@@ -48,44 +48,46 @@ namespace psascan_private {
 struct bitvector {
   private:
     std::uint64_t m_alloc_bytes;
-    unsigned char *m_data;
+    std::uint8_t *m_data;
 
   public:
     bitvector(std::string filename) {
-      utils::read_objects_from_file<unsigned char>(m_data, m_alloc_bytes, filename);
+      m_alloc_bytes = utils::file_size(filename);
+      m_data = (std::uint8_t *)malloc(m_alloc_bytes);
+      utils::read_from_file(m_data, m_alloc_bytes, filename);
     }
 
-    bitvector(long length) {
+    bitvector(std::uint64_t length) {
       m_alloc_bytes = (length + 7) / 8;
-      m_data = (unsigned char *)calloc(m_alloc_bytes, sizeof(unsigned char));
+      m_data = (std::uint8_t *)calloc(m_alloc_bytes, 1);
     }
 
-    inline bool get(long i) const {
+    inline bool get(std::uint64_t i) const {
       return m_data[i >> 3] & (1 << (i & 7));
     }
 
-    inline void set(long i) {
+    inline void set(std::uint64_t i) {
       m_data[i >> 3] |= (1 << (i & 7));
     }
 
-    inline void reset(long i) {
+    inline void reset(std::uint64_t i) {
       m_data[i >> 3] &= (~(1 << (i & 7)));
     }
 
-    inline void flip(long i) {
+    inline void flip(std::uint64_t i) {
       if (get(i)) reset(i);
       else set(i);
     }
 
     inline void save(std::string filename) const {
-      utils::write_objects_to_file<unsigned char>(m_data, m_alloc_bytes, filename);
+      utils::write_to_file(m_data, m_alloc_bytes, filename);
     }
 
     // Number of 1 bits in the range [beg..end).
-    long range_sum(long beg, long end) const {
-      long result = 0L;
-    
-      long j = beg;
+    std::uint64_t range_sum(std::uint64_t beg, std::uint64_t end) const {
+      std::uint64_t result = 0;
+
+      std::uint64_t j = beg;
       while (j < end && (j & 63))
         result += get(j++);
 

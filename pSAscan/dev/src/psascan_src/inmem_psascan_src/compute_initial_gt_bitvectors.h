@@ -68,7 +68,7 @@ namespace inmem_psascan_private {
 // NOTE: we store the gt bitvector reversed, so that later we can overwrite
 // it with gt_begin in place.
 //==============================================================================
-void compute_partial_gt_end(const unsigned char *text, std::uint64_t text_length,
+void compute_partial_gt_end(const std::uint8_t *text, std::uint64_t text_length,
     std::uint64_t begin, std::uint64_t end, std::uint64_t max_lcp,
     bitvector *gt, bitvector *undecided,
     bool &all_decided, std::uint64_t text_end, std::uint64_t supertext_length,

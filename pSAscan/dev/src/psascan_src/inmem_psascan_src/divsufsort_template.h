@@ -38,6 +38,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 
 #include "divsufsort.h"
 #include "divsufsort64.h"
@@ -47,19 +48,19 @@ namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename T>
-void run_divsufsort(const unsigned char *, T*, T) {
+void run_divsufsort(const std::uint8_t *, T*, T) {
   fprintf(stderr, "\ndivsufsort: non-standard call. Use either"
       "int or long for second and third argument.\n");
   std::exit(EXIT_FAILURE);
 }
 
 template<>
-void run_divsufsort(const unsigned char *text, int *sa, int length) {
+void run_divsufsort(const std::uint8_t *text, std::int32_t *sa, std::int32_t length) {
   divsufsort(text, sa, length);
 }
 
 template<>
-void run_divsufsort(const unsigned char *text, long *sa, long length) {
+void run_divsufsort(const std::uint8_t *text, std::int64_t *sa, std::int64_t length) {
   divsufsort64(text, sa, length);
 }
 

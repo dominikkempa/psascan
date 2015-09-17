@@ -67,7 +67,7 @@ class async_stream_writer {
         lk.unlock();
 
         // Safely write the data to disk.
-        utils::add_objects_to_file(caller->m_passive_buf,
+        utils::write_to_file(caller->m_passive_buf,
             caller->m_passive_buf_filled, caller->m_file);
         caller->m_bytes_written += caller->m_passive_buf_filled * sizeof(T);
 
