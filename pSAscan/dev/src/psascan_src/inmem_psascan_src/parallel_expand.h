@@ -42,32 +42,44 @@
 #include <algorithm>
 #include <thread>
 
+#include "bwtsa.h"
+
 
 namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename src_type, typename dest_type>
 void parallel_expand_aux(const src_type *src, dest_type *dest, std::uint64_t length) {
-  for (std::uint64_t i = 0; i < length; ++i)
-    dest[i] = (dest_type)src[i];
+  for (std::uint64_t i = length; i > 0; --i)
+    dest[i - 1] = (dest_type)src[i - 1];
 }
 
-// Requires sizeof(src_type) < sizeof(dest_type).
+// Specialization
+template<>
+void parallel_expand_aux(const std::int32_t *src, bwtsa_t<uint40> *dest, std::uint64_t length) {
+  for (std::uint64_t i = length; i > 0; --i)
+    dest[i - 1].m_sa = src[i - 1];
+}
+
+// Specialization
+template<>
+void parallel_expand_aux(const std::int32_t *src, bwtsa_t<std::int32_t> *dest, std::uint64_t length) {
+  for (std::uint64_t i = length; i > 0; --i)
+    dest[i - 1].m_sa = src[i - 1];
+}
+
+// Specialization
+template<>
+void parallel_expand_aux(const std::int64_t *src, bwtsa_t<std::int64_t> *dest, std::uint64_t length) {
+  for (std::uint64_t i = length; i > 0; --i)
+    dest[i - 1].m_sa = src[i - 1];
+}
+
 template<typename src_type, typename dest_type>
 dest_type *parallel_expand(src_type *tab, std::uint64_t length, std::uint64_t max_threads) {
   dest_type *result = (dest_type *)tab;
-
-  std::int64_t diff = (std::int64_t)sizeof(dest_type) - (std::int64_t)sizeof(src_type);
-  if (diff <= 0) {
-    fprintf(stderr, "\n\nError: expanding requires sizeof(src_type) < sizeof(dest_type)\n");
-    std::exit(EXIT_FAILURE);
-  }
-
   if (length < (1UL << 20)) {
-    // Move the elelements sequentially.
-    for (std::uint64_t i = length; i > 0; --i)
-      result[i - 1] = (dest_type)tab[i - 1];
-
+    parallel_expand_aux<src_type, dest_type>(tab, (dest_type *)tab, length);
     return result;
   }
 

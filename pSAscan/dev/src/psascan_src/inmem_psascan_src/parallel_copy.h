@@ -53,21 +53,27 @@ void parallel_copy_aux(const src_type *src, dest_type *dest, std::uint64_t lengt
     dest[i] = (dest_type)src[i];
 }
 
-// Specilization
+// Specialization
 template<>
 void parallel_copy_aux(const bwtsa_t<uint40> *src, std::uint8_t *dest, std::uint64_t length) {
   for (std::uint64_t i = 0; i < length; ++i)
     dest[i] = src[i].m_bwt;
 }
 
-// Specilization
+// Specialization
 template<>
 void parallel_copy_aux(const bwtsa_t<std::int32_t> *src, std::uint8_t *dest, std::uint64_t length) {
   for (std::uint64_t i = 0; i < length; ++i)
     dest[i] = src[i].m_bwt;
 }
 
-// Conversion from src_type to dest_type has to make sense.
+// Specialization
+template<>
+void parallel_copy_aux(const bwtsa_t<std::int64_t> *src, std::uint8_t *dest, std::uint64_t length) {
+  for (std::uint64_t i = 0; i < length; ++i)
+    dest[i] = src[i].m_bwt;
+}
+
 template<typename src_type, typename dest_type>
 void parallel_copy(const src_type *src, dest_type *dest, std::uint64_t length, std::uint64_t max_threads) {
   std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
@@ -80,50 +86,6 @@ void parallel_copy(const src_type *src, dest_type *dest, std::uint64_t length, s
     std::uint64_t block_size = block_end - block_beg;
 
     threads[i] = new std::thread(parallel_copy_aux<src_type, dest_type>,
-        src + block_beg, dest + block_beg, block_size);
-  }
-
-  for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
-  for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
-  delete[] threads;
-}
-
-// Specialization
-template<>
-void parallel_copy(const bwtsa_t<uint40> *src, std::uint8_t *dest,
-    std::uint64_t length, std::uint64_t max_threads) {
-  std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
-  std::uint64_t n_blocks = (length + max_block_size - 1) / max_block_size;
-
-  std::thread **threads = new std::thread*[n_blocks];
-  for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_beg = i * max_block_size;
-    std::uint64_t block_end = std::min(block_beg + max_block_size, length);
-    std::uint64_t block_size = block_end - block_beg;
-
-    threads[i] = new std::thread(parallel_copy_aux<bwtsa_t<uint40>, std::uint8_t>,
-        src + block_beg, dest + block_beg, block_size);
-  }
-
-  for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
-  for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
-  delete[] threads;
-}
-
-// Specialization
-template<>
-void parallel_copy(const bwtsa_t<std::int32_t> *src, std::uint8_t *dest,
-    std::uint64_t length, std::uint64_t max_threads) {
-  std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
-  std::uint64_t n_blocks = (length + max_block_size - 1) / max_block_size;
-
-  std::thread **threads = new std::thread*[n_blocks];
-  for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_beg = i * max_block_size;
-    std::uint64_t block_end = std::min(block_beg + max_block_size, length);
-    std::uint64_t block_size = block_end - block_beg;
-
-    threads[i] = new std::thread(parallel_copy_aux<bwtsa_t<std::int32_t>, std::uint8_t>,
         src + block_beg, dest + block_beg, block_size);
   }
 

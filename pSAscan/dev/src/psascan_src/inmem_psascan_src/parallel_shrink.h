@@ -52,24 +52,33 @@ void parallel_shrink_aux(src_type *src, dest_type *dest, std::uint64_t length) {
     dest[i] = (dest_type)src[i];
 }
 
-// Requires sizeof(src_type) > sizeof(dest_type).
+// Specialization
+template<>
+void parallel_shrink_aux(bwtsa_t<uint40> *src, uint40 *dest, std::uint64_t length) {
+  for (std::uint64_t i = 0; i < length; ++i)
+    dest[i] = src[i].m_sa;
+}
+
+// Specialization
+template<>
+void parallel_shrink_aux(bwtsa_t<std::int64_t> *src, std::int64_t *dest, std::uint64_t length) {
+  for (std::uint64_t i = 0; i < length; ++i)
+    dest[i] = src[i].m_sa;
+}
+
+
+// Specialization
+template<>
+void parallel_shrink_aux(bwtsa_t<std::int32_t> *src, std::int32_t *dest, std::uint64_t length) {
+  for (std::uint64_t i = 0; i < length; ++i)
+    dest[i] = src[i].m_sa;
+}
+
 template<typename src_type, typename dest_type>
 dest_type *parallel_shrink(src_type *tab, std::uint64_t length, std::uint64_t max_threads) {
   dest_type *result = (dest_type *)tab;
-
-  std::int64_t diff = (std::int64_t)sizeof(src_type) -
-    (std::int64_t)sizeof(dest_type);
-  if (!diff) {
-    fprintf(stderr, "\n\nError: shrinking requires sizeof(src_type) > sizeof(dest_type)\n");
-    std::exit(EXIT_FAILURE);
-  }
-
-  // std::uint64_t threshold = (sizeof(src_type) + diff - 1) / diff;
-  if (length < (1UL << 20)/*threshold*/) {
-    // Move the elelements sequentially.
-    for (std::uint64_t i = 0; i < length; ++i)
-      result[i] = (dest_type)tab[i];
-
+  if (length < (1UL << 20)) {
+    parallel_shrink_aux<src_type, dest_type>(tab, result, length);
     return result;
   }
 

@@ -96,6 +96,106 @@ void initial_partial_sufsort(std::uint8_t *, std::uint64_t, bitvector *,
 
 template<>
 void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
+    bitvector* gt, bwtsa_t<std::int64_t> *bwtsa, std::uint64_t max_block_size,
+    std::uint64_t max_threads, bool has_tail) {
+  long double start = utils::wclock();
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+
+  //----------------------------------------------------------------------------
+  // STEP 1: Rename the blocks in parallel.
+  //----------------------------------------------------------------------------
+  if (n_blocks > 1 || has_tail) {
+    fprintf(stderr, "  Rename blocks: ");
+    start = utils::wclock();
+    bool *renaming_error = new bool[n_blocks];
+    std::fill(renaming_error, renaming_error + n_blocks, false);
+    std::thread **threads = new std::thread*[n_blocks];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
+
+      threads[i] = new std::thread(rename_block, text, text_length,
+          block_beg, block_size, gt, std::ref(renaming_error[i]));
+    }
+
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
+    delete[] threads;
+
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
+
+    bool err = false;
+    for (std::uint64_t i = 0; i < n_blocks; ++i)
+      if (renaming_error[i]) err = true;
+    delete[] renaming_error;
+
+    if (err) {
+      fprintf(stdout, "\n\nError: byte with value 255 was detected in the input text!\n"
+          "See the section on limitations in the README for more information.\n");
+      std::fflush(stdout);
+      std::exit(EXIT_FAILURE);
+    }
+  }
+
+  {
+    // Use 64-bit divsufsort.
+    std::int64_t *temp_sa = (std::int64_t *)bwtsa;
+
+    //--------------------------------------------------------------------------
+    // STEP 2: Compute suffix arrays in parallel.
+    //--------------------------------------------------------------------------
+    fprintf(stderr, "  Run divsufsort32: ");
+    start = utils::wclock();
+    std::thread **threads = new std::thread*[n_blocks];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
+
+      threads[i] = new std::thread(run_divsufsort<std::int64_t>,
+          text + block_beg, temp_sa + block_beg, block_size);
+    }
+
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
+    delete[] threads;
+
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
+
+    fprintf(stderr, "  Expand 64-bit integers to bwtsa objects: ");
+    start = utils::wclock();
+    parallel_expand<std::int64_t, bwtsa_t<int64_t> >(temp_sa, text_length, max_threads);
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
+  }
+
+  //----------------------------------------------------------------------------
+  // STEP 3: Restore the original text.
+  //----------------------------------------------------------------------------
+  if (n_blocks > 1 || has_tail) {
+    fprintf(stderr, "  Rerename blocks: ");
+    start = utils::wclock();
+    std::thread **threads = new std::thread*[n_blocks];
+    for (std::uint64_t i = 0; i < n_blocks; ++i) {
+      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
+
+      threads[i] = new std::thread(rerename_block,
+          text + block_beg, block_size);
+    }
+
+    for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
+    for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
+    delete[] threads;
+
+    fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
+  }
+}
+
+
+template<>
+void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     bitvector* gt, bwtsa_t<uint40> *bwtsa, std::uint64_t max_block_size,
     std::uint64_t max_threads, bool has_tail) {
   long double start = utils::wclock();
