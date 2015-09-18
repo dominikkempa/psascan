@@ -45,40 +45,44 @@
 
 #include "utils.h"
 #include "uint40.h"
-#include "distributed_file.h"
 #include "half_block_info.h"
 #include "async_stream_writer.h"
 #include "async_vbyte_stream_reader.h"
+#include "async_scatterfile_reader.h"
 
 
 namespace psascan_private {
 
 // Merge partial suffix arrays into final suffix array.
 template<typename block_offset_type>
-void merge(std::string output_filename, long ram_use, std::vector<half_block_info<block_offset_type> > &hblock_info) {
-  long n_block = (long)hblock_info.size();
-  long text_length = 0;
+void merge(std::string output_filename, std::uint64_t ram_use,
+    std::vector<half_block_info<block_offset_type> > &hblock_info) {
+  std::int64_t n_block = hblock_info.size();
+  std::int64_t text_length = 0;
 
   std::sort(hblock_info.begin(), hblock_info.end());
   for (std::uint64_t j = 0; j < hblock_info.size(); ++j)
     text_length += hblock_info[j].end - hblock_info[j].beg;
 
-  long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
-  long buffer_size = (ram_use + pieces - 1) / pieces;
+  std::uint64_t pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
+  std::uint64_t buffer_size = (ram_use + pieces - 1) / pieces;
 
   fprintf(stderr, "\nMerge partial suffix arrays:\n");
-  fprintf(stderr, "  buffer size per block = %ld (%.2LfMiB)\n",
+  fprintf(stderr, "  buffer size per block = %lu (%.2LfMiB)\n",
       sizeof(block_offset_type) * buffer_size,
       (1.L * sizeof(block_offset_type) * buffer_size) / (1 << 20));
-  fprintf(stderr, "  sizeof(output_type) = %ld\n", sizeof(uint40));
+  fprintf(stderr, "  sizeof(output_type) = %lu\n", sizeof(uint40));
 
-  typedef async_vbyte_stream_reader<long> vbyte_reader_type;
+  typedef async_vbyte_stream_reader<std::int64_t> vbyte_reader_type;
   typedef async_stream_writer<uint40> output_writer_type;
+  typedef async_scatterfile_reader<block_offset_type> psa_reader_type;
 
+  psa_reader_type **psa_readers = new psa_reader_type*[n_block];
   output_writer_type *output = new output_writer_type(output_filename, "w", sizeof(uint40) * buffer_size);
   vbyte_reader_type **gap = new vbyte_reader_type*[n_block - 1];
-  for (long i = 0; i < n_block; ++i) {
-    hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);
+
+  for (std::int64_t i = 0; i < n_block; ++i) {
+    psa_readers[i] = new psa_reader_type(&hblock_info[i].psa, buffer_size * sizeof(block_offset_type));
     if (i + 1 != n_block)
       gap[i] = new vbyte_reader_type(hblock_info[i].gap_filename, 0, buffer_size);
   }
@@ -143,7 +147,8 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
       ++j;
     }
 
-    long SA_i = hblock_info[j].psa->read() + hblock_info[j].beg;
+//    long SA_i = hblock_info[j].psa->read() + hblock_info[j].beg;
+    long SA_i = psa_readers[j]->read() + hblock_info[j].beg;
 
     if (j != n_block - 1) gap_head[j] = gap[j]->read();
     new_min = std::min(new_min, gap_head[j]);
@@ -168,12 +173,12 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   // Clean up.
   delete output;
   for (long i = 0; i < n_block; ++i) {
-    hblock_info[i].psa->finish_reading();
-    delete hblock_info[i].psa;
+    delete psa_readers[i];
     if (i + 1 != n_block)
       delete gap[i];
   }
 
+  delete[] psa_readers;
   delete[] gap;
   delete[] gap_head;
   delete[] sblock_info;

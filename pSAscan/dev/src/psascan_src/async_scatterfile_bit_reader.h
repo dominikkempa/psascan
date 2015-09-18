@@ -48,6 +48,8 @@
 
 namespace psascan_private {
 
+// XXX can we also delete the bitvectors here, similarly to how we do it
+// in scatterfile?
 class async_scatterfile_bit_reader {
   private:
     static void async_io_code(async_scatterfile_bit_reader *file) {

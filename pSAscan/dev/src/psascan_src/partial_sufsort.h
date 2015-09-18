@@ -55,13 +55,13 @@
 #include "gap_array.h"
 #include "bitvector.h"
 #include "multifile.h"
-#include "distributed_file.h"
 #include "half_block_info.h"
 #include "bwt_merge.h"
 #include "compute_gap.h"
 #include "em_compute_initial_ranks.h"
 #include "compute_right_gap.h"
 #include "compute_left_gap.h"
+#include "scatterfile_writer.h"
 
 
 namespace psascan_private {
@@ -251,8 +251,13 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     fprintf(stderr, "    Write partial SA to disk: ");
     long double right_psa_save_start = utils::wclock();
     long right_psa_max_part_length = std::max(sizeof(block_offset_type), ram_use / 20);
-    info_right.psa = new distributed_file<block_offset_type>(output_filename,
-        right_psa_max_part_length, right_block_psa_ptr, right_block_psa_ptr + right_block_size);
+    info_right.psa = scatterfile<block_offset_type>(right_psa_max_part_length);
+
+    typedef scatterfile_writer<block_offset_type> psa_writer_type;
+    psa_writer_type *psa_writer = new psa_writer_type(&info_right.psa, output_filename);
+    psa_writer->write(right_block_psa_ptr, right_block_size);
+    delete psa_writer;
+
     long double right_psa_save_time = utils::wclock() - right_psa_save_start;
     long double right_psa_save_io = ((right_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / right_psa_save_time;
     fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", right_psa_save_time, right_psa_save_io);
@@ -384,8 +389,13 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   fprintf(stderr, "    Write partial SA to disk: ");
   long double left_psa_save_start = utils::wclock();
   long left_psa_max_part_length = std::max(sizeof(block_offset_type), ram_use / 20);
-  info_left.psa = new distributed_file<block_offset_type>(output_filename,
-      left_psa_max_part_length, left_block_psa_ptr, left_block_psa_ptr + left_block_size);
+  info_left.psa = scatterfile<block_offset_type>(left_psa_max_part_length);
+
+  typedef scatterfile_writer<block_offset_type> psa_writer_type;
+  psa_writer_type *psa_writer = new psa_writer_type(&info_left.psa, output_filename);
+  psa_writer->write(left_block_psa_ptr, left_block_size);
+  delete psa_writer;
+
   long double left_psa_save_time = utils::wclock() - left_psa_save_start;
   long double left_psa_save_io = ((left_block_size * sizeof(block_offset_type)) / (1024.L * 1024)) / left_psa_save_time;
   fprintf(stderr, "%.2Lfs (I/O: %.2LfMiB/s)\n", left_psa_save_time, left_psa_save_io);

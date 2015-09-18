@@ -1,5 +1,5 @@
 /**
- * @file    src/psascan_src/half_block_info.h
+ * @file    src/psascan_src/scatterfile.h
  * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
  *
  * @section LICENCE
@@ -33,29 +33,30 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_HALF_BLOCK_INFO_H_INCLUDED
-#define __PSASCAN_SRC_HALF_BLOCK_INFO_H_INCLUDED
+#ifndef __PSASCAN_SRC_SCATTERFILE_H_INCLUDED
+#define __PSASCAN_SRC_SCATTERFILE_H_INCLUDED
 
+#include <cstdint>
 #include <string>
-#include "scatterfile.h"
+#include <vector>
+#include <algorithm>
 
 
 namespace psascan_private {
 
-// Stores the information about half-blocks.
-template<typename block_offset_type>
-struct half_block_info {
-  long beg;
-  long end;
-
-  bool operator < (const half_block_info &i) const {
-    return beg < i.beg;
+template<typename value_type>
+struct scatterfile {
+  scatterfile() {}
+  scatterfile(std::uint64_t max_file_size_in_bytes) {
+    m_max_items_per_file = std::max(1UL, max_file_size_in_bytes / sizeof(value_type));
+    m_items_written = 0;
   }
 
-  std::string gap_filename;
-  scatterfile<block_offset_type> psa;
+  std::uint64_t m_items_written;
+  std::uint64_t m_max_items_per_file;
+  std::vector<std::string> m_filenames;
 };
 
-}  // namespace psascan_private
+}  // psascan_private
 
-#endif  // __PSASCAN_SRC_HALF_BLOCK_INFO_H_INCLUDED
+#endif // __PSASCAN_SRC_SCATTERFILE_H_INCLUDED
