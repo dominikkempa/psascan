@@ -45,7 +45,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "utils.h"
+#include "../utils.h"
 
 
 namespace psascan_private {

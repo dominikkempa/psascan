@@ -44,10 +44,10 @@
 
 #include "approx_rank.h"
 #include "sparse_isa.h"
-#include "background_block_reader.h"
-#include "background_chunk_reader.h"
-#include "multifile_bit_stream_reader.h"
 #include "utils.h"
+#include "io/background_block_reader.h"
+#include "io/background_chunk_reader.h"
+#include "io/multifile_bit_stream_reader.h"
 
 
 namespace psascan_private {

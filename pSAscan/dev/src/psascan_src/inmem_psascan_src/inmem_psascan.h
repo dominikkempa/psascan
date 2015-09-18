@@ -44,8 +44,8 @@
 #include <algorithm>
 
 #include "../bitvector.h"
-#include "../multifile.h"
-#include "../background_block_reader.h"
+#include "../io/multifile.h"
+#include "../io/background_block_reader.h"
 #include "inmem_gap_array.h"
 #include "compute_initial_gt_bitvectors.h"
 #include "initial_partial_sufsort.h"

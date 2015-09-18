@@ -42,7 +42,7 @@
 #include <condition_variable>
 #include <algorithm>
 
-#include "utils.h"
+#include "../utils.h"
 
 
 namespace psascan_private {

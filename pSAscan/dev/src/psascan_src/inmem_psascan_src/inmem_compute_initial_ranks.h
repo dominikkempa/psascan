@@ -42,9 +42,9 @@
 #include <cstdint>
 #include <string>
 
-#include "../background_block_reader.h"
-#include "../multifile.h"
-#include "../multifile_bit_stream_reader.h"
+#include "../io/background_block_reader.h"
+#include "../io/multifile_bit_stream_reader.h"
+#include "../io/multifile.h"
 #include "bwtsa.h"
 #include "pagearray.h"
 

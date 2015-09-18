@@ -52,8 +52,8 @@
 #include "stream.h"
 #include "update.h"
 #include "stream_info.h"
-#include "multifile.h"
-#include "async_multifile_bit_writer.h"
+#include "io/multifile.h"
+#include "io/async_multifile_bit_writer.h"
 
 
 namespace psascan_private {

@@ -43,7 +43,7 @@
 #include <algorithm>
 
 #include "../bitvector.h"
-#include "../multifile.h"
+#include "../io/multifile.h"
 #include "inmem_gap_array.h"
 #include "inmem_compute_gap.h"
 #include "parallel_merge.h"

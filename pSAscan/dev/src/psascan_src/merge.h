@@ -46,9 +46,10 @@
 #include "utils.h"
 #include "uint40.h"
 #include "half_block_info.h"
-#include "async_stream_writer.h"
-#include "async_vbyte_stream_reader.h"
-#include "async_scatterfile_reader.h"
+#include "io/scatterfile.h"
+#include "io/async_stream_writer.h"
+#include "io/async_vbyte_stream_reader.h"
+#include "io/async_scatterfile_reader.h"
 
 
 namespace psascan_private {

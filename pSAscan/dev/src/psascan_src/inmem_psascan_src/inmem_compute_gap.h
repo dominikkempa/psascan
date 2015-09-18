@@ -45,7 +45,7 @@
 
 #include "../bitvector.h"
 #include "../gap_buffer.h"
-#include "../multifile.h"
+#include "../io/multifile.h"
 #include "rank.h"
 #include "inmem_gap_array.h"
 #include "inmem_compute_initial_ranks.h"

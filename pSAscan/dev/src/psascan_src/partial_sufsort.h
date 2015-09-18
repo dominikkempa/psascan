@@ -54,14 +54,14 @@
 #include "rank.h"
 #include "gap_array.h"
 #include "bitvector.h"
-#include "multifile.h"
 #include "half_block_info.h"
 #include "bwt_merge.h"
 #include "compute_gap.h"
 #include "em_compute_initial_ranks.h"
 #include "compute_right_gap.h"
 #include "compute_left_gap.h"
-#include "scatterfile_writer.h"
+#include "io/scatterfile_writer.h"
+#include "io/multifile.h"
 
 
 namespace psascan_private {

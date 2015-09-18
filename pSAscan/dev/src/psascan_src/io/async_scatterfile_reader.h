@@ -47,7 +47,7 @@
 #include <condition_variable>
 
 #include "scatterfile.h"
-#include "utils.h"
+#include "../utils.h"
 
 
 namespace psascan_private {

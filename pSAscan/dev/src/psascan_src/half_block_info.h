@@ -37,7 +37,7 @@
 #define __PSASCAN_SRC_HALF_BLOCK_INFO_H_INCLUDED
 
 #include <string>
-#include "scatterfile.h"
+#include "io/scatterfile.h"
 
 
 namespace psascan_private {

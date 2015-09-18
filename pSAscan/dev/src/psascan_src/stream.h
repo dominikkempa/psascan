@@ -49,11 +49,11 @@
 #include "gap_buffer.h"
 #include "update.h"
 #include "stream_info.h"
-#include "multifile.h"
-#include "multifile_bit_stream_reader.h"
-#include "async_scatterfile_bit_reader.h"
-#include "async_backward_skip_stream_reader.h"
-#include "async_multifile_bit_writer.h"
+#include "io/multifile.h"
+#include "io/multifile_bit_stream_reader.h"
+#include "io/async_scatterfile_bit_reader.h"
+#include "io/async_backward_skip_stream_reader.h"
+#include "io/async_multifile_bit_writer.h"
 
 
 namespace psascan_private {

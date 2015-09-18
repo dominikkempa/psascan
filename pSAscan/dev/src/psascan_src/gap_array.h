@@ -49,7 +49,7 @@
 #include "utils.h"
 #include "bitvector.h"
 #include "parallel_utils.h"
-#include "async_stream_writer.h"
+#include "io/async_stream_writer.h"
 
 
 namespace psascan_private {
