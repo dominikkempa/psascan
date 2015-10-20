@@ -1,0 +1,49 @@
+Basic experiment with all cores
+-------------------------------
+
+Compilation:
+> make
+
+Usage:
+> ./bench ./file1 ./file2 ./file3    2> logs.txt
+
+To view only the summary of logs:
+> cat logs.txt | grep SUMMARY
+
+
+Testing the speedup
+-------------------
+
+To test the algorithm with different number of threads I usually use `taskset'
+of `numactl' Linux command to limit the number of cores visible for the process.
+I use the provided `script' and run:
+
+> ./script ./file1 ./file2 ./file3     2> logs.txt
+
+Note: when running the code e.g. using only 2 threads, the performance varies
+depending on which cores are chosen (e.g., if the machine has more than one
+CPU, it makes a difference whether the cores are on the same CPU or not, same
+thing depending on whether threads are executed on the same physical core (if
+the CPU is Hyper-Threading) or not). I found the settings in `script' to be optimal
+on my machine and I used them consistently in my experiments. The -i 0-1 switch only
+concerns NUMA machine (it causes the memory allocations to be interleaved between
+nodes 0 and 1 (my machine has only two); this usually improves the performance,
+but more importantly makes the experiments much more consistent).
+
+
+A couple important details
+--------------------------
+1. To use pSAscan you need to have
+   http://libdivsufsort.googlecode.com/files/libdivsufsort-2.0.1.tar.gz
+   installed in the system as static 64-bit libraries, i.e., when installing
+   libdivsufsort, the options in the main CMakeLists.txt should be:
+   option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
+   option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
+2. The version pSAscan-0.1.0 currently released online does not implement the
+   64-bit version of inmem_psascan. I have fixed that in the (unreleased)
+   version. Let me know, if you need that.
+3. Only input files not containing bytes with value 255 are handled correctly.
+   The 255-bytes can be removed from the input text using the tool located
+   in the directory ../tools/delete-bytes-255/
+4. As you see, this tool overwrites the default inmem_psascan.h file. The new
+   version is identical to the old one, except it allows specifying RAM usage.
