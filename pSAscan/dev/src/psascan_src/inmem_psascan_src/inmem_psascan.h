@@ -234,7 +234,7 @@ void inmem_psascan(
   // space usages we can get. In the worst case there are two blocks, thus during the
   // merging the rank + gap array for the left block will take 2.5n. This added to the 7.125n
   // (for 40-bit) and 6.125n (for 32-bit) gives 9.6125n and 8.625n space usages.
-  std::uint64_t max_ram_usage_per_input_byte = 13L;  // peak ram usage = 10n
+  std::uint64_t max_ram_usage_per_input_byte = 10L;  // peak ram usage = 10n
   std::uint32_t max_left_size = (std::uint32_t)std::max(1,
       (std::int32_t)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(saidx_t))) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
