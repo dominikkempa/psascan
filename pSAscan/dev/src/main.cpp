@@ -153,7 +153,8 @@ int main(int argc, char **argv) {
       printf("Output file (%s) exists. Overwrite? [y/n]: ",
           out_fname.c_str());
       if ((len = getline(&line, &buflen, stdin)) == -1) {
-        fprintf(stderr, "\nError: failed to read answer\n\n");
+        printf("\nError: failed to read answer\n\n");
+        std::fflush(stdout);
         usage(EXIT_FAILURE);
       }
     } while (len != 2 || (line[0] != 'y' && line[0] != 'n'));
