@@ -79,7 +79,7 @@ void merge(std::string output_filename, std::uint64_t ram_use,
   typedef async_scatterfile_reader<block_offset_type> psa_reader_type;
 
   psa_reader_type **psa_readers = new psa_reader_type*[n_block];
-  output_writer_type *output = new output_writer_type(output_filename, "w", sizeof(uint40) * buffer_size);
+  output_writer_type *output = new output_writer_type(output_filename, sizeof(uint40) * buffer_size, 4UL, "w");
   vbyte_reader_type **gap = new vbyte_reader_type*[n_block - 1];
 
   for (std::int64_t i = 0; i < n_block; ++i) {
