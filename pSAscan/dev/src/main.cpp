@@ -1,13 +1,11 @@
 /**
- * @file    src/main.cpp
- * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
- *
+ * @file    main.cpp
  * @section LICENCE
  *
- * This file is part of pSAscan v0.1.0
+ * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2015
+ * Copyright (C) 2014-2016
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -41,7 +39,7 @@
 #include <unistd.h>
 #include <omp.h>
 
-#include "psascan_src/psascan.h"
+#include "psascan_src/psascan.hpp"
 
 
 char *program_name;
