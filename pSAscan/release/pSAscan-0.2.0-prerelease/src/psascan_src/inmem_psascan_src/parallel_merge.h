@@ -115,7 +115,8 @@ void parallel_merge_aux(
       --remaining_gap;
       // The next element comes from the right subarray.
       dest[filled] = rpage[rpage_offset++];
-      dest[filled++].sa += what_to_add;
+      dest[filled].sa = (long)(dest[filled].sa) + what_to_add;
+      filled++;
       rpage_read++;
       if (rpage_offset == pagesize) {
         // We reached the end of page in the right subarray.

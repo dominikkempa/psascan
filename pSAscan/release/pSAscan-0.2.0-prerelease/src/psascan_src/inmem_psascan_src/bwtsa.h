@@ -36,7 +36,7 @@
 #ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_BWTSA_H_INCLUDED
 #define __PSASCAN_SRC_INMEM_PSASCAN_SRC_BWTSA_H_INCLUDED
 
-#include "../uint40.h"
+#include "../uint40.hpp"
 
 
 namespace psascan_private {

@@ -39,7 +39,7 @@
 #include <algorithm>
 #include <thread>
 
-#include "../uint40.h"
+#include "../uint40.hpp"
 #include "bwtsa.h"
 
 

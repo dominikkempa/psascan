@@ -78,10 +78,10 @@ inline int lcp_compare(
   } 
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void refine_range(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -164,10 +164,10 @@ void refine_range(
   newright = high;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_single_initial_rank(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -222,10 +222,10 @@ void em_compute_single_initial_rank(
   result = std::make_pair(left, right);
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_initial_ranks(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     const unsigned char *block_pbwt,
     long i0,
     long block_beg,  // wrt to text beg
@@ -254,7 +254,7 @@ void em_compute_initial_ranks(
     long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
     long stream_block_size = stream_block_end - stream_block_beg;
 
-    threads[t] = new std::thread(em_compute_single_initial_rank<saidx_t>,
+    threads[t] = new std::thread(em_compute_single_initial_rank<block_offset_type>,
         block, block_psa, block_beg, block_end, stream_block_beg, text_length,
         stream_block_size, text_filename, tail_gt_begin_reversed, std::ref(ranges[t]));
   }
@@ -277,10 +277,10 @@ void em_compute_initial_ranks(
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
     typedef approx_rank<1L> rank_type;
-    typedef sparse_isa<rank_type, saidx_t, 1L> isa_type;
+    typedef sparse_isa<rank_type, block_offset_type, 1L> isa_type;
 #else
     typedef approx_rank<8L> rank_type;
-    typedef sparse_isa<rank_type, saidx_t, 8L> isa_type;
+    typedef sparse_isa<rank_type, block_offset_type, 8L> isa_type;
 #endif
     rank_type *pbwt_rank = new rank_type(block_pbwt, block_length, max_threads);
     isa_type *block_sparse_isa = new isa_type(block_psa, block, block_length, i0, pbwt_rank, max_threads);
@@ -365,10 +365,10 @@ int lcp_compare_2(
   }
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void refine_range_2(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -453,10 +453,10 @@ void refine_range_2(
   newright = high;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_single_initial_rank_2(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -513,10 +513,10 @@ void em_compute_single_initial_rank_2(
   delete chunk_reader;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_initial_ranks(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long text_length,
@@ -546,7 +546,7 @@ void em_compute_initial_ranks(
     long stream_block_beg = tail_begin + t * stream_max_block_size;
     long max_lcp = std::min(block_length + mid_block_size, text_length - stream_block_beg);
 
-    threads[t] = new std::thread(em_compute_single_initial_rank_2<saidx_t>,
+    threads[t] = new std::thread(em_compute_single_initial_rank_2<block_offset_type>,
         block, block_psa, block_beg, block_end, stream_block_beg, text_length,
         max_lcp, tail_begin, mid_block_reader, text_filename,
         tail_gt_begin_reversed, std::ref(res[t]));

@@ -54,11 +54,11 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename saidx_t, unsigned pagesize_log>
-pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
+template<typename block_offset_type, unsigned pagesize_log>
+pagearray<bwtsa_t<block_offset_type>, pagesize_log> *inmem_bwtsa_merge(
     const unsigned char *text,
     long text_length,
-    bwtsa_t<saidx_t> *bwtsa,
+    bwtsa_t<block_offset_type> *bwtsa,
     bitvector *gt,
     long max_block_size,
     long range_beg,
@@ -75,7 +75,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
     const multifile *tail_gt_begin_reversed,
     long *i0_array,
     long **block_rank_matrix) {
-  typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
+  typedef pagearray<bwtsa_t<block_offset_type>, pagesize_log> pagearray_type;
 
   long shift = (max_block_size - text_length % max_block_size) % max_block_size;
   long range_size = range_end - range_beg;
@@ -123,7 +123,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   //
   // Left block
   long left_i0;
-  pagearray_type *l_bwtsa = inmem_bwtsa_merge<saidx_t, pagesize_log>(text,
+  pagearray_type *l_bwtsa = inmem_bwtsa_merge<block_offset_type, pagesize_log>(text,
       text_length, bwtsa, gt, max_block_size, lrange_beg, lrange_end,
       max_threads, need_gt, true, left_i0, schedule, text_beg, text_end,
       supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array,
@@ -133,7 +133,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   // 
   // Right block
   long right_i0;
-  pagearray_type *r_bwtsa = inmem_bwtsa_merge<saidx_t, pagesize_log>(text,
+  pagearray_type *r_bwtsa = inmem_bwtsa_merge<block_offset_type, pagesize_log>(text,
       text_length, bwtsa, gt, max_block_size, rrange_beg, rrange_end,
       max_threads, true, need_bwt, right_i0, schedule, text_beg, text_end,
       supertext_length, supertext_filename, tail_gt_begin_reversed, i0_array,
@@ -154,7 +154,7 @@ pagearray<bwtsa_t<saidx_t>, pagesize_log> *inmem_bwtsa_merge(
   long double rank_init_time;
   long double streaming_time;
   long double start1 = utils::wclock();
-  inmem_compute_gap<saidx_t, pagesize_log>(text, text_length, lbeg, lsize,
+  inmem_compute_gap<block_offset_type, pagesize_log>(text, text_length, lbeg, lsize,
       rsize, *l_bwtsa, gt, gap, max_threads, need_gt, left_i0, (1L << 21),
       rank_init_time, streaming_time, block_rank_matrix, lrange_beg,
       lrange_size, rrange_size);

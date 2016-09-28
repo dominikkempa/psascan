@@ -43,7 +43,6 @@
 #include <algorithm>
 
 #include "utils.h"
-#include "uint40.h"
 #include "distributed_file.h"
 #include "half_block_info.h"
 #include "async_stream_writer.h"
@@ -53,8 +52,9 @@
 namespace psascan_private {
 
 // Merge partial suffix arrays into final suffix array.
-template<typename block_offset_type>
-void merge(std::string output_filename, long ram_use, std::vector<half_block_info<block_offset_type> > &hblock_info) {
+template<typename text_offset_type, typename block_offset_type>
+void merge(std::string output_filename, long ram_use,
+    std::vector<half_block_info<block_offset_type> > &hblock_info) {
   long n_block = (long)hblock_info.size();
   long text_length = 0;
 
@@ -62,19 +62,18 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
   for (size_t j = 0; j < hblock_info.size(); ++j)
     text_length += hblock_info[j].end - hblock_info[j].beg;
 
-  long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(uint40);
+  long pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(text_offset_type);
   long buffer_size = (ram_use + pieces - 1) / pieces;
 
   fprintf(stderr, "\nMerge partial suffix arrays:\n");
   fprintf(stderr, "  buffer size per block = %ld (%.2LfMiB)\n",
       sizeof(block_offset_type) * buffer_size,
       (1.L * sizeof(block_offset_type) * buffer_size) / (1 << 20));
-  fprintf(stderr, "  sizeof(output_type) = %ld\n", sizeof(uint40));
 
   typedef async_vbyte_stream_reader<long> vbyte_reader_type;
-  typedef async_stream_writer<uint40> output_writer_type;
+  typedef async_stream_writer<text_offset_type> output_writer_type;
 
-  output_writer_type *output = new output_writer_type(output_filename, sizeof(uint40) * buffer_size);
+  output_writer_type *output = new output_writer_type(output_filename, sizeof(text_offset_type) * buffer_size);
   vbyte_reader_type **gap = new vbyte_reader_type*[n_block - 1];
   for (long i = 0; i < n_block; ++i) {
     hblock_info[i].psa->initialize_reading(sizeof(block_offset_type) * buffer_size);
@@ -113,7 +112,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
     if (dbg == (1 << 23)) {
       long double elapsed = utils::wclock() - merge_start;
       long inp_vol = (1L + sizeof(block_offset_type)) * i;
-      long out_vol = sizeof(uint40) * i;
+      long out_vol = sizeof(text_offset_type) * i;
       long tot_vol = inp_vol + out_vol;
       long double tot_vol_m = tot_vol / (1024.L * 1024);
       long double io_speed = tot_vol_m / elapsed;
@@ -142,7 +141,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
       ++j;
     }
 
-    long SA_i = hblock_info[j].psa->read() + hblock_info[j].beg;
+    long SA_i = (long)hblock_info[j].psa->read() + (long)hblock_info[j].beg;
 
     if (j != n_block - 1) gap_head[j] = gap[j]->read();
     new_min = std::min(new_min, gap_head[j]);
@@ -160,7 +159,7 @@ void merge(std::string output_filename, long ram_use, std::vector<half_block_inf
     output->write(SA_i);
   }
   long double merge_time = utils::wclock() - merge_start;
-  long io_volume = (1 + sizeof(block_offset_type) + sizeof(uint40)) * text_length;
+  long io_volume = (1 + sizeof(block_offset_type) + sizeof(text_offset_type)) * text_length;
   long double io_speed = (io_volume / (1024.L * 1024)) / merge_time;
   fprintf(stderr, "\r  100.0%%. Time: %.2Lfs. I/O: %.2LfMiB/s\n", merge_time, io_speed);
 

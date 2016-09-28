@@ -65,9 +65,9 @@ void parallel_stream(
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
     long stream_block_beg,
     long stream_block_end,
-    block_offset_type i,
+    long i,
     const long *count,
-    block_offset_type whole_suffix_rank,
+    long whole_suffix_rank,
     const rank4n<> *rank,
     unsigned char last,
     std::string text_filename,
@@ -152,8 +152,8 @@ void parallel_stream(
       gt_out->write(i > whole_suffix_rank);
       bool next_gt = (gt_in.read());
 
-      int delta = (i > whole_suffix_rank && c == 0);
-      i = (block_offset_type)(count[c] + rank->rank((long)i, c) - delta);
+      long delta = (i > whole_suffix_rank && c == 0);
+      i = (count[c] + rank->rank(i, c)) - delta;
       if (c == last && next_gt) ++i;
       temp[t] = i;
       block_count[i >> bucket_size_bits]++;
@@ -211,9 +211,9 @@ void parallel_stream(
       // Compute bucket sizes and sblock id into oracle array.
       std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
       for (long t = 0; t < b->m_filled; ++t) {
-        block_offset_type x = temp[t];
+        long x = temp[t];
         int id = n_increasers;
-        while (bucket_lbound[id] > x) --id;
+        while ((long)bucket_lbound[id] > x) --id;
         oracle[t] = id;
         b->sblock_size[id]++;
       }

@@ -168,9 +168,9 @@ void compute_range(const unsigned char *text, long block_beg, long block_size,
 //   larger or smaller than the pattern, or equal -- in any case, they have a
 //   common prefix of length `old_pat_length' with the pattern.
 //------------------------------------------------------------------------------
-template<typename saidx_t>
+template<typename block_offset_type>
 void refine_range(const unsigned char *text, long block_beg,
-    const bwtsa_t<saidx_t> *block_psa, long left, long right,
+    const bwtsa_t<block_offset_type> *block_psa, long left, long right,
     long old_pat_length, long pat_length, const unsigned char *pat,
     long &newleft, long &newright) {
   long low = left - 1;
@@ -240,10 +240,10 @@ void refine_range(const unsigned char *text, long block_beg,
   newright = high;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void refine_range(const unsigned char *text, long text_length,
     long tail_gt_begin_reversed_length, long block_beg,
-    const bwtsa_t<saidx_t> *block_psa, long left, long right,
+    const bwtsa_t<block_offset_type> *block_psa, long left, long right,
     const multifile *tail_gt_begin_reversed,
     long old_pat_length, long pat_length,
     const unsigned char *pat, long &newleft, long &newright) {
@@ -321,9 +321,9 @@ void refine_range(const unsigned char *text, long text_length,
 //==============================================================================
 // Variant 1: compute ranges for columns other than the last two.
 //==============================================================================
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_ranges_1(const unsigned char *text, long text_length,
-    const bwtsa_t<saidx_t> *bwtsa, long max_block_size,
+    const bwtsa_t<block_offset_type> *bwtsa, long max_block_size,
     std::pair<long, long> **primary_range,
     std::pair<long, long> **secondary_range,
     long row, long column) {
@@ -334,7 +334,7 @@ void compute_ranges_1(const unsigned char *text, long text_length,
   long pat_start = text_length - (n_blocks - 1 - column) * max_block_size;
 
   const unsigned char *pat = text + pat_start;
-  const bwtsa_t<saidx_t> *block_psa = bwtsa + block_begin;
+  const bwtsa_t<block_offset_type> *block_psa = bwtsa + block_begin;
 
   // Check that 0 <= row < column < n_blocks - 2 and
   // pat_start + 2 * max_block_size <= text_length.
@@ -425,9 +425,9 @@ void compute_ranges_1(const unsigned char *text, long text_length,
 //==============================================================================
 // Variant 2: compute primary and secondary range for second to last column.
 //==============================================================================
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_ranges_2(const unsigned char *text, long text_length,
-    long text_beg, long supertext_length, const bwtsa_t<saidx_t> *bwtsa,
+    long text_beg, long supertext_length, const bwtsa_t<block_offset_type> *bwtsa,
     long max_block_size, background_block_reader *reader,
     const unsigned char *next_block,
     std::pair<long, long> **primary_range,
@@ -442,7 +442,7 @@ void compute_ranges_2(const unsigned char *text, long text_length,
   long pat_start = text_length - (n_blocks - 1 - column) * max_block_size;
 
   const unsigned char *pat = text + pat_start;
-  const bwtsa_t<saidx_t> *block_psa = bwtsa + block_begin;
+  const bwtsa_t<block_offset_type> *block_psa = bwtsa + block_begin;
 
   // Check that 0 <= row < column and column == n_blocks - 2
   // and pat_start + max_block_size == text_length.
@@ -549,9 +549,9 @@ void compute_ranges_2(const unsigned char *text, long text_length,
 //==============================================================================
 // Variant 3: compute primary and secondary range for the last column.
 //==============================================================================
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_ranges_3(const unsigned char *text, long text_length,
-    long text_beg, long supertext_length, const bwtsa_t<saidx_t> *bwtsa,
+    long text_beg, long supertext_length, const bwtsa_t<block_offset_type> *bwtsa,
     long max_block_size, const multifile *tail_gt_begin_reversed,
     background_block_reader *reader, const unsigned char *next_block,
     std::pair<long, long> **primary_range,
@@ -563,7 +563,7 @@ void compute_ranges_3(const unsigned char *text, long text_length,
   long block_end = text_length - (n_blocks - 1 - row) * max_block_size;
   long block_beg = std::max(0L, block_end - max_block_size);
   long block_size = block_end - block_beg;
-  const bwtsa_t<saidx_t> *block_psa = bwtsa + block_beg;
+  const bwtsa_t<block_offset_type> *block_psa = bwtsa + block_beg;
   long first_range_pat_length = std::min(max_block_size, tail_length);
 
   // length of text stored in next_block (if not NULL)
@@ -704,9 +704,9 @@ void compute_ranges_3(const unsigned char *text, long text_length,
   }
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void task_solver_code(const unsigned char *text,
-    long text_length, const bwtsa_t<saidx_t> *bwtsa,
+    long text_length, const bwtsa_t<block_offset_type> *bwtsa,
     long max_block_size,
     std::pair<long, long> **primary_range,
     std::pair<long, long> **secondary_range,
@@ -732,9 +732,9 @@ void task_solver_code(const unsigned char *text,
   }
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_block_rank_matrix(const unsigned char *text, long text_length, 
-    const bwtsa_t<saidx_t> *bwtsa, long max_block_size, long text_beg,
+    const bwtsa_t<block_offset_type> *bwtsa, long max_block_size, long text_beg,
     long supertext_length, std::string,
     const multifile *tail_gt_begin_reversed,  background_block_reader *reader,
     const unsigned char *next_block, long **block_rank_matrix) {
@@ -758,7 +758,7 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
     threads_last_col = new std::thread*[n_blocks - 1];
     for (long row = 0; row + 1 < n_blocks; ++row) {
       long column = n_blocks - 1;
-      threads_last_col[row] = new std::thread(compute_ranges_3<saidx_t>, text,
+      threads_last_col[row] = new std::thread(compute_ranges_3<block_offset_type>, text,
           text_length, text_beg, supertext_length, bwtsa, max_block_size,
           tail_gt_begin_reversed, reader, next_block, primary_range,
           secondary_range, row, column);
@@ -773,7 +773,7 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
     threads_second_last_col = new std::thread*[n_blocks - 2];
     for (long row = 0; row + 2 < n_blocks; ++row) {
       long column = n_blocks - 2;
-      threads_second_last_col[row] = new std::thread(compute_ranges_2<saidx_t>,
+      threads_second_last_col[row] = new std::thread(compute_ranges_2<block_offset_type>,
           text, text_length, text_beg, supertext_length, bwtsa, max_block_size,
           reader, next_block, primary_range, secondary_range, row, column);
     }
@@ -790,7 +790,7 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
   std::random_shuffle(tasks.begin(), tasks.end());  // solve in any order
   std::thread **threads_other = new std::thread*[n_blocks];
   for (long t = 0; t < n_blocks; ++t)
-    threads_other[t] = new std::thread(task_solver_code<saidx_t>, text,
+    threads_other[t] = new std::thread(task_solver_code<block_offset_type>, text,
         text_length, bwtsa, max_block_size, primary_range, secondary_range,
         std::ref(tasks), std::ref(tasks_mutex));
 
@@ -842,8 +842,8 @@ void compute_block_rank_matrix(const unsigned char *text, long text_length,
         long next_block_end = text_length - (n_blocks - 1 - (row + 1)) * max_block_size;
         long next_block_beg = std::max(0L, next_block_end - max_block_size);
 
-        const bwtsa_t<saidx_t> *cur_block_psa = bwtsa + cur_block_beg;
-        const bwtsa_t<saidx_t> *next_block_psa = bwtsa + next_block_beg;
+        const bwtsa_t<block_offset_type> *cur_block_psa = bwtsa + cur_block_beg;
+        const bwtsa_t<block_offset_type> *next_block_psa = bwtsa + next_block_beg;
 
         // Compute the ranges.
         long next_primary_range_beg = primary_range[row + 1][col + 1].first;

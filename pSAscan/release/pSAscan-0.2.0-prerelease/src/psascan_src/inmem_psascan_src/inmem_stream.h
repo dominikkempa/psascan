@@ -74,8 +74,8 @@ void inmem_parallel_stream(
     const long *count,
     gap_buffer_poll<block_offset_type> *full_gap_buffers,
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
-    block_offset_type i,
-    block_offset_type i0,
+    long i,
+    long i0,
     const rank_type *rank,
     long gap_range_size,
     long n_increasers,
@@ -133,8 +133,8 @@ void inmem_parallel_stream(
         unsigned char c = text[j - 1];
 
         // Compute new i.
-        int delta = (new_gt_bit && c == 0);
-        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+        long delta = (new_gt_bit && c == 0);
+        i = (count[c] + rank->rank(i, c)) - delta;
         if (c == last && gt_bit) ++i;
 
         temp[t] = i;
@@ -150,8 +150,8 @@ void inmem_parallel_stream(
         unsigned char c = text[j - 1];
 
         // Compute new i.
-        int delta = (new_gt_bit && c == 0);
-        i = (block_offset_type)(count[c] + rank->rank(i, c) - delta);
+        long delta = (new_gt_bit && c == 0);
+        i = (count[c] + rank->rank(i, c)) - delta;
         if (c == last && gt_bit) ++i;
 
         temp[t] = i;
@@ -220,9 +220,9 @@ void inmem_parallel_stream(
       // Compute bucket sizes and sblock id into oracle array.
       std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
       for (long t = 0; t < b->m_filled; ++t) {
-        block_offset_type x = temp[t];
+        long x = temp[t];
         int id = n_increasers;
-        while (bucket_lbound[id] > x) --id;
+        while ((long)bucket_lbound[id] > x) --id;
         oracle[t] = id;
         b->sblock_size[id]++;
       }

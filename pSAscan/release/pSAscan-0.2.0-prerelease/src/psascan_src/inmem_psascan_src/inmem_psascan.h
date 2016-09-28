@@ -63,7 +63,7 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename saidx_t, unsigned pagesize_log = 12>
+template<typename text_offset_type, unsigned pagesize_log = 12>
 void inmem_psascan(
     unsigned char *text,
     long text_length,
@@ -84,10 +84,10 @@ void inmem_psascan(
   long double absolute_start = utils::wclock();
   long double start;
 
-  if ((long)std::numeric_limits<saidx_t>::max() < text_length) {
+  if ((long)std::numeric_limits<text_offset_type>::max() < text_length) {
     fprintf(stderr, "Error: text is too long (%ld bytes),\n", text_length);
-    fprintf(stderr, "       std::numeric_limits<saidx_t>::max() = %ld\n",
-        (long)std::numeric_limits<saidx_t>::max());
+    fprintf(stderr, "       std::numeric_limits<text_offset_type>::max() = %ld\n",
+        (long)std::numeric_limits<text_offset_type>::max());
     std::exit(EXIT_FAILURE);
   }
 
@@ -135,7 +135,7 @@ void inmem_psascan(
   fprintf(stderr, "Max blocks = %ld\n", max_blocks);
   fprintf(stderr, "Number of blocks = %ld\n", n_blocks);
   fprintf(stderr, "Max threads = %ld\n", max_threads);
-  fprintf(stderr, "sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
+  fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
   fprintf(stderr, "Pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "Compute bwt = %s\n", compute_bwt ? "true" : "false");
   fprintf(stderr, "Compute gt begin = %s\n", compute_gt_begin ? "true" : "false");
@@ -146,7 +146,7 @@ void inmem_psascan(
   fprintf(stderr, "Has tail = %s\n", has_tail ? "true" : "false");
   fprintf(stderr, "\n");
 
-  bwtsa_t<saidx_t> *bwtsa = (bwtsa_t<saidx_t> *)sa_bwt;
+  bwtsa_t<text_offset_type> *bwtsa = (bwtsa_t<text_offset_type> *)sa_bwt;
 
   // Initialize reading of the tail prefix in the background.
   long tail_length = supertext_length - text_end;
@@ -182,7 +182,7 @@ void inmem_psascan(
   long **block_rank_matrix = new long*[n_blocks];
   for (long j = 0; j < n_blocks; ++j)
     block_rank_matrix[j] = new long[n_blocks];
-  compute_block_rank_matrix<saidx_t>(text, text_length, bwtsa,
+  compute_block_rank_matrix<text_offset_type>(text, text_length, bwtsa,
       max_block_size, text_beg, supertext_length, supertext_filename,
       tail_gt_begin_reversed, tail_prefix_background_reader,
       tail_prefix_preread, block_rank_matrix);
@@ -210,11 +210,11 @@ void inmem_psascan(
 
   float rl_ratio = 10.L;  // estimated empirically
   long max_ram_usage_per_input_byte = 10L;  // peak ram usage = 10n
-  int max_left_size = std::max(1, (int)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(saidx_t))) / 5.L)));
+  int max_left_size = std::max(1, (int)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(text_offset_type))) / 5.L)));
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
   fprintf(stderr, "Max left size = %d\n", max_left_size);
   fprintf(stderr, "Peak memory usage during last merging = %.3Lfn\n",
-      (2.125L + sizeof(saidx_t)) + (5.L * max_left_size) / n_blocks);
+      (2.125L + sizeof(text_offset_type)) + (5.L * max_left_size) / n_blocks);
   MergeSchedule schedule(n_blocks, rl_ratio, max_left_size);
 
   fprintf(stderr, "Skewed merge schedule:\n");
@@ -231,7 +231,7 @@ void inmem_psascan(
       if (block_id + 1 != n_blocks || compute_bwt) {
         fprintf(stderr, "Computing BWT for block %ld: ", block_id + 1);
         long double bwt_start = utils::wclock();
-        compute_bwt_in_bwtsa<saidx_t>(text + block_beg, block_size,
+        compute_bwt_in_bwtsa<text_offset_type>(text + block_beg, block_size,
             bwtsa + block_beg, max_threads, i0_array[block_id]);
         fprintf(stderr, "%.2Lf\n", utils::wclock() - bwt_start);
       }
@@ -241,8 +241,8 @@ void inmem_psascan(
 
   if (n_blocks > 1) {
     long i0_result;
-    pagearray<bwtsa_t<saidx_t>, pagesize_log> *result =
-      inmem_bwtsa_merge<saidx_t, pagesize_log>(text, text_length, bwtsa,
+    pagearray<bwtsa_t<text_offset_type>, pagesize_log> *result =
+      inmem_bwtsa_merge<text_offset_type, pagesize_log>(text, text_length, bwtsa,
           gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
           compute_bwt, i0_result, schedule, text_beg, text_end,
           supertext_length, supertext_filename, tail_gt_begin_reversed,
@@ -275,14 +275,14 @@ void inmem_psascan(
     fprintf(stderr, "Copying bwtsa.bwt into aux memory: ");
     start = utils::wclock();
     bwt = (unsigned char *)malloc(text_length);
-    parallel_copy<bwtsa_t<saidx_t>, unsigned char>(bwtsa, bwt, text_length, max_threads);
+    parallel_copy<bwtsa_t<text_offset_type>, unsigned char>(bwtsa, bwt, text_length, max_threads);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
   }
 
   fprintf(stderr, "Shrinking bwtsa.sa into sa: ");
   start = utils::wclock();
 
-  parallel_shrink<bwtsa_t<saidx_t>, saidx_t>(bwtsa, text_length, max_threads);
+  parallel_shrink<bwtsa_t<text_offset_type>, text_offset_type>(bwtsa, text_length, max_threads);
 
   fprintf(stderr, "%.2Lf\n", utils::wclock() - start);
 
@@ -290,7 +290,7 @@ void inmem_psascan(
     // Copy from aux into the end of bwtsa.
     fprintf(stderr, "Copying bwt from aux memory to the end of bwtsa: ");
     start = utils::wclock();
-    unsigned char *dest = (unsigned char *)(((saidx_t *)bwtsa) + text_length);
+    unsigned char *dest = (unsigned char *)(((text_offset_type *)bwtsa) + text_length);
     parallel_copy<unsigned char, unsigned char>(bwt, dest, text_length, max_threads);
     free(bwt);
     fprintf(stderr, "%.2Lf\n", utils::wclock() - start);

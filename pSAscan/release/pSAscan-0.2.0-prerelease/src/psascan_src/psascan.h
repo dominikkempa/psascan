@@ -46,12 +46,13 @@
 #include "partial_sufsort.h"
 #include "merge.h"
 #include "utils.h"
-#include "uint40.h"
+#include "uint40.hpp"
 #include "half_block_info.h"
 
 
 namespace psascan_private {
 
+template<typename text_offset_type>
 void pSAscan(std::string input_filename, std::string output_filename,
     std::string gap_filename, long ram_use, long max_threads,
     bool verbose, long gap_buf_size = (1L << 21)) {
@@ -70,6 +71,7 @@ void pSAscan(std::string input_filename, std::string output_filename,
   fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
   fprintf(stderr, "Gap filename = %s\n", gap_filename.c_str());
   fprintf(stderr, "Input length = %ld (%.1LfMiB)\n", length, 1.L * length / (1L << 20));
+  fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
   fprintf(stderr, "\n");
 
   long ram_for_threads = n_gap_buffers * gap_buf_size;  // for buffers
@@ -119,11 +121,11 @@ void pSAscan(std::string input_filename, std::string output_filename,
   if (max_block_size < (1L << 31)) {
     std::vector<half_block_info<int> > hblock_info = partial_sufsort<int>(input_filename,
         output_filename, gap_filename, length, max_block_size, ram_use, max_threads, gap_buf_size, verbose);
-    merge<int>(output_filename, ram_use, hblock_info);
+    merge<text_offset_type, int>(output_filename, ram_use, hblock_info);
   } else {
     std::vector<half_block_info<uint40> > hblock_info = partial_sufsort<uint40>(input_filename,
         output_filename, gap_filename, length, max_block_size, ram_use, max_threads, gap_buf_size, verbose);
-    merge<uint40>(output_filename, ram_use, hblock_info);
+    merge<text_offset_type, uint40>(output_filename, ram_use, hblock_info);
   }
   long double total_time = utils::wclock() - start;
 
@@ -136,9 +138,10 @@ void pSAscan(std::string input_filename, std::string output_filename,
 
 
 // The main function.
+template<typename text_offset_type>
 void pSAscan(std::string input_filename, std::string output_filename,
     std::string gap_filename, long ram_use, long max_threads, bool verbose) {
-  psascan_private::pSAscan(input_filename, output_filename,
+  psascan_private::pSAscan<text_offset_type>(input_filename, output_filename,
       gap_filename, ram_use, max_threads, verbose);
 }
 

@@ -46,9 +46,9 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_bwt_in_bwtsa_aux(const unsigned char *text, long beg,
-    long end, bwtsa_t<saidx_t> *dest, long *i0) {
+    long end, bwtsa_t<block_offset_type> *dest, long *i0) {
   *i0 = -1;
   for (long j = beg; j < end; ++j) {
     if (dest[j].sa) dest[j].bwt = text[dest[j].sa - 1];
@@ -56,9 +56,9 @@ void compute_bwt_in_bwtsa_aux(const unsigned char *text, long beg,
   }
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_bwt_in_bwtsa(const unsigned char *text, long length,
-  bwtsa_t<saidx_t> *dest, long max_threads, long &result) {
+  bwtsa_t<block_offset_type> *dest, long max_threads, long &result) {
   long max_block_size = (length + max_threads - 1) / max_threads;
   long n_blocks = (length + max_block_size - 1) / max_block_size;
   long *index_0 = new long[n_blocks];
@@ -69,7 +69,7 @@ void compute_bwt_in_bwtsa(const unsigned char *text, long length,
     long block_beg = i * max_block_size;
     long block_end = std::min(block_beg + max_block_size, length);
 
-    threads[i] = new std::thread(compute_bwt_in_bwtsa_aux<saidx_t>,
+    threads[i] = new std::thread(compute_bwt_in_bwtsa_aux<block_offset_type>,
         text, block_beg, block_end, dest, index_0 + i);
   }
 

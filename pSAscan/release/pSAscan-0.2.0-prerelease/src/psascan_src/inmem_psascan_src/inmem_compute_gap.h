@@ -59,10 +59,10 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename saidx_t, unsigned pagesize_log>
+template<typename block_offset_type, unsigned pagesize_log>
 void inmem_compute_gap(const unsigned char *text, long text_length, long left_block_beg,
     long left_block_size, long right_block_size,
-    const pagearray<bwtsa_t<saidx_t>, pagesize_log> &bwtsa,
+    const pagearray<bwtsa_t<block_offset_type>, pagesize_log> &bwtsa,
     bitvector *gt, inmem_gap_array* &gap, long max_threads, bool need_gt, long i0,
     long gap_buf_size, long double &rank_init_time, long double &streaming_time,
     long **block_rank_matrix, long lrange_beg, long lrange_size, long rrange_size) {
@@ -74,7 +74,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   //----------------------------------------------------------------------------
   fprintf(stderr, "    Building rank: ");
   long double start = utils::wclock();
-  typedef rank4n<saidx_t, pagesize_log> rank_type;
+  typedef rank4n<block_offset_type, pagesize_log> rank_type;
   rank_type *rank = new rank_type(&bwtsa, left_block_size, max_threads);
   rank_init_time = utils::wclock() - start;
   fprintf(stderr, "total: %.2Lf\n", rank_init_time);
@@ -111,7 +111,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
   // 3.a
   //
   // Compute the last starting position using the matrix of initial ranks.
-  typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_bwtsa_type;
+  typedef pagearray<bwtsa_t<block_offset_type>, pagesize_log> pagearray_bwtsa_type;
   long last_stream_block_beg = right_block_beg + (n_threads - 1) * max_stream_block_size;
   long last_stream_block_end = right_block_end;
 
@@ -152,7 +152,7 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     //
     // Build the data structure allowing answering ISA queries.
     start = utils::wclock();
-    typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
+    typedef pagearray<bwtsa_t<block_offset_type>, pagesize_log> pagearray_type;
     typedef sparse_isa<pagearray_type, rank_type, 12U> sparse_isa_type;
     sparse_isa_type *sp_isa = new sparse_isa_type(&bwtsa, text +
         left_block_beg, rank, left_block_size, i0, max_threads);
@@ -217,21 +217,21 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
 
   // Allocate gap buffers.
   long n_gap_buffers = 2 * n_threads;
-  gap_buffer<saidx_t> **gap_buffers = new gap_buffer<saidx_t>*[n_gap_buffers];
+  gap_buffer<block_offset_type> **gap_buffers = new gap_buffer<block_offset_type>*[n_gap_buffers];
   for (long i = 0; i < n_gap_buffers; ++i)
-    gap_buffers[i] = new gap_buffer<saidx_t>(gap_buf_size, max_threads);
+    gap_buffers[i] = new gap_buffer<block_offset_type>(gap_buf_size, max_threads);
 
   // Create poll of empty and full buffers.
-  gap_buffer_poll<saidx_t> *empty_gap_buffers = new gap_buffer_poll<saidx_t>();
-  gap_buffer_poll<saidx_t> *full_gap_buffers = new gap_buffer_poll<saidx_t>(n_threads);
+  gap_buffer_poll<block_offset_type> *empty_gap_buffers = new gap_buffer_poll<block_offset_type>();
+  gap_buffer_poll<block_offset_type> *full_gap_buffers = new gap_buffer_poll<block_offset_type>(n_threads);
 
   // Add empty buffers to empty poll.
   for (long i = 0; i < n_gap_buffers; ++i)
     empty_gap_buffers->add(gap_buffers[i]);
 
   // Allocate temp arrays and oracles.
-  long max_buffer_elems = gap_buf_size / sizeof(saidx_t);
-  saidx_t *temp = (saidx_t *)malloc(max_buffer_elems * n_threads * sizeof(saidx_t));
+  long max_buffer_elems = gap_buf_size / sizeof(block_offset_type);
+  block_offset_type *temp = (block_offset_type *)malloc(max_buffer_elems * n_threads * sizeof(block_offset_type));
   int *oracle = (int *)malloc(max_buffer_elems * n_threads * sizeof(int));
   long double allocations_time = utils::wclock() - start;
   if (allocations_time > 0.05L)
@@ -249,14 +249,14 @@ void inmem_compute_gap(const unsigned char *text, long text_length, long left_bl
     long beg = right_block_beg + t * max_stream_block_size;
     long end = std::min(beg + max_stream_block_size, right_block_end);
 
-    threads[t] = new std::thread(inmem_parallel_stream<rank_type, saidx_t>,
+    threads[t] = new std::thread(inmem_parallel_stream<rank_type, block_offset_type>,
       text, text_length, beg, end, last, count, full_gap_buffers,
       empty_gap_buffers, initial_ranks[t], i0, rank, gap->m_length, max_threads,
       gt, temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
   }
 
   // Start updating thread.
-  std::thread *updater = new std::thread(inmem_gap_updater<saidx_t>,
+  std::thread *updater = new std::thread(inmem_gap_updater<block_offset_type>,
       full_gap_buffers, empty_gap_buffers, gap, max_threads);
 
   // Wait to all threads to finish.
