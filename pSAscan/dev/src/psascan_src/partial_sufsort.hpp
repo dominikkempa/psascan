@@ -687,7 +687,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   info_left.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
   info_right.gap_filename = gap_filename + ".gap." + utils::random_string_hash();
 
-  gap_array_2n *block_gap_2n = new gap_array_2n(block_gap, max_threads);
+  gap_array_2n *block_gap_2n = new gap_array_2n(block_gap);
   delete block_gap;
   block_gap_2n->apply_excess_from_disk(std::max((1UL << 20), block_size), max_threads);
 
