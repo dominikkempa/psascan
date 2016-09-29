@@ -76,14 +76,14 @@ namespace inmem_psascan_private {
  **/
 
 template<
-  typename saidx_t,
+  typename int_type,
   std::uint32_t pagesize_log,
   std::uint32_t k_sblock_size_log = 24,
   std::uint32_t k_cblock_size_log = 20,
   std::uint32_t k_sigma_log = 8>
 class rank4n {
   private:
-    typedef pagearray<bwtsa_t<saidx_t>, pagesize_log> pagearray_type;
+    typedef pagearray<bwtsa_t<int_type>, pagesize_log> pagearray_type;
 
     static const std::uint64_t k_cblock_size;
     static const std::uint64_t k_cblock_size_mask;
@@ -740,52 +740,52 @@ class rank4n {
 };
 
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint64_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint64_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size = (1UL << k_cblock_size_log);
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint64_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint64_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size_mask = (1UL << k_cblock_size_log) - 1;
   
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_2cblock_size = (2U << k_cblock_size_log);
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_2cblock_size_mask = (2U << k_cblock_size_log) - 1;
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sigma = (1U << k_sigma_log);
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sigma_mask = (1U << k_sigma_log) - 1;
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint64_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint64_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblock_size_mask_neg = ~((1L << k_cblock_size_log) - 1);
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblocks_in_sblock_log = k_sblock_size_log - k_cblock_size_log;
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblocks_in_sblock = (1U << (k_sblock_size_log - k_cblock_size_log));
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_cblocks_in_sblock_mask = (1U << (k_sblock_size_log - k_cblock_size_log)) - 1;
 
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sblock_size = (1U << k_sblock_size_log);
     
-template<typename saidx_t, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
-  const std::uint32_t rank4n<saidx_t, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
+template<typename int_type, std::uint32_t pagesize_log, std::uint32_t k_sblock_size_log, std::uint32_t k_cblock_size_log, std::uint32_t k_sigma_log>
+  const std::uint32_t rank4n<int_type, pagesize_log, k_sblock_size_log, k_cblock_size_log, k_sigma_log>
   ::k_sblock_size_mask = (1U << k_sblock_size_log) - 1;
 
 }  // namespace inmem_psascan_private

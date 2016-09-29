@@ -84,11 +84,11 @@ void rerename_block(std::uint8_t *block, std::uint64_t block_length) {
 //==============================================================================
 // Given gt bitvectors, compute partial suffix arrays of blocks.
 //==============================================================================
-template<typename saidx_t>
+template<typename block_offset_type>
 void initial_partial_sufsort(std::uint8_t *, std::uint64_t, bitvector *,
-    bwtsa_t<saidx_t> *, std::uint64_t, std::uint64_t, bool) {
-  fprintf(stderr, "\n\nError: initial_partial_sufsort: given saidx_t is "
-      "not supported, sizeof(saidx_t) = %lu\n", sizeof(saidx_t));
+    bwtsa_t<block_offset_type> *, std::uint64_t, std::uint64_t, bool) {
+  fprintf(stderr, "\n\nError: initial_partial_sufsort: given block_offset_type is "
+      "not supported, sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
   std::exit(EXIT_FAILURE);
 }
 

@@ -1,5 +1,5 @@
 /**
- * @file    uint40.hpp
+ * @file    uint48.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
@@ -31,48 +31,48 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __UINT40_HPP_INCLUDED
-#define __UINT40_HPP_INCLUDED
+#ifndef __UINT48_HPP_INCLUDED
+#define __UINT48_HPP_INCLUDED
 
 #include <cstdint>
 #include <limits>
 
 
-class uint40 {
+class uint48 {
   private:
     std::uint32_t low;
-    std::uint8_t high;
+    std::uint16_t high;
 
   public:
-    uint40() {}
-    uint40(std::uint32_t l, std::uint8_t h) : low(l), high(h) {}
-    uint40(const uint40& a) : low(a.low), high(a.high) {}
-    uint40(const std::int32_t& a) : low(a), high(0) {}
-    uint40(const std::uint32_t& a) : low(a), high(0) {}
-    uint40(const std::uint64_t& a) : low(a & 0xFFFFFFFF), high((a >> 32) & 0xFF) {}
-    uint40(const std::int64_t& a) : low(a & 0xFFFFFFFFL), high((a >> 32) & 0xFF) {}
+    uint48() {}
+    uint48(std::uint32_t l, std::uint16_t h) : low(l), high(h) {}
+    uint48(const uint48& a) : low(a.low), high(a.high) {}
+    uint48(const std::int32_t& a) : low(a), high(0) {}
+    uint48(const std::uint32_t& a) : low(a), high(0) {}
+    uint48(const std::uint64_t& a) : low(a & 0xFFFFFFFF), high((a >> 32) & 0xFFFF) {}
+    uint48(const std::int64_t& a) : low(a & 0xFFFFFFFFL), high((a >> 32) & 0xFFFF) {}
 
-    inline operator uint64_t() const { return (((std::uint64_t)high) << 32) | (std::uint64_t)low;  }
-    inline bool operator == (const uint40& b) const { return (low == b.low) && (high == b.high); }
-    inline bool operator != (const uint40& b) const { return (low != b.low) || (high != b.high); }
+    inline operator uint64_t() const { return (((std::uint64_t)high) << 32) | (std::uint64_t)low; }
+    inline bool operator == (const uint48& b) const { return (low == b.low) && (high == b.high); }
+    inline bool operator != (const uint48& b) const { return (low != b.low) || (high != b.high); }
 } __attribute__((packed));
 
 namespace std {
 
 template<>
-class numeric_limits<uint40> {
+class numeric_limits<uint48> {
   public:
-    static uint40 min() {
-      return uint40(std::numeric_limits<std::uint32_t>::min(),
-          std::numeric_limits<std::uint8_t>::min());
+    static uint48 min() {
+      return uint48(std::numeric_limits<std::uint32_t>::min(),
+          std::numeric_limits<std::uint16_t>::min());
     }
 
-    static uint40 max() {
-      return uint40(std::numeric_limits<std::uint32_t>::max(),
-          std::numeric_limits<std::uint8_t>::max());
+    static uint48 max() {
+      return uint48(std::numeric_limits<std::uint32_t>::max(),
+          std::numeric_limits<std::uint16_t>::max());
     }
 };
 
 }  // namespace std
 
-#endif  // __UINT40_HPP_INCLUDED
+#endif  // __UINT48_HPP_INCLUDED

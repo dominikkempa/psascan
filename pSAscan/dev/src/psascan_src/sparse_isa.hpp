@@ -48,7 +48,7 @@ namespace psascan_private {
 //   Lempel-Ziv Factorization: Simple, Fast, Practical.
 //   In Proc. ALENEX 2013, p. 103-112.
 //------------------------------------------------------------------------------
-template<typename approx_rank_type, typename saidx_t, long k_sampling_rate_log>
+template<typename approx_rank_type, typename sa_int_type, long k_sampling_rate_log>
 struct sparse_isa {
   private:
     long m_length;
@@ -58,7 +58,7 @@ struct sparse_isa {
     long *m_count;
     long *m_sparse_isa;
 
-    const saidx_t *m_psa;
+    const sa_int_type *m_psa;
     const unsigned char *m_text;
     const approx_rank_type *m_rank;
   
@@ -79,7 +79,7 @@ struct sparse_isa {
     }
 
   public:
-    sparse_isa(const saidx_t *psa, const unsigned char *text, long length,
+    sparse_isa(const sa_int_type *psa, const unsigned char *text, long length,
         long i0, const approx_rank_type *rank, long max_threads) {
       m_psa = psa;
       m_length = length;
@@ -98,7 +98,7 @@ struct sparse_isa {
         long block_beg = t * max_block_size;
         long block_end = std::min(block_beg + max_block_size, m_length);
 
-        threads[t] = new std::thread(compute_sparse_isa_aux<saidx_t>, m_psa,
+        threads[t] = new std::thread(compute_sparse_isa_aux<sa_int_type>, m_psa,
             block_beg, block_end, m_length, m_sparse_isa, std::ref(m_last_isa));
       }
 
@@ -153,12 +153,12 @@ struct sparse_isa {
     }
 };
 
-template<typename approx_rank_type, typename saidx_t, long k_sampling_rate_log>
-const long sparse_isa<approx_rank_type, saidx_t, k_sampling_rate_log>
+template<typename approx_rank_type, typename sa_int_type, long k_sampling_rate_log>
+const long sparse_isa<approx_rank_type, sa_int_type, k_sampling_rate_log>
   ::k_sampling_rate = (1L << k_sampling_rate_log);
 
-template<typename approx_rank_type, typename saidx_t, long k_sampling_rate_log>
-const long sparse_isa<approx_rank_type, saidx_t, k_sampling_rate_log>
+template<typename approx_rank_type, typename sa_int_type, long k_sampling_rate_log>
+const long sparse_isa<approx_rank_type, sa_int_type, k_sampling_rate_log>
   ::k_sampling_rate_mask = (1L << k_sampling_rate_log) - 1;
 
 }  // namespace psascan_private

@@ -45,19 +45,19 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_bwt_in_bwtsa_aux(const std::uint8_t *text, std::uint64_t beg,
-    std::uint64_t end, bwtsa_t<saidx_t> *dest, std::int64_t *i0) {
+    std::uint64_t end, bwtsa_t<block_offset_type> *dest, std::int64_t *i0) {
   *i0 = -1;
   for (std::uint64_t j = beg; j < end; ++j) {
-    if (dest[j].m_sa > saidx_t(0)) dest[j].m_bwt = text[dest[j].m_sa - 1];
+    if ((long)dest[j].m_sa > 0) dest[j].m_bwt = text[dest[j].m_sa - 1];
     else { dest[j].m_bwt = 0; *i0 = j; }
   }
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void compute_bwt_in_bwtsa(const std::uint8_t *text, std::uint64_t length,
-  bwtsa_t<saidx_t> *dest, std::uint64_t max_threads, std::int64_t &result) {
+  bwtsa_t<block_offset_type> *dest, std::uint64_t max_threads, std::int64_t &result) {
   std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
   std::uint64_t n_blocks = (length + max_block_size - 1) / max_block_size;
   std::int64_t *index_0 = new std::int64_t[n_blocks];
@@ -68,7 +68,7 @@ void compute_bwt_in_bwtsa(const std::uint8_t *text, std::uint64_t length,
     std::uint64_t block_beg = i * max_block_size;
     std::uint64_t block_end = std::min(block_beg + max_block_size, length);
 
-    threads[i] = new std::thread(compute_bwt_in_bwtsa_aux<saidx_t>,
+    threads[i] = new std::thread(compute_bwt_in_bwtsa_aux<block_offset_type>,
         text, block_beg, block_end, dest, index_0 + i);
   }
 
