@@ -223,7 +223,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     long double right_block_sascan_time = utils::wclock() - right_block_sascan_start;
     long double right_block_sascan_speed = (right_block_size / (1024.L * 1024)) / right_block_sascan_time;
     if (verbose) fprintf(stderr, "%s\n", std::string(60, '*').c_str());
-    fprintf(stderr, "%.2Lfs. Speed: %.2LfMiB/s\n", right_block_sascan_time, right_block_sascan_speed);
+    else fprintf(stderr, "%.2Lfs. Speed: %.2LfMiB/s\n", right_block_sascan_time, right_block_sascan_speed);
  
     // 1.c
     //
@@ -356,7 +356,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   long double left_block_sascan_time = utils::wclock() - left_block_sascan_start;
   long double left_block_sascan_speed = (left_block_size / (1024.L * 1024)) / left_block_sascan_time;
   if (verbose) fprintf(stderr, "%s\n", std::string(60, '*').c_str());
-  fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", left_block_sascan_time, left_block_sascan_speed);
+  else fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", left_block_sascan_time, left_block_sascan_speed);
 
   // 2.c
   //

@@ -160,7 +160,7 @@ void inmem_compute_gap(const std::uint8_t *text, long text_length, long left_blo
     typedef pagearray<bwtsa_t<block_offset_type>, pagesize_log> pagearray_type;
     typedef sparse_isa<pagearray_type, rank_type, 12U> sparse_isa_type;
     sparse_isa_type *sp_isa = new sparse_isa_type(&bwtsa, text +
-        left_block_beg, rank, left_block_size, i0, max_threads);
+        left_block_beg, rank, left_block_size, i0);
     fprintf(stderr, "%.3Lfs ", utils::wclock() - start);
 
     // 3.d

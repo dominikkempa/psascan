@@ -42,7 +42,6 @@
 #include "bwtsa.hpp"
 #include "parallel_shrink.hpp"
 #include "parallel_expand.hpp"
-#include "parallel_copy.hpp"
 
 
 namespace psascan_private {

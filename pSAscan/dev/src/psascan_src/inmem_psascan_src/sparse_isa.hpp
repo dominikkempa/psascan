@@ -38,7 +38,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <algorithm>
-#include <thread>
+#include <omp.h>
 
 
 namespace psascan_private {
@@ -60,23 +60,9 @@ class sparse_isa {
     static const std::uint64_t k_isa_sampling_rate_mask;
     static const std::uint64_t k_sigma;
 
-  private:
-    static void compute_sparse_isa_aux(const pagearray_type &bwtsa,
-        std::uint64_t block_beg, std::uint64_t block_end,
-        std::uint64_t psa_size, std::uint64_t *sparse_isa,
-        std::uint64_t &last) {
-      for (std::uint64_t j = block_beg; j < block_end; ++j) {
-        std::uint64_t sa_j = bwtsa[j].m_sa;
-        if (!(sa_j & k_isa_sampling_rate_mask))
-          sparse_isa[sa_j >> k_isa_sampling_rate_log] = j;
-        if (sa_j + 1 == psa_size) last = j;
-      }
-    }
-
   public:
     sparse_isa(const pagearray_type *bwtsa, const std::uint8_t *text,
-        const rank_type *rank, std::uint64_t length, std::uint64_t i0,
-        std::uint64_t max_threads) {
+        const rank_type *rank, std::uint64_t length, std::uint64_t i0) {
       m_bwtsa = bwtsa;
       m_length = length;
       m_rank = rank;
@@ -91,21 +77,22 @@ class sparse_isa {
       std::uint64_t items = (m_length + k_isa_sampling_rate - 1) / k_isa_sampling_rate + 1;
       m_sparse_isa = (std::uint64_t *)malloc(items * sizeof(std::uint64_t));
 
-      std::uint64_t max_block_size = (m_length + max_threads - 1) / max_threads;
-      std::uint64_t n_blocks = (m_length + max_block_size - 1) / max_block_size;
-
-      std::thread **threads = new std::thread*[n_blocks];
-      for (std::uint64_t t = 0; t < n_blocks; ++t) {
-        std::uint64_t block_beg = t * max_block_size;
-        std::uint64_t block_end = std::min(block_beg + max_block_size, m_length);
-
-        threads[t] = new std::thread(compute_sparse_isa_aux, std::ref(*m_bwtsa),
-            block_beg, block_end, m_length, m_sparse_isa, std::ref(m_last_isa));
+#ifdef _OPENMP
+      #pragma omp parallel for
+      for (std::uint64_t j = 0; j < m_length; ++j) {
+        std::uint64_t sa_j = (*m_bwtsa)[j].m_sa;
+        if (!(sa_j & k_isa_sampling_rate_mask))
+          m_sparse_isa[sa_j >> k_isa_sampling_rate_log] = j;
+        if (sa_j + 1 == m_length) m_last_isa = j;
       }
-
-      for (std::uint64_t t = 0; t < n_blocks; ++t) threads[t]->join();
-      for (std::uint64_t t = 0; t < n_blocks; ++t) delete threads[t];
-      delete[] threads;
+#else
+      for (std::uint64_t j = 0; j < m_length; ++j) {
+        std::uint64_t sa_j = (*m_bwtsa)[j].m_sa;
+        if (!(sa_j & k_isa_sampling_rate_mask))
+          m_sparse_isa[sa_j >> k_isa_sampling_rate_log] = j;
+        if (sa_j + 1 == m_length) m_last_isa = j;
+      }
+#endif
 
       m_count = (std::uint64_t *)malloc(k_sigma * sizeof(std::uint64_t));
       for (std::uint64_t j = 0; j < k_sigma; ++j)

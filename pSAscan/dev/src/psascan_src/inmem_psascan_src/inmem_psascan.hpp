@@ -299,7 +299,15 @@ void inmem_psascan(
     fprintf(stderr, "Copy bwtsa.bwt into aux memory: ");
     start = utils::wclock();
     bwt = (std::uint8_t *)malloc(text_length);
-    parallel_copy<bwtsa_t<text_offset_type>, std::uint8_t>(bwtsa, bwt, text_length, max_threads);
+#ifdef _OPENMP
+    #pragma omp parallel for
+    for (std::uint64_t j = 0; j < text_length; ++j) {
+      bwt[j] = bwtsa[j].m_bwt;
+    }
+#else
+    for (std::uint64_t j = 0; j < text_length; ++j)
+      bwt[j] = bwtsa[j].m_bwt;
+#endif
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -315,7 +323,15 @@ void inmem_psascan(
     fprintf(stderr, "Copy bwt from aux memory to the end of bwtsa: ");
     start = utils::wclock();
     std::uint8_t *dest = (std::uint8_t *)(((text_offset_type *)bwtsa) + text_length);
-    parallel_copy<std::uint8_t, std::uint8_t>(bwt, dest, text_length, max_threads);
+#ifdef _OPENMP
+    #pragma omp parallel for
+    for (std::uint64_t j = 0; j < text_length; ++j) {
+      dest[j] = bwt[j];
+    }
+#else
+    for (std::uint64_t j = 0; j < text_length; ++j)
+      dest[j] = bwt[j];
+#endif
     free(bwt);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
