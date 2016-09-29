@@ -37,10 +37,11 @@
 #include <cstdio>
 #include <cstdint>
 #include <queue>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
+#include <string>
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 #include "../utils.hpp"
 
@@ -52,9 +53,8 @@ class async_stream_writer {
   private:
     template<typename T>
     struct buffer {
-      buffer(std::uint64_t size) {
-        m_size = size;
-        m_content = (T *)malloc(m_size * sizeof(T));
+      buffer(std::uint64_t size, T* const mem)
+        : m_content(mem), m_size(size) {
         m_filled = 0;
       }
 
@@ -63,27 +63,27 @@ class async_stream_writer {
         m_filled = 0;
       }
 
-      ~buffer() {
-        free(m_content);
-      }
-
+      inline bool empty() const { return m_filled == 0; }
+      inline bool full() const { return m_filled == m_size; }
       inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
       inline std::uint64_t free_space() const { return m_size - m_filled; }
 
-      inline bool empty() const { return m_filled == 0; }
-      inline bool full() const { return m_filled == m_size; }
-
-      T *m_content;
-      std::uint64_t m_size;
+      T* const m_content;
+      const std::uint64_t m_size;
       std::uint64_t m_filled;
     };
 
-    template<typename buffer_type>
+    template<typename T>
     struct buffer_queue {
-      buffer_queue(std::uint64_t n_buffers = 0, std::uint64_t items_per_buf = 0) {
+      typedef buffer<T> buffer_type;
+
+      buffer_queue(std::uint64_t n_buffers,
+          std::uint64_t items_per_buf, T *mem) {
         m_signal_stop = false;
-        for (std::uint64_t i = 0; i < n_buffers; ++i)
-          m_queue.push(new buffer_type(items_per_buf));
+        for (std::uint64_t i = 0; i < n_buffers; ++i) {
+          m_queue.push(new buffer_type(items_per_buf, mem));
+          mem += items_per_buf;
+        }
       }
 
       ~buffer_queue() {
@@ -120,7 +120,7 @@ class async_stream_writer {
 
   private:
     typedef buffer<value_type> buffer_type;
-    typedef buffer_queue<buffer_type> buffer_queue_type;
+    typedef buffer_queue<value_type> buffer_queue_type;
 
     buffer_queue_type *m_empty_buffers;
     buffer_queue_type *m_full_buffers;
@@ -146,7 +146,7 @@ class async_stream_writer {
         buffer_type *buffer = caller->m_full_buffers->pop();
         lk.unlock();
 
-        // Safely write the data to disk.
+        // Write the data to disk.
         buffer->write_to_file(caller->m_file);
 
         // Add the (now empty) buffer to the collection
@@ -172,6 +172,7 @@ class async_stream_writer {
     std::uint64_t m_bytes_written;
     std::uint64_t m_items_per_buf;
 
+    value_type *m_mem;
     buffer_type *m_cur_buffer;
     std::thread *m_io_thread;
 
@@ -180,14 +181,20 @@ class async_stream_writer {
         std::uint64_t total_buf_size_bytes = (8UL << 20),
         std::uint64_t n_buffers = 4UL,
         std::string write_mode = std::string("w")) {
+      if (n_buffers == 0) {
+        fprintf(stderr, "\nError in async_stream_writer: n_buffers == 0\n");
+        std::exit(EXIT_FAILURE);
+      }
+
       if (filename.empty()) m_file = stdout;
-      else m_file = utils::file_open(filename.c_str(), write_mode);
+      else m_file = utils::file_open_nobuf(filename.c_str(), write_mode);
 
       // Allocate buffers.
       std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
       m_items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
-      m_empty_buffers = new buffer_queue_type(n_buffers, m_items_per_buf);
-      m_full_buffers = new buffer_queue_type();
+      m_mem = (value_type *)utils::allocate(n_buffers * m_items_per_buf * sizeof(value_type));
+      m_empty_buffers = new buffer_queue_type(n_buffers, m_items_per_buf, m_mem);
+      m_full_buffers = new buffer_queue_type(0, 0, NULL);
 
       // Initialize empty buffer.
       m_cur_buffer = get_empty_buffer();
@@ -197,31 +204,7 @@ class async_stream_writer {
       m_io_thread = new std::thread(io_thread_code<value_type>, this);
     }
 
-    ~async_stream_writer() {
-      // Send the last incomplete buffer for writing.
-      if (!(m_cur_buffer->empty())) {
-        m_full_buffers->push(m_cur_buffer);
-        m_full_buffers->m_cv.notify_one();
-        m_cur_buffer = NULL;
-      }
-
-      // Let the I/O thread know that we're done.
-      m_full_buffers->send_stop_signal();
-      m_full_buffers->m_cv.notify_one();
-
-      // Wait for the I/O thread to finish.
-      m_io_thread->join();
-
-      // Clean up.
-      delete m_empty_buffers;
-      delete m_full_buffers;
-      delete m_io_thread;
-      if (m_file != stdout)
-        std::fclose(m_file);
-      if (m_cur_buffer != NULL)
-        delete m_cur_buffer;
-    }
-
+    // Write item x to the stream.
     inline void write(value_type x) {
       m_bytes_written += sizeof(value_type);
       m_cur_buffer->m_content[m_cur_buffer->m_filled++] = x;
@@ -232,6 +215,7 @@ class async_stream_writer {
       }
     }
 
+    // Write values[0..length) to the stream.
     inline void write(const value_type *values, std::uint64_t length) {
       m_bytes_written += length * sizeof(value_type);
       while (length > 0) {
@@ -248,8 +232,39 @@ class async_stream_writer {
       }
     }
 
+    // Return performed I/O in bytes.
     inline std::uint64_t bytes_written() const {
       return m_bytes_written;
+    }
+
+    // Destructor.
+    ~async_stream_writer() {
+      // Send the last incomplete buffer for writing.
+      if (!(m_cur_buffer->empty())) {
+        m_full_buffers->push(m_cur_buffer);
+        m_full_buffers->m_cv.notify_one();
+        m_cur_buffer = NULL;
+      }
+
+      // Let the I/O thread know that we're done.
+      m_full_buffers->send_stop_signal();
+      m_full_buffers->m_cv.notify_one();
+
+      // Wait for the I/O thread to finish.
+      m_io_thread->join();
+
+      // Delete buffers and close the file.
+      delete m_empty_buffers;
+      delete m_full_buffers;
+      delete m_io_thread;
+
+      if (m_file != stdout)
+        std::fclose(m_file);
+
+      if (m_cur_buffer != NULL)
+        delete m_cur_buffer;
+
+      utils::deallocate(m_mem);
     }
 };
 

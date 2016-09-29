@@ -95,18 +95,22 @@ class async_bit_stream_writer {
     }
 
   public:
-    async_bit_stream_writer(std::string filename, std::uint64_t bufsize = (4UL << 20)) {
-      m_file = utils::file_open(filename.c_str(), "w");
+    async_bit_stream_writer(std::string filename,
+        std::uint64_t bufsize, std::uint64_t n_buffers) {
+      (void)n_buffers;  // unused now.
+      m_file = utils::file_open_nobuf(filename.c_str(), "w");
 
       // Initialize buffers.
-      m_buf_size = std::max(1UL, bufsize / 2);
-      m_active_buf = (std::uint8_t *)malloc(m_buf_size);
-      m_passive_buf = (std::uint8_t *)malloc(m_buf_size);
+      m_buf_size = std::max(1UL, bufsize / (2UL * sizeof(std::uint64_t)));
+      m_mem = (std::uint64_t *)utils::allocate(2UL * m_buf_size * sizeof(std::uint64_t));
+      m_active_buf = m_mem;
+      m_passive_buf = m_mem + m_buf_size;
 
       m_active_buf[0] = 0;
       m_bit_pos = 0;
       m_active_buf_filled = 0;
       m_passive_buf_filled = 0;
+      m_bits_written = 0;
 
       // Start the I/O thread.
       m_avail = false;
@@ -116,6 +120,7 @@ class async_bit_stream_writer {
 
     ~async_bit_stream_writer() {
       // Write the partially filled active buffer to disk.
+      std::uint64_t m_bit_pos_backup = m_bit_pos;
       if (m_bit_pos != 0) ++m_active_buf_filled;
       if (m_active_buf_filled > 0L)
         send_active_buf_to_write();
@@ -129,17 +134,20 @@ class async_bit_stream_writer {
       // Wait for the thread to finish.
       m_thread->join();
 
+      // Append the number of bits in the last 64-bit word to file.
+      // utils::write_to_file(&m_bit_pos_backup, 1, m_file);
+
       // Clean up.
       delete m_thread;
-      free(m_active_buf);
-      free(m_passive_buf);
       std::fclose(m_file);
+      utils::deallocate(m_mem);
     }
 
     inline void write(std::uint8_t bit) {
-      m_active_buf[m_active_buf_filled] |= (bit << m_bit_pos);
+      ++m_bits_written;
+      m_active_buf[m_active_buf_filled] |= ((std::uint64_t)bit << m_bit_pos);
       ++m_bit_pos;
-      if (m_bit_pos == 8) {
+      if (m_bit_pos == 64) {
         m_bit_pos = 0;
         ++m_active_buf_filled;
 
@@ -154,14 +162,20 @@ class async_bit_stream_writer {
       }
     }
 
+    std::uint64_t bytes_written() const {
+      return (m_bits_written + 7) / 8;
+    }
+
   private:
-    std::uint8_t *m_active_buf;
-    std::uint8_t *m_passive_buf;
+    std::uint64_t *m_mem;
+    std::uint64_t *m_active_buf;
+    std::uint64_t *m_passive_buf;
 
     std::uint64_t m_buf_size;
     std::uint64_t m_bit_pos;
     std::uint64_t m_active_buf_filled;
     std::uint64_t m_passive_buf_filled;
+    std::uint64_t m_bits_written;
 
     // Used for synchronization with the I/O thread.
     bool m_avail;
