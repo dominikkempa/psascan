@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/pagearray.hpp
+ * @file    src/psascan_src/inmem_psascan_src/pagearray.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_PAGEARRAY_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_PAGEARRAY_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_PAGEARRAY_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_PAGEARRAY_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -72,6 +72,7 @@ class pagearray {
     value_type **m_pageindex;
 
   public:
+
     // Initialize empty page array, possibly it will be
     // a result of merging two page arrays.
     pagearray(value_type *origin, std::uint64_t length) {
@@ -159,9 +160,11 @@ class pagearray {
       // Invariant: at all times, index[i] for any i points
       // to content that should be placed at i-th page of tab.
       while (true) {
+
         // Find starting point on some cycle.
         std::uint64_t start;
         while (true) {
+
           // Get the candidate using selector.
           std::unique_lock<std::mutex> lk(selector_mutex);
           while (selector < n_pages && a.m_pageindex[selector] == a.get_page_addr(selector))
@@ -197,6 +200,7 @@ class pagearray {
         // We now have free space at temp. Keep placing there
         // elements from the cycle and moving temp pointer.
         do {
+
           // Invariant: temp points to a page inside tab.
           std::uint64_t next = a.get_page_id(temp);
           std::unique_lock<std::mutex> lk(mutexes[next]);
@@ -245,4 +249,4 @@ template<typename T, std::uint32_t k_pagesize_log>
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_PAGEARRAY_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_PAGEARRAY_HPP_INCLUDED

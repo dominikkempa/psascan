@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/async_vbyte_stream_reader.hpp
+ * @file    src/psascan_src/io/async_vbyte_stream_reader.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_ASYNC_VBYTE_STREAM_READER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_ASYNC_VBYTE_STREAM_READER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_ASYNC_VBYTE_STREAM_READER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_ASYNC_VBYTE_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -51,12 +51,14 @@ class async_vbyte_stream_reader {
   private:
     static void io_thread_code(async_vbyte_stream_reader *reader) {
       while (true) {
+
         // Wait until the passive buffer is available.
         std::unique_lock<std::mutex> lk(reader->m_mutex);
         while (!(reader->m_avail) && !(reader->m_finished))
           reader->m_cv.wait(lk);
 
         if (!(reader->m_avail) && (reader->m_finished)) {
+
           // We're done, terminate the thread.
           lk.unlock();
           return;
@@ -82,6 +84,7 @@ class async_vbyte_stream_reader {
     // buffer (the request should have been issued before), and wait
     // in case the prefetching was not completed yet.
     void receive_new_buffer(std::uint64_t skipped_bytes) {
+
       // Wait until the I/O thread finishes reading the previous
       // buffer. In most cases, this step is instantaneous.
       std::unique_lock<std::mutex> lk(m_mutex);
@@ -127,6 +130,7 @@ class async_vbyte_stream_reader {
     }
 
     ~async_vbyte_stream_reader() {
+
       // Let the I/O thread know that we're done.
       std::unique_lock<std::mutex> lk(m_mutex);
       m_finished = true;
@@ -146,6 +150,7 @@ class async_vbyte_stream_reader {
 
     inline value_type read() {
       if (m_active_buf_pos >= m_active_buf_filled) {
+
         // The active buffer run out of data.
         // At this point we need to swap it with the passive
         // buffer. The request to read that passive buffer should
@@ -202,4 +207,4 @@ class async_vbyte_stream_reader {
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_IO_ASYNC_VBYTE_STREAM_READER_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_IO_ASYNC_VBYTE_STREAM_READER_HPP_INCLUDED

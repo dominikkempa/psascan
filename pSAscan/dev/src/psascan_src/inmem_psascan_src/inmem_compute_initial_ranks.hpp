@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/inmem_compute_initial_ranks.hpp
+ * @file    src/psascan_src/inmem_psascan_src/inmem_compute_initial_ranks.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -84,6 +84,7 @@ template<typename pagearray_type>
 void compute_range(const std::uint8_t *text, long block_beg, long block_size,
     const std::uint8_t *pat, long pat_length, const pagearray_type &bwtsa,
     std::pair<long, long> &ret) {
+
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
   long min_discrepancy = utils::random_int64(0L, 10L);
   long balancing_factor = utils::random_int64(1L, 10L);
@@ -96,6 +97,7 @@ void compute_range(const std::uint8_t *text, long block_beg, long block_size,
   long low = -1L, high = block_size;
   long llcp = 0, rlcp = 0;
   while (low + 1 != high) {
+
     // Invariant: left is in the range (low..high].
     long lcp = std::min(llcp, rlcp);
 
@@ -103,6 +105,7 @@ void compute_range(const std::uint8_t *text, long block_beg, long block_size,
     // Valid values for mid are: low + 1, .., high - 1.
     long mid = 0L;
     if (llcp + min_discrepancy < rlcp) {
+
       // Choose the pivot that split the range into two
       // parts of sizes with ratio equal to logd / d.
       long d = rlcp - llcp;
@@ -131,6 +134,7 @@ void compute_range(const std::uint8_t *text, long block_beg, long block_size,
     rlcp = 0;
 
     while (low + 1 != high) {
+
       // Invariant: right is in the range (low..high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -185,6 +189,7 @@ void refine_range(const std::uint8_t *text, long block_beg,
 #endif
 
   while (low + 1 != high) {
+
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
     long mid = 0L;
@@ -213,6 +218,7 @@ void refine_range(const std::uint8_t *text, long block_beg,
     rlcp = old_pat_length;
 
     while (low + 1 != high) {
+
       // Invariant: newright is in the range (low, high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -274,6 +280,7 @@ void refine_range(const std::uint8_t *text, long text_length,
 #endif
 
   while (low + 1 != high) {
+
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
     long mid = 0L;
@@ -303,6 +310,7 @@ void refine_range(const std::uint8_t *text, long text_length,
     rlcp = old_pat_length;
 
     while (low + 1 != high) {
+
       // Invariant: newright is in the range (low, high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -509,6 +517,7 @@ void compute_ranges_2(const std::uint8_t *text, long text_length,
   // Compute secondary range.
   long pat_length = cur_pat_length + std::min(tail_length, max_block_size);
   if (reader) {
+
     // The reader != NULL, meaning that we have to gradually refine the range.
     while (left != right && cur_pat_length < pat_length) {
       long next_chunk = std::min(chunk_size, pat_length - cur_pat_length);
@@ -524,6 +533,7 @@ void compute_ranges_2(const std::uint8_t *text, long text_length,
       cur_pat_length = new_pat_length;
     }
   } else {
+
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
     // This version extends the range chunk by chunk (using random chunk
     // lengths) even if the whole next block is available. This is for
@@ -541,6 +551,7 @@ void compute_ranges_2(const std::uint8_t *text, long text_length,
       cur_pat_length = new_pat_length;
     }
 #else
+
     // The whole next block is available, we can just do one binary search.
     long new_pat_length = pat_length;
     if (left != right && cur_pat_length < new_pat_length) {
@@ -553,6 +564,7 @@ void compute_ranges_2(const std::uint8_t *text, long text_length,
     }
     cur_pat_length = new_pat_length;
 #endif
+
   }
   secondary_range[row][column] = std::make_pair(left, right);
 }
@@ -604,6 +616,7 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
 
   // Compute the primary range.
   if (reader) {
+
     // The reader != NULL, meaning that we have to gradually refine the range.
     while (left != right && cur_pat_length < first_range_pat_length) {
       long next_chunk = std::min(chunk_size,
@@ -621,6 +634,7 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
       cur_pat_length = new_pat_length;
     }
   } else {
+
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
     // This version extends the range chunk by chunk (using random chunk
     // lengths) even if the whole next block is available. This is for
@@ -640,6 +654,7 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
       cur_pat_length = new_pat_length;
     }
 #else
+
     // The whole next block is available, we can just do one binary search.
     long new_pat_length = first_range_pat_length;
     if (left != right && cur_pat_length < new_pat_length) {
@@ -653,11 +668,13 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
     }
     cur_pat_length = new_pat_length;
 #endif
+
   }
   primary_range[row][column] = std::make_pair(left, right);
 
   // Compute the secondary range.
   if (reader) {
+
     // The reader != NULL, meaning that we have to gradually refine the range.
     while (left != right && cur_pat_length < pat_length) {
       long next_chunk = std::min(chunk_size, pat_length - cur_pat_length);
@@ -674,6 +691,7 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
       cur_pat_length = new_pat_length;
     }
   } else {
+
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
     // This version extends the range chunk by chunk (using random chunk
     // lengths) even if the whole next block is available. This is for
@@ -692,6 +710,7 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
       cur_pat_length = new_pat_length;
     }
 #else
+
     // The whole next block is available, we can just do one binary search.
     long new_pat_length = pat_length;
     if (left != right && cur_pat_length < new_pat_length) {
@@ -705,6 +724,7 @@ void compute_ranges_3(const std::uint8_t *text, long text_length,
     }
     cur_pat_length = new_pat_length;
 #endif
+
   }
   secondary_range[row][column] = std::make_pair(left, right);
 
@@ -724,6 +744,7 @@ void task_solver_code(const std::uint8_t *text,
     std::vector<std::pair<long, long> > &tasks,
     std::mutex &tasks_mutex) {
   while (true) {
+
     // Get a task from the task collection.
     std::pair<long, long> task;
     bool task_avail = true;
@@ -902,6 +923,7 @@ void compute_block_rank_matrix(const std::uint8_t *text, long text_length,
 
         // Keep refining the range [left..right) until it's empty.
         while (left != right) {
+
           // Valid values for mid are in [left..right).
           long mid = (left + right) / 2;
           long suf = (long)cur_block_psa[mid].m_sa + shift;
@@ -933,4 +955,4 @@ void compute_block_rank_matrix(const std::uint8_t *text, long text_length,
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED

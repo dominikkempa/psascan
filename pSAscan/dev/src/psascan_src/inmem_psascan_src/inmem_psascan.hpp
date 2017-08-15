@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/inmem_psascan.hpp
+ * @file    src/psascan_src/inmem_psascan_src/inmem_psascan.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_PSASCAN_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_PSASCAN_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_PSASCAN_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_PSASCAN_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -295,10 +295,12 @@ void inmem_psascan(
 
   std::uint8_t *bwt = NULL;
   if (compute_bwt) {
+
     // Allocate aux, copy bwt into aux.
     fprintf(stderr, "Copy bwtsa.bwt into aux memory: ");
     start = utils::wclock();
     bwt = (std::uint8_t *)malloc(text_length);
+
 #ifdef _OPENMP
     #pragma omp parallel for
     for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -308,6 +310,7 @@ void inmem_psascan(
     for (std::uint64_t j = 0; j < text_length; ++j)
       bwt[j] = bwtsa[j].m_bwt;
 #endif
+
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -319,6 +322,7 @@ void inmem_psascan(
   fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
   if (compute_bwt) {
+
     // Copy from aux into the end of bwtsa.
     fprintf(stderr, "Copy bwt from aux memory to the end of bwtsa: ");
     start = utils::wclock();
@@ -332,6 +336,7 @@ void inmem_psascan(
     for (std::uint64_t j = 0; j < text_length; ++j)
       dest[j] = bwt[j];
 #endif
+
     free(bwt);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
@@ -346,4 +351,4 @@ void inmem_psascan(
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_PSASCAN_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_PSASCAN_HPP_INCLUDED

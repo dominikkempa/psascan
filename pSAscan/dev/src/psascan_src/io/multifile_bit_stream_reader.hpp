@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/multifile_bit_stream_reader.hpp
+ * @file    src/psascan_src/io/multifile_bit_stream_reader.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_MULTIFILE_BIT_STREAM_READER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_MULTIFILE_BIT_STREAM_READER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_MULTIFILE_BIT_STREAM_READER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_MULTIFILE_BIT_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -139,6 +139,7 @@ private:
   }
 
   void open_file_for_index(std::uint64_t i) {
+
     // Close current file (if any is open).
     if (m_file) std::fclose(m_file);
 
@@ -167,4 +168,4 @@ const long multifile_bit_stream_reader::k_bufsize = (1L << 20);
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_IO_MULTIFILE_BIT_STREAM_READER_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_IO_MULTIFILE_BIT_STREAM_READER_HPP_INCLUDED

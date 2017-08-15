@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/parallel_merge.hpp
+ * @file    src/psascan_src/inmem_psascan_src/parallel_merge.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_PARALLEL_MERGE_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_PARALLEL_MERGE_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_PARALLEL_MERGE_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_PARALLEL_MERGE_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -113,12 +113,14 @@ void parallel_merge_aux(
     }
     if (remaining_gap > 0) {
       --remaining_gap;
+
       // The next element comes from the right subarray.
       dest[filled] = rpage[rpage_offset++];
       dest[filled].m_sa = (long)(dest[filled].m_sa) + what_to_add;
       filled++;
       rpage_read++;
       if (rpage_offset == pagesize) {
+
         // We reached the end of page in the right subarray.
         // We put it into free pages if we read exactly
         // pagesize elements from it. This means the no other
@@ -132,6 +134,7 @@ void parallel_merge_aux(
         rpage_read = 0;
       }
     } else {
+
       // Next elem comes from the left subarray.
       dest[filled++] = lpage[lpage_offset++];
       left_idx++;
@@ -147,6 +150,7 @@ void parallel_merge_aux(
 
       remaining_gap = gap_left_idx;
       if (lpage_offset == pagesize) {
+
         // We reached the end of page in the left
         // subarray, proceed analogously.
         if (lpage_read == pagesize) freepages.push(l_pagearray->m_pageindex[lpage_id - 1]);
@@ -288,4 +292,4 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_PARALLEL_MERGE_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_PARALLEL_MERGE_HPP_INCLUDED

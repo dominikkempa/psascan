@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/half_block_info.hpp
+ * @file    src/psascan_src/half_block_info.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_HALF_BLOCK_INFO_HPP_INCLUDED
-#define __PSASCAN_SRC_HALF_BLOCK_INFO_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_HALF_BLOCK_INFO_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_HALF_BLOCK_INFO_HPP_INCLUDED
 
 #include <string>
 #include "io/scatterfile.hpp"
@@ -56,4 +56,4 @@ struct half_block_info {
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_HALF_BLOCK_INFO_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_HALF_BLOCK_INFO_HPP_INCLUDED

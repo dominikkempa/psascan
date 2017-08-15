@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/inmem_stream.hpp
+ * @file    src/psascan_src/inmem_psascan_src/inmem_stream.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_STREAM_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_STREAM_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_STREAM_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_STREAM_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -107,6 +107,7 @@ void inmem_parallel_stream(
   std::uint64_t j = stream_block_end;
   bool gt_bit = gt->get(text_length - j);
   while (j > stream_block_beg) {
+
     // 2.a
     //
     // Get a buffer from the poll of empty buffers.
@@ -182,8 +183,10 @@ void inmem_parallel_stream(
     }
 
     if (max_sbucket_size < 4L * ideal_sblock_size) {
+
       // The quick partition was good enough.
-      for (std::uint64_t t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      for (std::uint64_t t = 0, curbeg = 0; t < n_increasers;
+          curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       // Permute the elements of the buffer.
@@ -198,6 +201,7 @@ void inmem_parallel_stream(
         b->m_content[addr] = temp[t];
       }
     } else {
+
       // Repeat the partition into sbuckets, this time using random sample.
       // This is a fallback mechanism in case the quick partition failed,
       // and is expected to happen very rarely.
@@ -209,7 +213,8 @@ void inmem_parallel_stream(
       samples.erase(std::unique(samples.begin(), samples.end()), samples.end());
 
       // Compute bucket boundaries (lower bound is enough).
-      std::fill(bucket_lbound, bucket_lbound + n_increasers + 1, (block_offset_type)gap_range_size);
+      std::fill(bucket_lbound, bucket_lbound + n_increasers + 1,
+          (block_offset_type)gap_range_size);
 
       std::uint64_t step = (samples.size() + n_increasers - 1) / n_increasers;
       for (std::uint64_t t = 1, p = step; p < samples.size(); ++t, p += step)
@@ -227,7 +232,8 @@ void inmem_parallel_stream(
       }
 
       // Permute elements into their own buckets using oracle.
-      for (std::uint64_t t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      for (std::uint64_t t = 0, curbeg = 0; t < n_increasers;
+          curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
@@ -272,4 +278,4 @@ void inmem_parallel_stream(
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_STREAM_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_STREAM_HPP_INCLUDED

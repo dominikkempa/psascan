@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/inmem_bwt_from_sa.hpp
+ * @file    src/psascan_src/inmem_psascan_src/inmem_bwt_from_sa.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWT_FROM_SA_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWT_FROM_SA_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWT_FROM_SA_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWT_FROM_SA_HPP_INCLUDED
 
 #include <cstdint>
 #include <algorithm>
@@ -86,4 +86,4 @@ void compute_bwt_in_bwtsa(const std::uint8_t *text, std::uint64_t length,
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWT_FROM_SA_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_BWT_FROM_SA_HPP_INCLUDED

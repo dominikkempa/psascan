@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/inmem_gap_array.hpp
+ * @file    src/psascan_src/inmem_psascan_src/inmem_gap_array.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_SASCAN_INMEM_GAP_ARRAY_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_SASCAN_INMEM_GAP_ARRAY_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_SASCAN_INMEM_GAP_ARRAY_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_SASCAN_INMEM_GAP_ARRAY_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -83,6 +83,7 @@ class inmem_gap_array {
       // j * block_size.
       std::uint64_t j = 0;
       while (j + 1 < n_blocks && gapsum[j + 1] + block_size * (j + 1) < a + 1) ++j;
+
       // Invariant: the j we are searching for is > j * block_size - 1.
 
       std::uint64_t sum = gapsum[j];
@@ -90,6 +91,7 @@ class inmem_gap_array {
       std::uint64_t excess_ptr = std::lower_bound(gap->m_excess.begin(),
           gap->m_excess.end(), j) - gap->m_excess.begin();
       while (true) {
+
         // Invariant: sum = gap[0] + .. + gap[j - 1].
         // Compute gap[j] using small gap array representation.
         std::uint64_t gap_j = gap->m_count[j];
@@ -108,6 +110,7 @@ class inmem_gap_array {
     //=========================================================================
     static std::uint64_t compute_sum3(const inmem_gap_array *gap, std::uint64_t j,
         std::uint64_t max_block_size, std::uint64_t *gapsum) {
+
       // Invariant: j > 0.
       if (j <= 0) {  // XXX delete this check for release
         fprintf(stderr, "\nError: j <= 0 in compute_sum3\n");
@@ -172,6 +175,7 @@ class inmem_gap_array {
     std::int64_t answer_queries(std::uint64_t n_queries, const std::uint64_t *a,
         std::uint64_t *b, std::uint64_t *c, std::uint64_t max_threads,
         std::int64_t i0) const {
+
       //-----------------------------------------------------------------------
       // STEP 1: split gap array into at most max_threads blocks
       // and in parallel compute sum of values inside each block.
@@ -225,4 +229,4 @@ class inmem_gap_array {
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_GAP_ARRAY_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_GAP_ARRAY_HPP_INCLUDED

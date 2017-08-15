@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/em_compute_initial_ranks.hpp
+ * @file    src/psascan_src/em_compute_initial_ranks.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
-#define __PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
 
 #include <string>
 #include <vector>
@@ -106,6 +106,7 @@ void refine_range(
 
   const unsigned char *text = block - block_beg;
   while (low + 1 != high) {
+
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
     long mid = 0L;
@@ -135,6 +136,7 @@ void refine_range(
     rlcp = old_lcp;
 
     while (low + 1 != high) {
+
       // Invariant: newright is in the range (low, high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -234,6 +236,7 @@ void em_compute_initial_ranks(
     long max_threads,
     long tail_end,
     long initial_rank_after_tail) {
+
   // Note, that bits of tail_gt_begin_reversed are indexed in the
   // range [text_length - tail_end.. text_length - block_end). This
   // is because the same multifile is then used in the streaming and
@@ -338,6 +341,7 @@ int lcp_compare_2(
   }
 
   if (block_suf_beg + lcp >= block_end && block_end < tail_begin && lcp < pat_length) {
+
     // To finish the comparison, we need to access symbols from the mid block.
     // First, wait until enough symbols are available.
     mid_block_reader->wait(std::min(tail_begin, block_suf_beg + pat_length) - block_end);
@@ -353,6 +357,7 @@ int lcp_compare_2(
   }
 
   if (block_suf_beg + lcp >= tail_begin) {
+
     // Use gt to resolve comparison.
     if (gt_reader.access(text_length -  (pat_beg + (tail_begin - block_suf_beg)))) return 1;
     else return -1;
@@ -395,6 +400,7 @@ void refine_range_2(
 
   const unsigned char *text = block - block_beg;
   while (low + 1 != high) {
+
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
     long mid = 0L;
@@ -424,6 +430,7 @@ void refine_range_2(
     rlcp = old_lcp;
 
     while (low + 1 != high) {
+
       // Invariant: newright is in the range (low, high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -522,6 +529,7 @@ void em_compute_initial_ranks(
     std::vector<long> &result,
     long max_threads,
     long tail_begin) {
+
   // Compute some initial parameters.
   long block_length = block_end - block_beg;
   long tail_length = text_length - tail_begin;
@@ -561,4 +569,4 @@ void em_compute_initial_ranks(
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED

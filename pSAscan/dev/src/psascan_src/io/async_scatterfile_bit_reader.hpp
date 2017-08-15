@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/async_scatterfile_bit_reader.hpp
+ * @file    src/psascan_src/io/async_scatterfile_bit_reader.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_ASYNC_SCATTERFILE_BIT_READER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_ASYNC_SCATTERFILE_BIT_READER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_ASYNC_SCATTERFILE_BIT_READER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_ASYNC_SCATTERFILE_BIT_READER_HPP_INCLUDED
 
 #include <thread>
 #include <mutex>
@@ -52,12 +52,14 @@ class async_scatterfile_bit_reader {
   private:
     static void async_io_code(async_scatterfile_bit_reader *file) {
       while (true) {
+
         // Wait until the passive buffer is available.
         std::unique_lock<std::mutex> lk(file->m_mutex);
         while (!(file->m_avail) && !(file->m_finished))
           file->m_cv.wait(lk);
 
         if (!(file->m_avail) && (file->m_finished)) {
+
           // We're done, terminate the thread.
           lk.unlock();
           return;
@@ -65,6 +67,7 @@ class async_scatterfile_bit_reader {
         lk.unlock();
 
         if (file->m_file == NULL) {
+
           // Find the next file to open.
           for (std::uint64_t j = 0; j < file->m_files_info.size(); ++j) {
             if (file->m_files_info[j].m_beg == file->m_total_read_buf) {
@@ -135,6 +138,7 @@ class async_scatterfile_bit_reader {
     }
 
     void receive_new_buffer() {
+
       // Wait until the I/O thread finishes reading the previous
       // buffer. Most of the time this step is instantaneous.
       std::unique_lock<std::mutex> lk(m_mutex);
@@ -156,7 +160,9 @@ class async_scatterfile_bit_reader {
     }
 
   public:
-    async_scatterfile_bit_reader(const multifile *m, std::uint64_t start_pos = 0UL,
+    async_scatterfile_bit_reader(
+        const multifile *m,
+        std::uint64_t start_pos = 0UL,
         std::uint64_t bufsize = (4UL << 20)) {
       m_files_info = m->files_info;
       m_buf_size = std::max(1UL, bufsize / 2);
@@ -188,6 +194,7 @@ class async_scatterfile_bit_reader {
     }
 
     ~async_scatterfile_bit_reader() {
+
       // Let the I/O thread know that we are done.
       std::unique_lock<std::mutex> lk(m_mutex);
       m_finished = true;
@@ -232,4 +239,4 @@ class async_scatterfile_bit_reader {
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_IO_ASYNC_SCATTERFILE_BIT_READER_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_IO_ASYNC_SCATTERFILE_BIT_READER_HPP_INCLUDED

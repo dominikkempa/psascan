@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/merge_schedule.hpp
+ * @file    src/psascan_src/inmem_psascan_src/merge_schedule.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_HPP_INCLUDED
 
 #include <iostream>
 #include <vector>
@@ -94,6 +94,7 @@ public:
     right_cost[1] = 0;
 
     for (int i=2; i<=n; ++i) {
+
       //int min_l = std::min((i+1)/2, max_left_size);
       int max_l = std::min(i-1, max_left_size);
       float min_cost = 1E40;
@@ -133,4 +134,4 @@ void print_schedule(const MergeSchedule & sched, int n) {
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_MERGE_SCHEDULE_HPP_INCLUDED

@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/compute_initial_gt_bitvectors.hpp
+ * @file    src/psascan_src/inmem_psascan_src/compute_initial_gt_bitvectors.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_COMPUTE_INITIAL_GT_BITVECTORS_H_INCLUDED
 
 #include <cstdio>
 #include <cstring>
@@ -78,6 +78,7 @@ void compute_partial_gt_end(const std::uint8_t *text, std::uint64_t text_length,
   std::uint64_t revbeg = text_length - end;
 
   if (end == text_length) {
+
     // It's ok if tail_gt_begin_rev is NULL
     multifile_bit_stream_reader tail_gt_beg_rev(tail_gt_begin_rev);
     std::uint64_t tail_length = supertext_length - text_end;
@@ -90,10 +91,12 @@ void compute_partial_gt_end(const std::uint8_t *text, std::uint64_t text_length,
 
     if (tail_prefix_length > 0) {
       if (tail_prefix_preread != NULL) {
+
         // Whole tail prefix is already in memory.
         tail_prefix = tail_prefix_preread;
         tail_prefix_fetched = tail_prefix_length;
       } else {
+
         // Tail prefix will be fetched asynchronously in the background.
         tail_prefix = tail_prefix_background_reader->m_data;
         tail_prefix_fetched = 0;
@@ -232,6 +235,7 @@ void compute_final_gt(std::uint64_t text_length, std::uint64_t max_block_size,
     std::uint64_t rev_end = text_length - block_beg;
 
     if (!all_decided[t - 1]) {
+
       // This eliminates the problem with accessing bits located in the same
       // byte in the bitvector. Skipped bits are later updated sequentially.
       while (((rev_end - 1 - this_mb_beg) & 7) != 7) ++this_mb_beg;
@@ -365,4 +369,4 @@ void compute_initial_gt_bitvectors(const std::uint8_t *text, std::uint64_t text_
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_COMPUTE_INITIAL_GT_BITVECTORS_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_COMPUTE_INITIAL_GT_BITVECTORS_HPP_INCLUDED

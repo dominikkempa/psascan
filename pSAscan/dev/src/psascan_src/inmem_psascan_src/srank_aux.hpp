@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/srank_aux.hpp
+ * @file    src/psascan_src/inmem_psascan_src/srank_aux.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_HPP_INCLUDED
 
 #include <cstdint>
 
@@ -74,4 +74,4 @@ inline void update_ms(const std::uint8_t *text, uint_type length,
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_SRANK_AUX_HPP_INCLUDED

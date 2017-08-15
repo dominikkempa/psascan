@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/bwt_merge.hpp
+ * @file    src/psascan_src/bwt_merge.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_BWT_MERGE_HPP_INCLUDED
-#define __PSASCAN_SRC_BWT_MERGE_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_BWT_MERGE_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_BWT_MERGE_HPP_INCLUDED
 
 #include <thread>
 #include <algorithm>
@@ -141,4 +141,4 @@ long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_BWT_MERGE_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_BWT_MERGE_HPP_INCLUDED

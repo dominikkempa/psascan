@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/stream.hpp
+ * @file    src/psascan_src/stream.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_STREAM_HPP_INCLUDED
-#define __PSASCAN_SRC_STREAM_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_STREAM_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_STREAM_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -171,7 +171,8 @@ void parallel_stream(
     }
 
     if (max_sbucket_size < 4L * ideal_sblock_size) {
-      for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      for (long t = 0, curbeg = 0; t < n_increasers;
+          curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       // Permute the elements of the buffer.
@@ -186,6 +187,7 @@ void parallel_stream(
         b->m_content[addr] = temp[t];
       }
     } else {
+
       // Repeat the partition into sbuckets, this time using random sample.
       // This is a fallback mechanism in case the quick partition failed.
       // It is not suppose to happen to often.
@@ -215,7 +217,8 @@ void parallel_stream(
       }
 
       // Permute elements into their own buckets using oracle.
-      for (long t = 0, curbeg = 0; t < n_increasers; curbeg += b->sblock_size[t++])
+      for (long t = 0, curbeg = 0; t < n_increasers;
+          curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
@@ -257,4 +260,4 @@ void parallel_stream(
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_STREAM_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_STREAM_HPP_INCLUDED

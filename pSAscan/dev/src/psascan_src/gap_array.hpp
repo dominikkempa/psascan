@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/gap_array.hpp
+ * @file    src/psascan_src/gap_array.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_GAP_ARRAY_HPP_INCLUDED
-#define __PSASCAN_SRC_GAP_ARRAY_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_GAP_ARRAY_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_GAP_ARRAY_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -195,6 +195,7 @@ struct buffered_gap_array {
   //==============================================================================
   static void convert_gap_to_bitvector_aux(std::uint64_t beg, std::uint64_t end,
       std::uint64_t j, std::uint64_t S, buffered_gap_array *gap, bitvector *bv) {
+
     // Initialize pointer to sorted excess values.
     std::uint64_t excess_pointer = std::lower_bound(gap->m_sorted_excess,
         gap->m_sorted_excess + gap->m_total_excess, j) - gap->m_sorted_excess;
@@ -232,6 +233,7 @@ struct buffered_gap_array {
       std::uint64_t max_chunk_size, const std::uint64_t *sparse_gapsum,
       std::uint64_t &initial_gap_ptr, std::uint64_t &initial_gapsum_value,
       const buffered_gap_array *gap) {
+
     // Fast forward through as many chunks as possible.
     std::uint64_t j = 0L;
     std::uint64_t gapsum_j = 0L;  // At any time gapsum_j = gap[0] + .. + gap[j - 1].
@@ -303,6 +305,7 @@ struct buffered_gap_array {
   // 
   //==============================================================================
   bitvector* convert_to_bitvector(std::uint64_t max_threads) {
+
     // 1
     //
     // The term chunks is used to compute sparse gapsum array.
@@ -497,6 +500,7 @@ struct gap_array_2n {
     uint64_t *first_run_length = new uint64_t[max_threads];
  
     while (m_excess_disk > 0) {
+
       // Read a portion of excess values from disk.
       std::uint64_t toread = std::min(m_excess_disk, elems);
       utils::read_from_file(buffer, toread, f);
@@ -572,4 +576,4 @@ struct gap_array_2n {
 
 }  // psascan_private
 
-#endif  // __PSASCAN_SRC_GAP_ARRAY_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_GAP_ARRAY_HPP_INCLUDED

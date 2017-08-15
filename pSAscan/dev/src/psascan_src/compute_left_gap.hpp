@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/compute_left_gap.hpp
+ * @file    src/psascan_src/compute_left_gap.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_COMPUTE_LEFT_GAP_HPP_INCLUDED
-#define __PSASCAN_SRC_COMPUTE_LEFT_GAP_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_COMPUTE_LEFT_GAP_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_COMPUTE_LEFT_GAP_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -81,6 +81,7 @@ void lblock_handle_bv_part(std::uint64_t part_beg,
   std::uint64_t sum = gap_j + 1;
 
   while (j + 1 != part_end && bv->get(j) == 1) {
+
     // Update j.
     ++j;
 
@@ -106,6 +107,7 @@ void lblock_handle_bv_part(std::uint64_t part_beg,
   sum = 0;
   std::uint64_t range_gap_ptr = res_rank + 1;
   while (j + 1 != part_end) {
+
     // Update j.
     ++j;
 
@@ -135,12 +137,14 @@ void lblock_handle_bv_part(std::uint64_t part_beg,
 void lblock_async_write_code(std::uint8_t* &slab, std::uint64_t &length, std::mutex &mtx,
     std::condition_variable &cv, bool &avail, bool &finished, std::FILE *f) {
   while (true) {
+
     // Wait until the passive buffer is available.
     std::unique_lock<std::mutex> lk(mtx);
     while (!avail && !finished)
       cv.wait(lk);
 
     if (!avail && finished) {
+
       // We're done, terminate the thread.
       lk.unlock();
       return;
@@ -221,6 +225,7 @@ void compute_left_gap(std::uint64_t left_block_size, std::uint64_t right_block_s
       std::ref(mtx), std::ref(cv), std::ref(avail), std::ref(finished), f_out);
 
   for (std::uint64_t range_id = 0; range_id < n_ranges; ++range_id) {
+
     // Compute the range [range_beg..range_end) of values in the left gap
     // array (which is indexed [0..left_gap_size)).
     std::uint64_t range_beg = range_id * max_range_size;
@@ -324,4 +329,4 @@ void compute_left_gap(std::uint64_t left_block_size, std::uint64_t right_block_s
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_COMPUTE_LEFT_GAP_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_COMPUTE_LEFT_GAP_HPP_INCLUDED

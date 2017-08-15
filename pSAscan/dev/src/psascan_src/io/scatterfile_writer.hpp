@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/scatterfile_writer.hpp
+ * @file    src/psascan_src/io/scatterfile_writer.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_SCATTERFILE_WRITER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_SCATTERFILE_WRITER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_SCATTERFILE_WRITER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_SCATTERFILE_WRITER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -66,6 +66,7 @@ class scatterfile_writer {
     }
 
     void write(value_type value) {
+
       // Open new file if necessary.
       if (m_file == NULL)
         make_new_file();
@@ -81,6 +82,7 @@ class scatterfile_writer {
     }
 
     void write(value_type *tab, std::uint64_t length) {
+
       // Open new file if necessary.
       if (m_file == NULL)
         make_new_file();
@@ -90,6 +92,7 @@ class scatterfile_writer {
       std::uint64_t buf_left = std::min(m_buf_size_items - m_filled,
           m_sfile->m_max_items_per_file - m_cur_file_written);
       if (length <= buf_left) {
+
         // Case I: there is enough room, add items to the buffer.
         std::copy(tab, tab + length, m_buffer + m_filled);
         m_filled += length;
@@ -100,6 +103,7 @@ class scatterfile_writer {
         if (is_buffer_full())
           flush();
       } else {
+
         // Case II: not enough room in the buffer. Write tab
         // directly to file(s), bypassing the buffer.
         if (m_filled > 0)
@@ -175,4 +179,4 @@ class scatterfile_writer {
 
 }  // psascan_private
 
-#endif // __PSASCAN_SRC_IO_SCATTERFILE_WRITER_HPP_INCLUDED
+#endif // __SRC_PSASCAN_SRC_IO_SCATTERFILE_WRITER_HPP_INCLUDED

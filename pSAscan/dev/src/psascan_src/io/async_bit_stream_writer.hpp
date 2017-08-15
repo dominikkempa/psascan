@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/async_bit_stream_writer.hpp
+ * @file    src/psascan_src/io/async_bit_stream_writer.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
 
 #include <cstdint>
 #include <thread>
@@ -49,12 +49,14 @@ class async_bit_stream_writer {
   private:
     static void io_thread_code(async_bit_stream_writer *writer) {
       while (true) {
+
         // Wait until the passive buffer is available.
         std::unique_lock<std::mutex> lk(writer->m_mutex);
         while (!(writer->m_avail) && !(writer->m_finished))
           writer->m_cv.wait(lk);
 
         if (!(writer->m_avail) && (writer->m_finished)) {
+
           // We're done, terminate the thread.
           lk.unlock();
           return;
@@ -76,6 +78,7 @@ class async_bit_stream_writer {
     // Passes on the active buffer (full, unless it's the last one,
     // partially filled, buffer passed from destructor) to the I/O thread.
     void send_active_buf_to_write() {
+
       // Wait until the I/O thread finishes writing the previous buffer.
       std::unique_lock<std::mutex> lk(m_mutex);
       while (m_avail == true)
@@ -119,6 +122,7 @@ class async_bit_stream_writer {
     }
 
     ~async_bit_stream_writer() {
+
       // Write the partially filled active buffer to disk.
       std::uint64_t m_bit_pos_backup = m_bit_pos;
       if (m_bit_pos != 0) ++m_active_buf_filled;
@@ -189,4 +193,4 @@ class async_bit_stream_writer {
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED

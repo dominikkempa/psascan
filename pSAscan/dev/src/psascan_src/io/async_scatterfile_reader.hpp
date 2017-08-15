@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/async_scatterfile_reader.hpp
+ * @file    src/psascan_src/io/async_scatterfile_reader.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_ASYNC_SCATTERFILE_READER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_ASYNC_SCATTERFILE_READER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_ASYNC_SCATTERFILE_READER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_ASYNC_SCATTERFILE_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -82,6 +82,7 @@ class async_scatterfile_reader {
     }
 
     ~async_scatterfile_reader() {
+
       // Check if all items have been read from scatterfile.
       if (m_total_items_read_by_user != m_sfile->m_items_written) {
         fprintf(stderr, "\nError: not all items were read from scatterfile.\n");
@@ -106,6 +107,7 @@ class async_scatterfile_reader {
       std::uint64_t total_items_read = 0;
 
       while (true) {
+
         // Wait until the passive buffer is available.
         std::unique_lock<std::mutex> lk(caller->m_mutex);
         while (!caller->m_avail)
@@ -150,6 +152,7 @@ class async_scatterfile_reader {
     }
 
     void receive_new_buffer() {
+
       // Wait until the I/O thread finishes reading the revious
       // buffer. Most of the time this step is instantaneous.
       std::unique_lock<std::mutex> lk(m_mutex);
@@ -190,4 +193,4 @@ class async_scatterfile_reader {
 
 }  // psascan_private
 
-#endif // __PSASCAN_SRC_IO_ASYNC_SCATTERFILE_READER_HPP_INCLUDED
+#endif // __SRC_PSASCAN_SRC_IO_ASYNC_SCATTERFILE_READER_HPP_INCLUDED

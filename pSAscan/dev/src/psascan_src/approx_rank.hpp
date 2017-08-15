@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/approx_rank.hpp
+ * @file    src/psascan_src/approx_rank.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
-#define __PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
 
 #include <thread>
 #include <algorithm>
@@ -61,6 +61,7 @@ class approx_rank {
 
     static void compute_occ_list_aux(const unsigned char *text, long beg,
         long end, long *symbol_count, long **list) {
+
       // Compute where to start writing positions for each symbol.
       long *ptr = new long[256];
       for (long c = 0; c < 256; ++c)
@@ -79,6 +80,7 @@ class approx_rank {
 
   public:
     approx_rank(const unsigned char *text, long length, long max_threads) {
+
       // Compute symbol counts in each block.
       long max_block_size = (length + max_threads - 1) / max_threads;
       long n_threads = (length + max_block_size - 1) / max_block_size;
@@ -146,6 +148,7 @@ class approx_rank {
 
       long left = 0, right = m_list_size[c];
       while (left + 1 != right) {
+
         // Invariant: the answer is in range [left..right).
         long mid = (left + right) / 2;
         if (m_list[c][mid] <= i) left = mid;
@@ -173,4 +176,4 @@ const long approx_rank<k_sampling_rate_log>::k_sampling_rate_mask = (1L << k_sam
 
 }  // namespace psascan_private
 
-#endif // __PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
+#endif // __SRC_PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED

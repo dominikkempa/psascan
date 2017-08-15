@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/async_multifile_bit_writer.hpp
+ * @file    src/psascan_src/io/async_multifile_bit_writer.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_ASYNC_MULTIFILE_BIT_WRITER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_ASYNC_MULTIFILE_BIT_WRITER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_ASYNC_MULTIFILE_BIT_WRITER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_ASYNC_MULTIFILE_BIT_WRITER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -127,6 +127,7 @@ class async_multifile_bit_writer {
     };
 
     struct buffer_collection {
+
       // Separate method to (1) hide the implementation of
       // the collection (std::vector) and (2) allow locking.
       inline void add(buffer *buffer) {
@@ -150,6 +151,7 @@ class async_multifile_bit_writer {
   private:
     static void async_io_thread_code(async_multifile_bit_writer *caller) {
       while (true) {
+
         // Wait for request or until 'no more requests' flag is set.
         std::unique_lock<std::mutex> lk(caller->m_write_requests.m_mutex);
         while (caller->m_write_requests.empty() &&
@@ -158,6 +160,7 @@ class async_multifile_bit_writer {
 
         if (caller->m_write_requests.empty() &&
             caller->m_write_requests.m_no_more_requests) {
+
           // No more requests -- exit.
           lk.unlock();
           break;
@@ -208,8 +211,10 @@ class async_multifile_bit_writer {
     }
 
   public:
-    async_multifile_bit_writer(std::uint64_t buf_size_bytes = (1UL << 20),
+    async_multifile_bit_writer(
+        std::uint64_t buf_size_bytes = (1UL << 20),
         std::uint64_t n_free_buffers = 4UL) {
+
       // Initialize basic parameters.
       // Works even with n_free_buffers == 0.
       m_bytes_written = 0;
@@ -243,6 +248,7 @@ class async_multifile_bit_writer {
     }
 
     ~async_multifile_bit_writer() {
+
       // Flush all buffers.
       std::uint64_t n_buffers = m_buffers.size();
       for (std::uint64_t file_id = 0; file_id < n_buffers; ++file_id) {
@@ -277,4 +283,4 @@ class async_multifile_bit_writer {
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_IO_ASYNC_MULTIFILE_BIT_WRITER_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_IO_ASYNC_MULTIFILE_BIT_WRITER_HPP_INCLUDED

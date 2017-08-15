@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/parallel_utils.hpp
+ * @file    src/psascan_src/parallel_utils.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_PARALLEL_UTILS_HPP_INCLUDED
-#define __PSASCAN_SRC_PARALLEL_UTILS_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_PARALLEL_UTILS_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_PARALLEL_UTILS_HPP_INCLUDED
 
 #include <vector>
 #include <algorithm>
@@ -45,6 +45,7 @@ namespace parallel_utils {
 std::uint64_t convert_array_to_vbyte_slab(const std::uint64_t *tab,
     std::uint64_t length,
     std::uint8_t *dest) {
+
 #ifdef _OPENMP
   std::uint64_t max_threads = omp_get_num_threads();
   std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
@@ -93,6 +94,7 @@ std::uint64_t convert_array_to_vbyte_slab(const std::uint64_t *tab,
   }
 
   return block_slab_length[n_blocks];
+
 #else
   std::uint64_t slab_length = 0;
   for (std::uint64_t i = 0; i < length; ++i) {
@@ -106,9 +108,10 @@ std::uint64_t convert_array_to_vbyte_slab(const std::uint64_t *tab,
 
   return slab_length;
 #endif
+
 }
 
 }  // namespace parallel_utils
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_PARALLEL_UTILS_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_PARALLEL_UTILS_HPP_INCLUDED

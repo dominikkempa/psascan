@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/partial_sufsort.hpp
+ * @file    src/psascan_src/partial_sufsort.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -34,8 +34,8 @@
 // XXX fix the interface issue of inmem_sascan
 // XXX check if inmem_sascan can compute gt_begin reversed
 
-#ifndef __PSASCAN_SRC_PARTIAL_SUFSORT_HPP_INCLUDED
-#define __PSASCAN_SRC_PARTIAL_SUFSORT_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_PARTIAL_SUFSORT_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_PARTIAL_SUFSORT_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -743,4 +743,4 @@ std::vector<half_block_info<block_offset_type> > partial_sufsort(std::string tex
 
 }  // namespace psascan_private
 
-#endif // __PSASCAN_SRC_PARTIAL_SUFSORT_HPP_INCLUDED
+#endif // __SRC_PSASCAN_SRC_PARTIAL_SUFSORT_HPP_INCLUDED

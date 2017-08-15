@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/inmem_psascan_src/initial_partial_sufsort.hpp
+ * @file    src/psascan_src/inmem_psascan_src/initial_partial_sufsort.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_HPP_INCLUDED
-#define __PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_HPP_INCLUDED
 
 #include <algorithm>
 #include <thread>
@@ -396,4 +396,4 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
 }  // namespace inmem_psascan_private
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INITIAL_PARTIAL_SUFSORT_HPP_INCLUDED

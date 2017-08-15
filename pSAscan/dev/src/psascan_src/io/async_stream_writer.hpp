@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/io/async_stream_writer.hpp
+ * @file    src/psascan_src/io/async_stream_writer.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
-#define __PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -130,6 +130,7 @@ class async_stream_writer {
     static void io_thread_code(async_stream_writer<T> *caller) {
       typedef buffer<T> buffer_type;
       while (true) {
+
         // Wait for the full buffer (or a stop signal).
         std::unique_lock<std::mutex> lk(caller->m_full_buffers->m_mutex);
         while (caller->m_full_buffers->empty() &&
@@ -137,6 +138,7 @@ class async_stream_writer {
           caller->m_full_buffers->m_cv.wait(lk);
 
         if (caller->m_full_buffers->empty()) {
+
           // We received the stop signal -- exit.
           lk.unlock();
           break;
@@ -239,6 +241,7 @@ class async_stream_writer {
 
     // Destructor.
     ~async_stream_writer() {
+
       // Send the last incomplete buffer for writing.
       if (!(m_cur_buffer->empty())) {
         m_full_buffers->push(m_cur_buffer);
@@ -270,4 +273,4 @@ class async_stream_writer {
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED

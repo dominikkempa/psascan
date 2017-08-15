@@ -1,5 +1,5 @@
 /**
- * @file    main.cpp
+ * @file    src/main.cpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
@@ -42,8 +42,8 @@
 #include <omp.h>
 
 #include "psascan_src/psascan.hpp"
-#include "psascan_src/uint40.hpp"
-#include "psascan_src/uint48.hpp"
+#include "uint40.hpp"
+#include "uint48.hpp"
 
 
 char *program_name;

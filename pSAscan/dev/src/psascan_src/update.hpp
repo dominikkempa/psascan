@@ -1,11 +1,11 @@
 /**
- * @file    psascan_src/update.hpp
+ * @file    src/psascan_src/update.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2016
+ * Copyright (C) 2014-2017
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __PSASCAN_SRC_UPDATE_HPP_INCLUDED
-#define __PSASCAN_SRC_UPDATE_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_UPDATE_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_UPDATE_HPP_INCLUDED
 
 #include <thread>
 #include <mutex>
@@ -62,6 +62,7 @@ struct gap_parallel_updater {
   template<typename T>
   static void parallel_update(gap_parallel_updater<T> *updater, int id) {
     while (true) {
+
       // Wait until there is a gap buffer available or the
       // message 'no more buffers' arrives.
       std::unique_lock<std::mutex> lk(updater->m_avail_mutex);
@@ -69,6 +70,7 @@ struct gap_parallel_updater {
         updater->m_avail_cv.wait(lk);
 
       if (!(updater->m_avail[id]) && updater->m_avail_no_more) {
+
         // No more buffers -- exit.
         lk.unlock();
         return;
@@ -123,6 +125,7 @@ struct gap_parallel_updater {
   }
 
   ~gap_parallel_updater() {
+
     // Signal all threads to finish.
     std::unique_lock<std::mutex> lk(m_avail_mutex);
     m_avail_no_more = true;
@@ -139,6 +142,7 @@ struct gap_parallel_updater {
   }
 
   void update(gap_buffer<block_offset_type> *buffer) {
+
     // Prepare a message for each thread that new buffer is available.
     std::unique_lock<std::mutex> lk(m_avail_mutex);
     m_finished = 0;
@@ -191,12 +195,14 @@ void gap_updater(gap_buffer_poll<block_offset_type> *full_gap_buffers,
     new gap_parallel_updater<block_offset_type>(gap, n_increasers);
 
   while (true) {
+
     // Get a buffer from the poll of full buffers.
     std::unique_lock<std::mutex> lk(full_gap_buffers->m_mutex);
     while (!full_gap_buffers->available() && !full_gap_buffers->finished())
       full_gap_buffers->m_cv.wait(lk);
 
     if (!full_gap_buffers->available() && full_gap_buffers->finished()) {
+
       // There will be no more full buffers -- exit.
       lk.unlock();
       break;
@@ -221,4 +227,4 @@ void gap_updater(gap_buffer_poll<block_offset_type> *full_gap_buffers,
 
 }  // namespace psascan_private
 
-#endif  // __PSASCAN_SRC_UPDATE_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_UPDATE_HPP_INCLUDED
