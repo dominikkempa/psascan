@@ -62,7 +62,8 @@ void merge(std::string output_filename, std::uint64_t ram_use,
   for (std::uint64_t j = 0; j < hblock_info.size(); ++j)
     text_length += hblock_info[j].end - hblock_info[j].beg;
 
-  std::uint64_t pieces = (1 + sizeof(block_offset_type)) * n_block - 1 + sizeof(text_offset_type);
+  std::uint64_t pieces = (1 + sizeof(block_offset_type)) * n_block -
+    1 + sizeof(text_offset_type);
   std::uint64_t buffer_size = (ram_use + pieces - 1) / pieces;
 
   fprintf(stderr, "\nMerge partial suffix arrays:\n");
@@ -75,13 +76,16 @@ void merge(std::string output_filename, std::uint64_t ram_use,
   typedef async_scatterfile_reader<block_offset_type> psa_reader_type;
 
   psa_reader_type **psa_readers = new psa_reader_type*[n_block];
-  output_writer_type *output = new output_writer_type(output_filename, sizeof(text_offset_type) * buffer_size, 4UL, "w");
+  output_writer_type *output = new output_writer_type(output_filename,
+      sizeof(text_offset_type) * buffer_size, 4UL, "w");
   vbyte_reader_type **gap = new vbyte_reader_type*[n_block - 1];
 
   for (std::int64_t i = 0; i < n_block; ++i) {
-    psa_readers[i] = new psa_reader_type(&hblock_info[i].psa, buffer_size * sizeof(block_offset_type));
+    psa_readers[i] = new psa_reader_type(&hblock_info[i].psa,
+        buffer_size * sizeof(block_offset_type));
     if (i + 1 != n_block)
-      gap[i] = new vbyte_reader_type(hblock_info[i].gap_filename, 0, buffer_size);
+      gap[i] = new vbyte_reader_type(hblock_info[i].gap_filename,
+          0, buffer_size);
   }
 
   long *gap_head = new long[n_block];
@@ -161,10 +165,15 @@ void merge(std::string output_filename, std::uint64_t ram_use,
 
     output->write(SA_i);
   }
+
+  // Update I/O volume.
+  std::uint64_t io_volume =
+    (1 + sizeof(block_offset_type) + sizeof(text_offset_type)) * text_length;
+
+  // Print summary.
   long double merge_time = utils::wclock() - merge_start;
-  long io_volume = (1 + sizeof(block_offset_type) + sizeof(text_offset_type)) * text_length;
-  long double io_speed = (io_volume / (1024.L * 1024)) / merge_time;
-  fprintf(stderr, "\r  100.0%%. Time: %.2Lfs. I/O: %.2LfMiB/s\n", merge_time, io_speed);
+  fprintf(stderr, "\r  100.0%%. Time: %.2Lfs. I/O: %.2LfMiB/s\n",
+      merge_time, (io_volume / (1024.L * 1024)) / merge_time);
 
   // Clean up.
   delete output;

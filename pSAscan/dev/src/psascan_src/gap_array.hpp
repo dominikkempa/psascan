@@ -162,7 +162,7 @@ struct buffered_gap_array {
   void save_to_file(std::string fname) {
     fprintf(stderr, "    Write gap to file: ");
     long double gap_write_start = utils::wclock();
-    std::uint64_t bytes_written = 0;
+    std::uint64_t io_vol = 0;
 
     start_sequential_access();
     typedef async_stream_writer<std::uint8_t> stream_writer_type;
@@ -173,18 +173,22 @@ struct buffered_gap_array {
       while (val > 127) {
         writer->write((val & 0x7F) | 0x80);
         val >>= 7;
-        ++bytes_written;
       }
       writer->write(val);
     }
 
-    bytes_written += m_length;
     stop_sequential_access();
-    delete writer;
 
+    // Update I/O volume.
+    io_vol = writer->bytes_written();
+
+    // Print summary.
     long double gap_write_time = utils::wclock() - gap_write_start;
-    long double io_speed = (bytes_written / (1024.L * 1024)) / gap_write_time;
-    fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", gap_write_time, io_speed);
+    fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", gap_write_time,
+        (io_vol / (1024.L * 1024)) / gap_write_time);
+
+    // Clean up.
+    delete writer;
   }
   
   
