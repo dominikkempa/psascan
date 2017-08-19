@@ -1,20 +1,55 @@
-#ifndef __EM_COMPUTE_INITIAL_RANKS_INCLUDED
-#define __EM_COMPUTE_INITIAL_RANKS_INCLUDED
+/**
+ * @file    src/psascan_src/em_compute_initial_ranks.hpp
+ * @section LICENCE
+ *
+ * This file is part of pSAscan v0.2.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2014-2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
+#ifndef __SRC_PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
 
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <thread>
 
-#include "approx_rank.h"
-#include "sparse_isa.h"
-#include "background_block_reader.h"
-#include "background_chunk_reader.h"
-#include "multifile_bit_stream_reader.h"
-#include "utils.h"
+#include "approx_rank.hpp"
+#include "sparse_isa.hpp"
+#include "utils.hpp"
+#include "io/background_block_reader.hpp"
+#include "io/background_chunk_reader.hpp"
+#include "io/multifile_bit_stream_reader.hpp"
 
 
-#define EM_STARTING_POS_MODULE_DEBUG_MODE
+namespace psascan_private {
+
+// #define EM_STARTING_POS_MODULE_DEBUG_MODE
 
 inline int lcp_compare(
     const unsigned char *text,  // only text[block_suf_beg..block_end) will be accessed
@@ -40,10 +75,10 @@ inline int lcp_compare(
   } 
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void refine_range(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -62,8 +97,8 @@ void refine_range(
   long rlcp = old_lcp;
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -71,6 +106,7 @@ void refine_range(
 
   const unsigned char *text = block - block_beg;
   while (low + 1 != high) {
+
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
     long mid = 0L;
@@ -100,6 +136,7 @@ void refine_range(
     rlcp = old_lcp;
 
     while (low + 1 != high) {
+
       // Invariant: newright is in the range (low, high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -126,10 +163,10 @@ void refine_range(
   newright = high;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_single_initial_rank(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -150,7 +187,7 @@ void em_compute_single_initial_rank(
 
   // Reads text[pat_beg..pat_end) in chunks.
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long chunk_length = utils::random_long(1L, 10L); 
+  long chunk_length = utils::random_int64(1L, 10L); 
   background_chunk_reader *chunk_reader =
     new background_chunk_reader(text_filename, pat_beg, pat_end, chunk_length);
 #else
@@ -164,7 +201,7 @@ void em_compute_single_initial_rank(
   long lcp = 0;
 
   while (left != right && lcp < max_lcp) {
-    long this_chunk_length = std::min(max_lcp - lcp, chunk_reader->get_chunk_size());
+    long this_chunk_length = std::min(max_lcp - lcp, (std::int64_t)chunk_reader->get_chunk_size());
     long new_lcp = lcp + this_chunk_length;
     chunk_reader->wait(pat_beg + new_lcp);
 
@@ -184,10 +221,10 @@ void em_compute_single_initial_rank(
   result = std::make_pair(left, right);
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_initial_ranks(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     const unsigned char *block_pbwt,
     long i0,
     long block_beg,  // wrt to text beg
@@ -199,6 +236,7 @@ void em_compute_initial_ranks(
     long max_threads,
     long tail_end,
     long initial_rank_after_tail) {
+
   // Note, that bits of tail_gt_begin_reversed are indexed in the
   // range [text_length - tail_end.. text_length - block_end). This
   // is because the same multifile is then used in the streaming and
@@ -216,7 +254,7 @@ void em_compute_initial_ranks(
     long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
     long stream_block_size = stream_block_end - stream_block_beg;
 
-    threads[t] = new std::thread(em_compute_single_initial_rank<saidx_t>,
+    threads[t] = new std::thread(em_compute_single_initial_rank<block_offset_type>,
         block, block_psa, block_beg, block_end, stream_block_beg, text_length,
         stream_block_size, text_filename, tail_gt_begin_reversed, std::ref(ranges[t]));
   }
@@ -239,15 +277,15 @@ void em_compute_initial_ranks(
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
     typedef approx_rank<1L> rank_type;
-    typedef sparse_isa<rank_type, saidx_t, 1L> isa_type;
+    typedef sparse_isa<rank_type, block_offset_type, 1L> isa_type;
 #else
     typedef approx_rank<8L> rank_type;
-    typedef sparse_isa<rank_type, saidx_t, 8L> isa_type;
+    typedef sparse_isa<rank_type, block_offset_type, 8L> isa_type;
 #endif
     rank_type *pbwt_rank = new rank_type(block_pbwt, block_length, max_threads);
-    isa_type *block_sparse_isa = new isa_type(block_psa, block, block_length, i0, pbwt_rank, max_threads);
+    isa_type *block_sparse_isa = new isa_type(block_psa, block, block_length, i0, pbwt_rank);
 
-    long prev_rank = initial_rank_after_tail;
+    std::uint64_t prev_rank = initial_rank_after_tail;
     for (long t = n_threads - 1; t >= 0; --t) {
       long stream_block_beg = block_end + t * stream_max_block_size;
       long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
@@ -303,6 +341,7 @@ int lcp_compare_2(
   }
 
   if (block_suf_beg + lcp >= block_end && block_end < tail_begin && lcp < pat_length) {
+
     // To finish the comparison, we need to access symbols from the mid block.
     // First, wait until enough symbols are available.
     mid_block_reader->wait(std::min(tail_begin, block_suf_beg + pat_length) - block_end);
@@ -318,6 +357,7 @@ int lcp_compare_2(
   }
 
   if (block_suf_beg + lcp >= tail_begin) {
+
     // Use gt to resolve comparison.
     if (gt_reader.access(text_length -  (pat_beg + (tail_begin - block_suf_beg)))) return 1;
     else return -1;
@@ -327,10 +367,10 @@ int lcp_compare_2(
   }
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void refine_range_2(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -351,8 +391,8 @@ void refine_range_2(
   long rlcp = old_lcp;
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long min_discrepancy = utils::random_long(0L, 10L);
-  long balancing_factor = utils::random_long(1L, 10L);
+  long min_discrepancy = utils::random_int64(0L, 10L);
+  long balancing_factor = utils::random_int64(1L, 10L);
 #else
   static const long min_discrepancy = (1L << 16);
   static const long balancing_factor = 64L;
@@ -360,6 +400,7 @@ void refine_range_2(
 
   const unsigned char *text = block - block_beg;
   while (low + 1 != high) {
+
     // Invariant: newleft is in the range (low, high].
     long lcp = std::min(llcp, rlcp);
     long mid = 0L;
@@ -389,6 +430,7 @@ void refine_range_2(
     rlcp = old_lcp;
 
     while (low + 1 != high) {
+
       // Invariant: newright is in the range (low, high].
       long lcp = std::min(llcp, rlcp);
       long mid = 0L;
@@ -415,10 +457,10 @@ void refine_range_2(
   newright = high;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_single_initial_rank_2(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long pat_beg,    // same here
@@ -441,7 +483,7 @@ void em_compute_single_initial_rank_2(
 
   // Reads text[pat_beg..pat_end) in chunks.
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
-  long chunk_length = utils::random_long(1L, 10L); 
+  long chunk_length = utils::random_int64(1L, 10L); 
   background_chunk_reader *chunk_reader =
     new background_chunk_reader(text_filename, pat_beg, pat_end, chunk_length);
 #else
@@ -455,7 +497,7 @@ void em_compute_single_initial_rank_2(
   long lcp = 0;
 
   while (left != right && lcp < max_lcp) {
-    long this_chunk_length = std::min(max_lcp - lcp, chunk_reader->get_chunk_size());
+    long this_chunk_length = std::min(max_lcp - lcp, (std::int64_t)chunk_reader->get_chunk_size());
     long new_lcp = lcp + this_chunk_length;
     chunk_reader->wait(pat_beg + new_lcp);
 
@@ -475,10 +517,10 @@ void em_compute_single_initial_rank_2(
   delete chunk_reader;
 }
 
-template<typename saidx_t>
+template<typename block_offset_type>
 void em_compute_initial_ranks(
     const unsigned char *block,
-    const saidx_t *block_psa,
+    const block_offset_type *block_psa,
     long block_beg,  // wrt to text beg
     long block_end,  // same here
     long text_length,
@@ -487,6 +529,7 @@ void em_compute_initial_ranks(
     std::vector<long> &result,
     long max_threads,
     long tail_begin) {
+
   // Compute some initial parameters.
   long block_length = block_end - block_beg;
   long tail_length = text_length - tail_begin;
@@ -508,7 +551,7 @@ void em_compute_initial_ranks(
     long stream_block_beg = tail_begin + t * stream_max_block_size;
     long max_lcp = std::min(block_length + mid_block_size, text_length - stream_block_beg);
 
-    threads[t] = new std::thread(em_compute_single_initial_rank_2<saidx_t>,
+    threads[t] = new std::thread(em_compute_single_initial_rank_2<block_offset_type>,
         block, block_psa, block_beg, block_end, stream_block_beg, text_length,
         max_lcp, tail_begin, mid_block_reader, text_filename,
         tail_gt_begin_reversed, std::ref(res[t]));
@@ -524,5 +567,6 @@ void em_compute_initial_ranks(
   result = res;
 }
 
-#endif  // __EM_COMPUTE_INITIAL_RANKS_INCLUDED
+}  // namespace psascan_private
 
+#endif  // __SRC_PSASCAN_SRC_EM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED

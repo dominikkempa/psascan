@@ -6,17 +6,20 @@
 #include <algorithm>
 
 #include "divsufsort.h"
-#include "utils.h"
-#include "multifile.h"
-#include "em_compute_initial_ranks.h"
-#include "io_streamer.h"
-#include "multifile_bit_stream_reader.h"
+#include "utils.hpp"
+#include "io/multifile.hpp"
+#include "em_compute_initial_ranks.hpp"
+#include "io/io_streamer.hpp"
+#include "io/multifile_bit_stream_reader.hpp"
+
+
+using namespace psascan_private;
 
 
 void test(unsigned char *text, long block_beg, long block_end, long tail_end, long text_length) {
   // Write text to disk.
   std::string text_filename = "tempfile" + utils::random_string_hash();
-  utils::write_objects_to_file(text, text_length, text_filename);
+  utils::write_to_file(text, text_length, text_filename);
 
   // Compute SA of text.
   int *text_sa = new int[text_length];
@@ -57,7 +60,7 @@ void test(unsigned char *text, long block_beg, long block_end, long tail_end, lo
   long bits_left = tail_length;
   long bits_beg = text_length - tail_end;
   while (bits_left > 0) {
-    long size = utils::random_long(1L, bits_left);
+    long size = utils::random_int64(1L, bits_left);
     std::string filename = "tempfile_gt" + utils::random_string_hash();
     bit_stream_writer *writer = new bit_stream_writer(filename);
     for (long j = 0; j < size; ++j)
@@ -81,7 +84,7 @@ void test(unsigned char *text, long block_beg, long block_end, long tail_end, lo
   }
   
   // Run the tested algorithm.
-  long max_threads = utils::random_long(1L, 20L);
+  long max_threads = utils::random_int64(1L, 20L);
   long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
   long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
   std::vector<long> result;
@@ -139,17 +142,17 @@ void test_random(int testcases, int max_length, int max_sigma) {
       dbg = 0;
     }
 
-    long end_block_length = utils::random_long(0L, max_length);
-    long tail_length = utils::random_long(1L, max_length);
-    long block_length = utils::random_long(1L, max_length);
-    long head_length = utils::random_long(0L, max_length);
+    long end_block_length = utils::random_int64(0L, max_length);
+    long tail_length = utils::random_int64(1L, max_length);
+    long block_length = utils::random_int64(1L, max_length);
+    long head_length = utils::random_int64(0L, max_length);
     
     long block_beg   = head_length;
     long block_end   = head_length + block_length;
     long tail_end    = block_end + tail_length;
     long text_length = head_length + block_length + tail_length + end_block_length;
 
-    long sigma = utils::random_long(1L, max_sigma);
+    long sigma = utils::random_int64(1L, max_sigma);
 
     if (sigma <= 26) utils::fill_random_letters(text, text_length, sigma);
     else utils::fill_random_string(text, text_length, sigma);

@@ -283,9 +283,9 @@ void em_compute_initial_ranks(
     typedef sparse_isa<rank_type, block_offset_type, 8L> isa_type;
 #endif
     rank_type *pbwt_rank = new rank_type(block_pbwt, block_length, max_threads);
-    isa_type *block_sparse_isa = new isa_type(block_psa, block, block_length, i0, pbwt_rank, max_threads);
+    isa_type *block_sparse_isa = new isa_type(block_psa, block, block_length, i0, pbwt_rank);
 
-    long prev_rank = initial_rank_after_tail;
+    std::uint64_t prev_rank = initial_rank_after_tail;
     for (long t = n_threads - 1; t >= 0; --t) {
       long stream_block_beg = block_end + t * stream_max_block_size;
       long stream_block_end = std::min(stream_block_beg + stream_max_block_size, tail_end);
