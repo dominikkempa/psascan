@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <string>
 
-#include "utils.hpp"
+#include "../utils.hpp"
 
 
 namespace psascan_private {

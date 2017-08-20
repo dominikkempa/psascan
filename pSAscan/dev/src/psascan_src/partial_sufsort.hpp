@@ -130,7 +130,7 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   fprintf(stderr, "  Left half-block size = %ld (%.2LfMiB)\n", left_block_size, 1.L * left_block_size / (1 << 20));
   fprintf(stderr, "  Right half-block size = %ld (%.2LfMiB)\n", right_block_size, 1.L * right_block_size / (1 << 20));
 
-  std::vector<long> block_initial_ranks;
+  std::vector<std::uint64_t> block_initial_ranks;
   unsigned char block_last_symbol = 0;
 
   std::uint64_t right_block_i0 = 0;
@@ -235,8 +235,8 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
           right_block_i0, right_block_beg, right_block_end, text_length, text_filename,
           tail_gt_begin_rev, block_initial_ranks, max_threads, block_tail_end, 0);  // Note the space usage!
 
-      size_t vec_size = block_initial_ranks.size();
-      for (size_t j = 0; j + 1 < vec_size; ++j)
+      std::uint64_t vec_size = block_initial_ranks.size();
+      for (std::uint64_t j = 0; j + 1 < vec_size; ++j)
         block_initial_ranks[j] = block_initial_ranks[j + 1];
       block_initial_ranks[vec_size - 1] = 0;
 
@@ -365,18 +365,18 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   if (!last_block) {
     fprintf(stderr, "    Compute initial tail ranks (part 2): ");
     long double initial_ranks_second_term_start = utils::wclock();
-    std::vector<long> block_initial_ranks_second_term;
+    std::vector<std::uint64_t> block_initial_ranks_second_term;
     em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_beg,
         left_block_end, text_length, text_filename, tail_gt_begin_rev, block_initial_ranks_second_term,
         max_threads, block_tail_beg);  // Note the space usage!
 
     after_block_initial_rank = block_initial_ranks_second_term[0];
-    size_t vec_size = block_initial_ranks_second_term.size();
-    for (size_t j = 0; j + 1 < vec_size; ++j)
+    std::uint64_t vec_size = block_initial_ranks_second_term.size();
+    for (std::uint64_t j = 0; j + 1 < vec_size; ++j)
       block_initial_ranks_second_term[j] = block_initial_ranks_second_term[j + 1];
     block_initial_ranks_second_term[vec_size - 1] = 0;
 
-    for (size_t j = 0; j < vec_size; ++j)
+    for (std::uint64_t j = 0; j < vec_size; ++j)
       block_initial_ranks[j] += block_initial_ranks_second_term[j];
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - initial_ranks_second_term_start);
   }
@@ -463,13 +463,13 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   // Compute initial ranks for streaming of the right half-block.
   fprintf(stderr, "    Compute initial ranks: ");
   long double initial_ranks_right_half_block_start = utils::wclock();
-  std::vector<long> initial_ranks2;
+  std::vector<std::uint64_t> initial_ranks2;
   em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt,
        left_block_i0, left_block_beg, left_block_end, text_length, text_filename, right_block_gt_begin_rev,
        initial_ranks2, max_threads, right_block_end, after_block_initial_rank);  // Note the space usage!
 
-  size_t vec_size = initial_ranks2.size();
-  for (size_t j = 0; j + 1 < vec_size; ++j)
+  std::uint64_t vec_size = initial_ranks2.size();
+  for (std::uint64_t j = 0; j + 1 < vec_size; ++j)
     initial_ranks2[j] = initial_ranks2[j + 1];
   initial_ranks2[vec_size - 1] = after_block_initial_rank;
 
@@ -497,9 +497,11 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   // Compute gap array of the left half-block wrt to the right half-block.
   // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
   left_block_gap = new buffered_gap_array(left_block_size + 1, gap_filename);
-  compute_gap<block_offset_type>(left_block_rank, left_block_size, left_block_gap, right_block_beg, right_block_end,
-      text_length, max_threads, left_block_i0, gap_buf_size, left_block_last,
-      initial_ranks2, text_filename, output_filename, right_block_gt_begin_rev, newtail_gt_begin_rev);
+  compute_gap<block_offset_type>(left_block_rank, left_block_size,
+      left_block_gap, right_block_beg, right_block_end, text_length,
+      max_threads, left_block_i0, gap_buf_size, left_block_last,
+      initial_ranks2, text_filename, output_filename,
+      right_block_gt_begin_rev, newtail_gt_begin_rev);
   delete left_block_rank;
   delete right_block_gt_begin_rev;
 

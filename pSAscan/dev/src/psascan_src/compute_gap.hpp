@@ -61,11 +61,23 @@ namespace psascan_private {
 // more general, and can be used also when processing half-blocks.
 //==============================================================================
 template<typename block_offset_type, typename rank_type>
-void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap,
-    long tail_begin, long tail_end, long text_length, long max_threads,
-    long block_isa0, long gap_buf_size, unsigned char block_last_symbol,
-    std::vector<long> initial_ranks, std::string text_filename, std::string output_filename,
-    const multifile *tail_gt_begin_rev, multifile *newtail_gt_begin_rev) {
+void compute_gap(
+    const rank_type *rank,
+    long block_size,
+    buffered_gap_array *gap,
+    long tail_begin,
+    long tail_end,
+    long text_length,
+    long max_threads,
+    long block_isa0,
+    long gap_buf_size,
+    unsigned char block_last_symbol,
+    std::vector<std::uint64_t> initial_ranks,
+    std::string text_filename,
+    std::string output_filename,
+    const multifile *tail_gt_begin_rev,
+    multifile *newtail_gt_begin_rev) {
+
   long tail_length = tail_end - tail_begin;
   long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
   std::uint64_t n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
@@ -77,15 +89,17 @@ void compute_gap(const rank_type *rank, long block_size, buffered_gap_array *gap
   //
   // Get symbol counts of a block and turn into exclusive partial sum.
   long *count = new long[256];
-  for (unsigned j = 0; j < 256; ++j)
+  for (std::uint64_t j = 0; j < 256; ++j)
     count[j] = rank->rank(block_size, (unsigned char)j);
 
   ++count[block_last_symbol];
   --count[0];
-  for (long j = 0, s = 0, t; j < 256; ++j) {
-    t = count[j];
-    count[j] = s;
-    s += t;
+
+  // Exclusive partial sum over the count array.
+  for (std::uint64_t j = 0, sum = 0, temp = 0; j < 256; ++j) {
+    temp = count[j];
+    count[j] = sum;
+    sum += temp;
   }
 
   // 2

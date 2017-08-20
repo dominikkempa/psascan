@@ -38,6 +38,9 @@
 #include <cstdlib>
 #include <cstdint>
 #include <string>
+#include <vector>
+#include <algorithm>
+#include <thread>
 
 #include "../io/background_block_reader.hpp"
 #include "../io/multifile_bit_stream_reader.hpp"

@@ -66,7 +66,7 @@ void parallel_stream(
     long stream_block_end,
     long i,
     const long *count,
-    long whole_suffix_rank,
+    std::uint64_t whole_suffix_rank,
     const rank_type *rank,
     unsigned char last,
     std::string text_filename,
@@ -145,10 +145,10 @@ void parallel_stream(
     for (std::uint64_t t = 0L; t < b->m_filled; ++t, --j) {
       unsigned char c = text_streamer->read();
 
-      gt_bit_writer->write_to_ith_file(thread_id, (std::uint8_t)(i > whole_suffix_rank));
+      gt_bit_writer->write_to_ith_file(thread_id, (std::uint8_t)(i > (std::int64_t)whole_suffix_rank));
       bool next_gt = (gt_in.read());
 
-      std::uint64_t delta = (i > whole_suffix_rank && c == 0);
+      std::uint64_t delta = (i > (std::int64_t)whole_suffix_rank && c == 0);
       i = (count[c] + rank->rank(i, c)) - delta;
       if (c == last && next_gt) ++i;
       temp[t] = i;

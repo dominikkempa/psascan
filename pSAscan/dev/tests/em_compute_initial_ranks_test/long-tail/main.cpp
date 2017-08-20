@@ -16,7 +16,13 @@
 using namespace psascan_private;
 
 
-void test(unsigned char *text, long block_beg, long block_end, long tail_end, long text_length) {
+void test(
+    std::uint8_t *text,
+    std::uint64_t block_beg,
+    std::uint64_t block_end,
+    std::uint64_t tail_end,
+    std::uint64_t text_length) {
+
   // Write text to disk.
   std::string text_filename = "tempfile" + utils::random_string_hash();
   utils::write_to_file(text, text_length, text_filename);
@@ -26,44 +32,47 @@ void test(unsigned char *text, long block_beg, long block_end, long tail_end, lo
   divsufsort(text, text_sa, (int)text_length);
 
   // Compute partial SA of block.
-  long block_length = block_end - block_beg;
+  std::uint64_t block_length = block_end - block_beg;
   int *block_psa = new int[block_length];
-  long counter = 0;
-  for (long j = 0; j < text_length; ++j)
-    if (block_beg <= text_sa[j] && text_sa[j] < block_end)
+  std::uint64_t counter = 0;
+  for (std::uint64_t j = 0; j < text_length; ++j)
+    if (block_beg <= (std::uint64_t)text_sa[j] &&
+        (std::uint64_t)text_sa[j] < block_end)
       block_psa[counter++] = text_sa[j] - block_beg;
   delete[] text_sa;
 
-  long i0 = 0;
-  unsigned char *block = text + block_beg;
-  unsigned char *block_pbwt = new unsigned char[block_length];
-  for (long j = 0; j < block_length; ++j) {
+  std::uint64_t i0 = 0;
+  const std::uint8_t *block = text + block_beg;
+  std::uint8_t *block_pbwt = new std::uint8_t[block_length];
+  for (std::uint64_t j = 0; j < block_length; ++j) {
     if (block_psa[j]) block_pbwt[j] = block[block_psa[j] - 1];
     else { i0 = j; block_pbwt[j] = 0; }
   }
 
   // Compute gt_begin_reversed for the tail.
-  long tail_length = tail_end - block_end;
-  unsigned char *pat = text + block_end;
-  long pat_length = text_length - block_end;
+  std::uint64_t tail_length = tail_end - block_end;
+  const std::uint8_t *pat = text + block_end;
+  std::uint64_t pat_length = text_length - block_end;
 
-  unsigned char *gt_begin_reversed = new unsigned char[text_length - block_end];
-  for (long j = 1; j <= tail_length; ++j) {
-    long lcp = 0;
+  std::uint8_t *gt_begin_reversed = new std::uint8_t[text_length - block_end];
+  for (std::uint64_t j = 1; j <= tail_length; ++j) {
+    std::uint64_t lcp = 0;
     while (j + lcp < pat_length && pat[lcp] == pat[j + lcp]) ++lcp;
-    gt_begin_reversed[(text_length - tail_end) + (tail_length - j)] = (j + lcp < pat_length && pat[lcp] < pat[j + lcp]);
+    gt_begin_reversed[(text_length - tail_end) + (tail_length - j)] =
+      (j + lcp < pat_length && pat[lcp] < pat[j + lcp]);
   }
   
   // Write gt_begin_reversed to several files.
-  // We only write range of bits [text_length - tail_end..text_length - block_end).
+  // We only write range of bits
+  // [text_length - tail_end..text_length - block_end).
   multifile gt_begin_rev_multifile;
-  long bits_left = tail_length;
-  long bits_beg = text_length - tail_end;
+  std::uint64_t bits_left = tail_length;
+  std::uint64_t bits_beg = text_length - tail_end;
   while (bits_left > 0) {
-    long size = utils::random_int64(1L, bits_left);
+    std::uint64_t size = utils::random_int64(1L, bits_left);
     std::string filename = "tempfile_gt" + utils::random_string_hash();
     bit_stream_writer *writer = new bit_stream_writer(filename);
-    for (long j = 0; j < size; ++j)
+    for (std::uint64_t j = 0; j < size; ++j)
       writer->write(gt_begin_reversed[bits_beg + j]);
     delete writer;
     
@@ -76,32 +85,35 @@ void test(unsigned char *text, long block_beg, long block_end, long tail_end, lo
   // Compute srank for suffix starting after tail.
   pat = text + tail_end;
   pat_length = text_length - tail_end;
-  long srank_after_tail = 0;
-  for (long j = block_beg; j < block_end; ++j) {
-    long lcp = 0;
+  std::uint64_t srank_after_tail = 0;
+  for (std::uint64_t j = block_beg; j < block_end; ++j) {
+    std::uint64_t lcp = 0;
     while (lcp < pat_length && text[j + lcp] == pat[lcp]) ++lcp;
     if (lcp < pat_length && text[j + lcp] < pat[lcp]) ++srank_after_tail;
   }
   
   // Run the tested algorithm.
-  long max_threads = utils::random_int64(1L, 20L);
-  long stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
-  long n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
-  std::vector<long> result;
-  em_compute_initial_ranks(block, block_psa, block_pbwt, i0, block_beg, block_end,
-      text_length, text_filename, &gt_begin_rev_multifile, result, n_threads, tail_end,
+  std::uint64_t max_threads = utils::random_int64(1L, 20L);
+  std::uint64_t stream_max_block_size =
+    (tail_length + max_threads - 1) / max_threads;
+  std::uint64_t n_threads =
+    (tail_length + stream_max_block_size - 1) / stream_max_block_size;
+  std::vector<std::uint64_t> result;
+  em_compute_initial_ranks(block, block_psa, block_pbwt, i0,
+      block_beg, block_end, text_length, text_filename,
+      &gt_begin_rev_multifile, result, n_threads, tail_end,
       srank_after_tail);
 
   // Compare computed answers to correct answers.
-  for (long t = 0; t < n_threads; ++t) {
-    long stream_block_beg = block_end + t * stream_max_block_size;
+  for (std::uint64_t t = 0; t < n_threads; ++t) {
+    std::uint64_t stream_block_beg = block_end + t * stream_max_block_size;
 
     pat = text + stream_block_beg;
     pat_length = text_length - stream_block_beg;
 
-    long srank = 0;
-    for (long j = block_beg; j < block_end; ++j) {
-      long lcp = 0;
+    std::uint64_t srank = 0;
+    for (std::uint64_t j = block_beg; j < block_end; ++j) {
+      std::uint64_t lcp = 0;
       while (lcp < pat_length && text[j + lcp] == pat[lcp]) ++lcp;
       if (lcp < pat_length && text[j + lcp] < pat[lcp]) ++srank;
     }
@@ -109,12 +121,13 @@ void test(unsigned char *text, long block_beg, long block_end, long tail_end, lo
     if (srank != result[t]) {
       fprintf(stderr, "\nError!\n");
       fprintf(stderr, "\ttext = ");
-      for (long j = 0; j < text_length; ++j)
+      for (std::uint64_t j = 0; j < text_length; ++j)
         fprintf(stderr, "%c", text[j]);
       fprintf(stderr, "\n");
       fprintf(stderr, "\tblock_beg = %ld\n", block_beg);
       fprintf(stderr, "\tblock_end = %ld\n", block_end);
-      fprintf(stderr, "\tstream_block_max_size = %ld\n", stream_max_block_size);
+      fprintf(stderr, "\tstream_block_max_size = %ld\n",
+          stream_max_block_size);
       fprintf(stderr, "\tn_threads = %ld\n", n_threads);
       fprintf(stderr, "\tt = %ld\n", t);
       fprintf(stderr, "\tcorrect srank = %ld\n", srank);
@@ -128,31 +141,32 @@ void test(unsigned char *text, long block_beg, long block_end, long tail_end, lo
   utils::file_delete(text_filename);
 }
 
-void test_random(int testcases, int max_length, int max_sigma) {
-  fprintf(stderr,"TEST, testcases = %d, max_n = %d, max_sigma = %d\r",
+void test_random(std::uint64_t testcases, std::uint64_t max_length, std::uint64_t max_sigma) {
+  fprintf(stderr,"TEST, testcases = %lu, max_n = %lu, max_sigma = %lu\r",
       testcases, max_length, max_sigma);
 
-  unsigned char *text = new unsigned char[4 * max_length];
-  for (int tc = 0, dbg = 0; tc < testcases; ++tc, ++dbg) {
+  std::uint8_t *text = new std::uint8_t[4 * max_length];
+  for (std::uint64_t tc = 0, dbg = 0; tc < testcases; ++tc, ++dbg) {
     // Print progress information.
     if (dbg == 100) {
-      fprintf(stderr,"TEST, testcases = %d, max_n = %d, max_sigma = %d: "
-          "%d (%.0Lf%%)\r", testcases, max_length, max_sigma,
+      fprintf(stderr,"TEST, testcases = %lu, max_n = %lu, max_sigma = %lu: "
+          "%lu (%.0Lf%%)\r", testcases, max_length, max_sigma,
           tc, (tc * 100.L) / testcases);
       dbg = 0;
     }
 
-    long end_block_length = utils::random_int64(0L, max_length);
-    long tail_length = utils::random_int64(1L, max_length);
-    long block_length = utils::random_int64(1L, max_length);
-    long head_length = utils::random_int64(0L, max_length);
+    std::uint64_t end_block_length = utils::random_int64(0L, max_length);
+    std::uint64_t tail_length = utils::random_int64(1L, max_length);
+    std::uint64_t block_length = utils::random_int64(1L, max_length);
+    std::uint64_t head_length = utils::random_int64(0L, max_length);
     
-    long block_beg   = head_length;
-    long block_end   = head_length + block_length;
-    long tail_end    = block_end + tail_length;
-    long text_length = head_length + block_length + tail_length + end_block_length;
+    std::uint64_t block_beg   = head_length;
+    std::uint64_t block_end   = head_length + block_length;
+    std::uint64_t tail_end    = block_end + tail_length;
+    std::uint64_t text_length =
+      head_length + block_length + tail_length + end_block_length;
 
-    long sigma = utils::random_int64(1L, max_sigma);
+    std::uint64_t sigma = utils::random_int64(1L, max_sigma);
 
     if (sigma <= 26) utils::fill_random_letters(text, text_length, sigma);
     else utils::fill_random_string(text, text_length, sigma);
@@ -164,7 +178,7 @@ void test_random(int testcases, int max_length, int max_sigma) {
   // Clean up.
   delete[] text;
 
-  fprintf(stderr,"TEST, testcases = %d, max_n = %d, max_sigma = %d: "
+  fprintf(stderr,"TEST, testcases = %lu, max_n = %lu, max_sigma = %lu: "
       "\033[22;32mPASSED\033[0m%10s\n", testcases, max_length, max_sigma, "");
 }
 
