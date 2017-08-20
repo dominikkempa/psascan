@@ -202,9 +202,8 @@ void inmem_psascan(
   for (std::uint64_t j = 0; j < n_blocks; ++j)
     block_rank_matrix[j] = new std::uint64_t[n_blocks];
   compute_block_rank_matrix<text_offset_type>(text, text_length, bwtsa,
-      max_block_size, text_beg, supertext_length, supertext_filename,
-      tail_gt_begin_reversed, tail_prefix_background_reader,
-      tail_prefix_preread, block_rank_matrix);
+      max_block_size, text_beg, supertext_length, tail_gt_begin_reversed,
+      tail_prefix_background_reader, tail_prefix_preread, block_rank_matrix);
 
   // Stop reading next block in the background or free memory taken by next block.
   if (has_tail) {

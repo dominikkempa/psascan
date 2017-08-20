@@ -6,12 +6,11 @@
 #include <cstdlib>
 #include <stdint.h>
 
-#include "utils.h"
-#include "io_streamer.h"
+#include "utils.hpp"
 
 struct bitvector {
   bitvector(std::string filename) {
-    utils::read_objects_from_file<unsigned char>(m_data, m_alloc_bytes, filename);
+    utils::read_from_file(m_data, m_alloc_bytes, filename);
   }
 
   bitvector(long length) {
@@ -37,7 +36,7 @@ struct bitvector {
   }
 
   inline void save(std::string filename) {
-    utils::write_objects_to_file<unsigned char>(m_data, m_alloc_bytes, filename);
+    utils::write_to_file(m_data, m_alloc_bytes, filename);
   }
 
   // Number of 1 bits in the range [beg..end).

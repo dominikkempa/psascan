@@ -40,21 +40,16 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <thread>
-#include <mutex>
 
-#include "../io/background_block_reader.hpp"
-#include "../io/multifile_bit_stream_reader.hpp"
-#include "../io/multifile.hpp"
-#include "../utils.hpp"
 #include "bwtsa.hpp"
-#include "pagearray.hpp"
+#include "background_block_reader.hpp"
+#include "bitvector.hpp"
+#include "utils.hpp"
 
 
-namespace psascan_private {
 namespace inmem_psascan_private {
 
-// #define BLOCK_MATRIX_MODULE_DEBUG_MODE
+#define BLOCK_MATRIX_MODULE_DEBUG_MODE
 
 inline int lcp_compare(
     const std::uint8_t *text,
@@ -63,7 +58,7 @@ inline int lcp_compare(
     std::uint64_t pat_length,
     std::uint64_t gt_begin_length,
     std::uint64_t j,
-    multifile_bit_stream_reader &rev_gt_begin_reader,
+    const bitvector *rev_gt_begin_reader,
     std::uint64_t &lcp) {
 
   while (lcp < pat_length &&
@@ -72,7 +67,7 @@ inline int lcp_compare(
     ++lcp;
 
   if (j + lcp >= text_length) {
-    if (rev_gt_begin_reader.access(gt_begin_length - (text_length - j)))
+    if (rev_gt_begin_reader->get(gt_begin_length - (text_length - j)))
       return 1;
     else return -1;
   } else if (lcp == pat_length) return 0;
@@ -95,115 +90,6 @@ inline int lcp_compare(
   if (lcp == pat_length) return 0;
   else if (pat[lcp] < text[j + lcp]) return -1;
   else return 1;
-}
-
-//-----------------------------------------------------------------------------
-// Find the range [left..right) of suffixes starting inside the block that are
-// prefixed with pat[0..pat_length). In case there is no such suffix, left ==
-// right and they both point to the first suffix larger than the pattern.
-//-----------------------------------------------------------------------------
-template<typename pagearray_type>
-void compute_range(
-    const std::uint8_t *text,
-    std::uint64_t block_beg,
-    std::uint64_t block_size,
-    const std::uint8_t *pat,
-    std::uint64_t pat_length,
-    const pagearray_type &bwtsa,
-    std::pair<std::uint64_t, std::uint64_t> &ret) {
-
-#ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
-  std::uint64_t min_discrepancy =
-    utils::random_int64((std::int64_t)0, (std::int64_t)10);
-  std::uint64_t balancing_factor =
-    utils::random_int64((std::int64_t)1, (std::int64_t)10);
-#else
-  static const std::uint64_t min_discrepancy = (1 << 16);
-  static const std::uint64_t balancing_factor = 64;
-#endif
-
-  // Find left.
-  std::int64_t low = -1;
-  std::int64_t high = block_size;
-  std::uint64_t llcp = 0;
-  std::uint64_t rlcp = 0;
-  while (low + 1 != high) {
-
-    // Invariant: left is in the range (low..high].
-    std::uint64_t lcp = std::min(llcp, rlcp);
-
-    // Compute mid.
-    // Valid values for mid are: low + 1, .., high - 1.
-    std::uint64_t mid = 0;
-    if (llcp + min_discrepancy < rlcp) {
-
-      // Choose the pivot that split the range into two
-      // parts of sizes with ratio equal to logd / d.
-      std::uint64_t d = rlcp - llcp;
-      std::uint64_t logd = utils::log2ceil(d);
-      mid = low + 1 +
-        ((high - low - 1) * balancing_factor * logd) /
-        (d + balancing_factor * logd);
-    } else if (rlcp + min_discrepancy < llcp) {
-      std::uint64_t d = llcp - rlcp;
-      std::uint64_t logd = utils::log2ceil(d);
-      mid = high - 1 -
-        ((high - low - 1) * balancing_factor * logd) /
-        (d + balancing_factor * logd);
-    } else {
-
-      // Discrepancy is too small, use standard binary search.
-      mid = (low + high) / 2;
-    }
-
-    if (lcp_compare(text, pat, pat_length,
-          block_beg + (std::uint64_t)bwtsa[mid].m_sa, lcp) <= 0) {
-      high = mid;
-      rlcp = lcp;
-    } else {
-      low = mid;
-      llcp = lcp;
-    }
-  }
-  std::uint64_t left = high;
-
-  // Find right.
-  if (rlcp == pat_length) {
-    high = block_size;
-    rlcp = 0;
-
-    while (low + 1 != high) {
-
-      // Invariant: right is in the range (low..high].
-      std::uint64_t lcp = std::min(llcp, rlcp);
-      std::uint64_t mid = 0;
-      if (llcp + min_discrepancy < rlcp) {
-        std::uint64_t d = rlcp - llcp;
-        std::uint64_t logd = utils::log2ceil(d);
-        mid = low + 1 +
-          ((high - low - 1) * balancing_factor * logd) /
-          (d + balancing_factor * logd);
-      } else if (rlcp + min_discrepancy < llcp) {
-        std::uint64_t d = llcp - rlcp;
-        std::uint64_t logd = utils::log2ceil(d);
-        mid = high - 1 -
-          ((high - low - 1) * balancing_factor * logd) /
-          (d + balancing_factor * logd);
-      } else mid = (low + high) / 2;
-
-      if (lcp_compare(text, pat, pat_length,
-            block_beg + (std::uint64_t)bwtsa[mid].m_sa, lcp) < 0) {
-        high = mid;
-        rlcp = lcp;
-      } else {
-        low = mid;
-        llcp = lcp;
-      }
-    }
-  }
-  std::uint64_t right = high;
-
-  ret = std::make_pair(left, right);
 }
 
 //------------------------------------------------------------------------------
@@ -343,14 +229,12 @@ void refine_range(
     const bwtsa_t<block_offset_type> *block_psa,
     std::uint64_t left,
     std::uint64_t right,
-    const multifile *tail_gt_begin_reversed,
+    const bitvector *tail_gt_begin_reversed,
     std::uint64_t old_pat_length,
     std::uint64_t pat_length,
     const std::uint8_t *pat,
     std::uint64_t &newleft,
     std::uint64_t &newright) {
-
-  multifile_bit_stream_reader reader(tail_gt_begin_reversed);
 
   std::int64_t low = (std::int64_t)left - 1;
   std::int64_t high = right;
@@ -388,7 +272,7 @@ void refine_range(
 
     if (lcp_compare(text, text_length, pat, pat_length,
           tail_gt_begin_reversed_length, block_beg +
-          (std::uint64_t)block_psa[mid].m_sa, reader, lcp) <= 0) {
+          (std::uint64_t)block_psa[mid].m_sa, tail_gt_begin_reversed, lcp) <= 0) {
       high = mid;
       rlcp = lcp;
     } else {
@@ -423,7 +307,7 @@ void refine_range(
 
       if (lcp_compare(text, text_length, pat, pat_length,
             tail_gt_begin_reversed_length, block_beg +
-            (std::uint64_t)block_psa[mid].m_sa, reader, lcp) < 0) {
+            (std::uint64_t)block_psa[mid].m_sa, tail_gt_begin_reversed, lcp) < 0) {
         high = mid;
         rlcp = lcp;
       } else {
@@ -632,7 +516,6 @@ void compute_ranges_2(
   }
 #endif
 
-  static const std::uint64_t chunk_size = (1 << 20);
 
   // Compute secondary range.
   std::uint64_t pat_length = cur_pat_length +
@@ -644,7 +527,7 @@ void compute_ranges_2(
     // we have to gradually refine the range.
     while (left != right && cur_pat_length < pat_length) {
       std::uint64_t next_chunk =
-        std::min(chunk_size,
+        std::min((std::uint64_t)reader->get_chunk_size(),
             pat_length - cur_pat_length);
       std::uint64_t new_pat_length = cur_pat_length + next_chunk;
       reader->wait(new_pat_length - max_block_size);
@@ -714,7 +597,7 @@ void compute_ranges_3(
     std::uint64_t supertext_length,
     const bwtsa_t<block_offset_type> *bwtsa,
     std::uint64_t max_block_size,
-    const multifile *tail_gt_begin_reversed,
+    const bitvector *tail_gt_begin_reversed,
     background_block_reader *reader,
     const std::uint8_t *next_block,
     std::pair<std::uint64_t, std::uint64_t> **primary_range,
@@ -755,7 +638,6 @@ void compute_ranges_3(
   std::uint64_t right = block_size;
   std::uint64_t cur_pat_length = 0;
 
-  static const std::uint64_t chunk_size = (1 << 20);
 
   // Compute the primary range.
   if (reader) {
@@ -764,7 +646,7 @@ void compute_ranges_3(
     // have to gradually refine the range.
     while (left != right && cur_pat_length < first_range_pat_length) {
       std::uint64_t next_chunk =
-        std::min(chunk_size,
+        std::min((std::uint64_t)reader->get_chunk_size(),
             first_range_pat_length - cur_pat_length);
       std::uint64_t new_pat_length = cur_pat_length + next_chunk;
       reader->wait(new_pat_length);
@@ -831,7 +713,7 @@ void compute_ranges_3(
     // we have to gradually refine the range.
     while (left != right && cur_pat_length < pat_length) {
       std::uint64_t next_chunk =
-        std::min(chunk_size,
+        std::min((std::uint64_t)reader->get_chunk_size(),
             pat_length - cur_pat_length);
       std::uint64_t new_pat_length = cur_pat_length + next_chunk;
       reader->wait(new_pat_length);
@@ -900,38 +782,6 @@ void compute_ranges_3(
 }
 
 template<typename block_offset_type>
-void task_solver_code(
-    const std::uint8_t *text,
-    std::uint64_t text_length,
-    const bwtsa_t<block_offset_type> *bwtsa,
-    std::uint64_t max_block_size,
-    std::pair<std::uint64_t, std::uint64_t> **primary_range,
-    std::pair<std::uint64_t, std::uint64_t> **secondary_range,
-    std::vector<std::pair<std::uint64_t, std::uint64_t> > &tasks,
-    std::mutex &tasks_mutex) {
-
-  while (true) {
-
-    // Get a task from the task collection.
-    std::pair<std::uint64_t, std::uint64_t> task;
-    bool task_avail = true;
-    std::unique_lock<std::mutex> lk(tasks_mutex);
-    if (tasks.empty()) task_avail = false;
-    else {
-      task = tasks.back();
-      tasks.pop_back();
-    }
-    lk.unlock();
-
-    if (!task_avail) break;
-
-    // Solve the task and save the answer.
-    compute_ranges_1(text, text_length, bwtsa, max_block_size,
-        primary_range, secondary_range, task.first, task.second);
-  }
-}
-
-template<typename block_offset_type>
 void compute_block_rank_matrix(
     const std::uint8_t *text,
     std::uint64_t text_length,
@@ -939,7 +789,7 @@ void compute_block_rank_matrix(
     std::uint64_t max_block_size,
     std::uint64_t text_beg,
     std::uint64_t supertext_length,
-    const multifile *tail_gt_begin_reversed,
+    const bitvector *tail_gt_begin_reversed,
     background_block_reader *reader,
     const std::uint8_t *next_block,
     std::uint64_t **block_rank_matrix) {
@@ -958,76 +808,33 @@ void compute_block_rank_matrix(
     secondary_range[row] = new std::pair<std::uint64_t, std::uint64_t>[n_blocks];
   }
 
-  // Start the threads computing
-  // ranges for the last column.
-  std::thread **threads_last_col = NULL;
+  // Compute ranges for the last column.
   if (n_blocks > 1) {
-    threads_last_col = new std::thread*[n_blocks - 1];
     for (std::uint64_t row = 0; row + 1 < n_blocks; ++row) {
       std::uint64_t column = n_blocks - 1;
-      threads_last_col[row] = new std::thread(
-          compute_ranges_3<block_offset_type>, text, text_length,
+      compute_ranges_3<block_offset_type>(text, text_length,
           text_beg, supertext_length, bwtsa, max_block_size,
           tail_gt_begin_reversed, reader, next_block, primary_range,
           secondary_range, row, column);
     }
   }
 
-  // Start the threads computing ranges
-  // for the second-to-last column.
-  std::thread **threads_second_last_col = NULL;
+  // Compute ranges for the second-to-last column.
   if (n_blocks > 2) {
-    threads_second_last_col = new std::thread*[n_blocks - 2];
     for (std::uint64_t row = 0; row + 2 < n_blocks; ++row) {
       std::uint64_t column = n_blocks - 2;
-      threads_second_last_col[row] = new std::thread(
-          compute_ranges_2<block_offset_type>, text, text_length,
+      compute_ranges_2<block_offset_type>(text, text_length,
           text_beg, supertext_length, bwtsa, max_block_size,
           reader, next_block, primary_range, secondary_range,
           row, column);
     }
   }
 
-  // Start threads computing columns
-  // other than the last two.
-  std::vector<std::pair<std::uint64_t, std::uint64_t> > tasks;
-  std::mutex tasks_mutex;
+  // Compute columns other than the last two.
   for (std::uint64_t row = 0; row < n_blocks; ++row)
     for (std::uint64_t col = row + 1; col + 2 < n_blocks; ++col)
-      tasks.push_back(std::make_pair(row, col));
-  std::random_shuffle(tasks.begin(), tasks.end());  // solve in any order
-  std::thread **threads_other = new std::thread*[n_blocks];
-  for (std::uint64_t t = 0; t < n_blocks; ++t)
-    threads_other[t] = new std::thread(
-        task_solver_code<block_offset_type>, text, text_length,
-        bwtsa, max_block_size, primary_range, secondary_range,
-        std::ref(tasks), std::ref(tasks_mutex));
-
-  // Wait for the threads computing
-  // columns other than last two.
-  for (std::uint64_t t = 0; t < n_blocks; ++t) threads_other[t]->join();
-  for (std::uint64_t t = 0; t < n_blocks; ++t) delete threads_other[t];
-  delete[] threads_other;
-
-  // Wait for the threads computing
-  // second-to-last column to finish.
-  if (n_blocks > 2) {
-    for (std::uint64_t row = 0; row + 2 < n_blocks; ++row)
-      threads_second_last_col[row]->join();
-    for (std::uint64_t row = 0; row + 2 < n_blocks; ++row)
-      delete threads_second_last_col[row];
-    delete[] threads_second_last_col;
-  }
-
-  // Wait for the threads computing
-  // the last column to finish.
-  if (n_blocks > 1) {
-    for (std::uint64_t row = 0; row + 1 < n_blocks; ++row)
-      threads_last_col[row]->join();
-    for (std::uint64_t row = 0; row + 1 < n_blocks; ++row)
-      delete threads_last_col[row];
-    delete[] threads_last_col;
-  }
+      compute_ranges_1(text, text_length, bwtsa, max_block_size,
+      primary_range, secondary_range, row, col);
 
   // Compute the rank values from
   // primary and secondary ranges.
@@ -1144,9 +951,38 @@ void compute_block_rank_matrix(
   }
   delete[] primary_range;
   delete[] secondary_range;
+
+#if 0
+  // Check the correctness of all computed elements of the matrix.
+  for (long row = 0; row < n_blocks; ++row) {
+    long block_end = text_length - (n_blocks - 1 - row) * max_block_size;
+    long block_beg = std::max(0L, block_end - max_block_size);
+    long block_size = block_end - block_beg;
+    bwtsa_t<saidx_t> *block_psa = bwtsa + block_beg;
+
+    for (long column = row + 1; column < n_blocks; ++column) {
+      long suf_start = text_length - (n_blocks - 1 - column) * max_block_size;
+
+      long left = -1;
+      long right = block_size;
+      while (left + 1 != right) {
+        // Invariant: the answer is in the range (left, right].
+        long mid = (left + right) / 2;
+        if (compare_suffixes(text, text_length, suf_start, block_beg + block_psa[mid].m_sa,
+              text_beg, supertext_length, supertext_filename)) left = mid;
+        else right = mid;
+      }
+
+      if (right != block_rank_matrix[row][column]) {
+        fprintf(stdout, "\nError: block_rank_matrix[%ld][%ld] is incorrect!\n", row, column);
+        std::fflush(stdout);
+        std::exit(EXIT_FAILURE);
+      }
+    }
+  }
+#endif
 }
 
-}  // namespace inmem_psascan_private
-}  // namespace psascan_private
+}  // inmem_psascan_private
 
-#endif  // __SRC_PSASCAN_SRC_INMEM_PSASCAN_SRC_INMEM_COMPUTE_INITIAL_RANKS_HPP_INCLUDED
+#endif  // __INMEM_COMPUTE_BLOCK_RANK_MATRIX

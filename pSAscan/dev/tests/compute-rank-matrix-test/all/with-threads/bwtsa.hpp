@@ -3,36 +3,36 @@
 
 #include "uint40.h"
 
-namespace inmem_sascan_private {
+namespace inmem_psascan_private {
 
 
 template<typename sa_type>
 struct bwtsa_t {
-  sa_type sa;
-  unsigned char bwt;
+  sa_type m_sa;
+  unsigned char m_bwt;
 
   inline operator sa_type() const {
-    return sa;
+    return m_sa;
   }
 
   bwtsa_t() {
   }
 
   bwtsa_t(long x) {
-    sa = (sa_type)x;
+    m_sa = (sa_type)x;
   }
 
   bwtsa_t(int x) {
-    sa = (sa_type)x;
+    m_sa = (sa_type)x;
   }
 
   bwtsa_t(uint40 x) {
-    sa = (sa_type)x;
+    m_sa = (sa_type)x;
   }
 
 } __attribute__((packed));
 
 
-}  // namespace inmem_sascan
+}  // namespace inmem_psascan_private
 
 #endif  // __BWTSA_H_INCLUDED

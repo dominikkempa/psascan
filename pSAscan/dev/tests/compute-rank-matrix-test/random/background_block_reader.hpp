@@ -9,7 +9,7 @@
 #include <mutex>
 #include <condition_variable>
 
-#include "utils.h"
+#include "utils.hpp"
 
 
 struct background_block_reader {
@@ -71,7 +71,7 @@ struct background_block_reader {
          
       // Initialize file and buffer.
       m_data = (unsigned char *)malloc(m_size);
-      m_file = utils::open_file(filename, "r");
+      m_file = utils::file_open(filename, "r");
       std::fseek(m_file, m_start, SEEK_SET);
       m_fetched = 0;
 

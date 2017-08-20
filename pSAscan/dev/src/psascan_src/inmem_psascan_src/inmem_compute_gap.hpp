@@ -59,12 +59,26 @@ namespace psascan_private {
 namespace inmem_psascan_private {
 
 template<typename block_offset_type, unsigned pagesize_log>
-void inmem_compute_gap(const std::uint8_t *text, long text_length, long left_block_beg,
-    long left_block_size, long right_block_size,
+void inmem_compute_gap(
+    const std::uint8_t *text,
+    std::uint64_t text_length,
+    long left_block_beg,
+    long left_block_size,
+    long right_block_size,
     const pagearray<bwtsa_t<block_offset_type>, pagesize_log> &bwtsa,
-    bitvector *gt, inmem_gap_array* &gap, std::uint64_t max_threads, bool need_gt, long i0,
-    long gap_buf_size, long double &rank_init_time, long double &streaming_time,
-    std::uint64_t **block_rank_matrix, long lrange_beg, long lrange_size, long rrange_size) {
+    bitvector *gt,
+    inmem_gap_array* &gap,
+    std::uint64_t max_threads,
+    bool need_gt,
+    long i0,
+    long gap_buf_size,
+    long double &rank_init_time,
+    long double &streaming_time,
+    std::uint64_t **block_rank_matrix,
+    long lrange_beg,
+    long lrange_size,
+    long rrange_size) {
+
   long lrange_end = lrange_beg + lrange_size;
   long rrange_end = lrange_end + rrange_size;
 
@@ -110,7 +124,7 @@ void inmem_compute_gap(const std::uint8_t *text, long text_length, long left_blo
   fprintf(stderr, "    Compute initial ranks: ");
   start = utils::wclock();
   std::vector<long> initial_ranks(n_threads);
-  std::vector<std::pair<long, long> > initial_ranges(n_threads);
+  std::vector<std::pair<std::uint64_t, std::uint64_t> > initial_ranges(n_threads);
   std::thread **threads = new std::thread*[n_threads];
 
   // 3.a
@@ -254,10 +268,12 @@ void inmem_compute_gap(const std::uint8_t *text, long text_length, long left_blo
     std::uint64_t beg = right_block_beg + t * max_stream_block_size;
     std::uint64_t end = std::min(beg + max_stream_block_size, right_block_end);
 
-    threads[t] = new std::thread(inmem_parallel_stream<rank_type, block_offset_type>,
-      text, text_length, beg, end, last, count, full_gap_buffers,
-      empty_gap_buffers, initial_ranks[t], i0, rank, gap->m_length, max_threads,
-      gt, temp + t * max_buffer_elems, oracle + t * max_buffer_elems, need_gt);
+    threads[t] = new std::thread(
+        inmem_parallel_stream<rank_type, block_offset_type>,
+        text, text_length, beg, end, last, count, full_gap_buffers,
+        empty_gap_buffers, initial_ranks[t], i0, rank, gap->m_length,
+        max_threads, gt, temp + t * max_buffer_elems,
+        oracle + t * max_buffer_elems, need_gt);
   }
 
   // Start updating thread.
