@@ -3,9 +3,9 @@
 
 #include <cstdint>
 
-#include "../../src/psascan_src/inmem_psascan_src/inmem_psascan.h"
-#include "../../src/psascan_src/bitvector.h"
-#include "../../src/psascan_src/multifile.h"
+#include "../../src/psascan_src/inmem_psascan_src/inmem_psascan.hpp"
+#include "../../src/psascan_src/bitvector.hpp"
+#include "../../src/psascan_src/io/multifile.hpp"
 
 
 template<typename saidx_t, unsigned pagesize_log = 12>

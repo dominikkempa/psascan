@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <string>
 
-#include "utils.h"
+#include "utils.hpp"
 
 
 //==============================================================================
@@ -24,7 +24,7 @@ template<typename value_type>
 struct stream_reader {
   stream_reader(std::string fname, long buf_bytes = (4L << 20))
       : m_bufelems((buf_bytes + sizeof(value_type) - 1) / sizeof(value_type)) {
-    m_file = utils::open_file(fname, "r");
+    m_file = utils::file_open(fname, "r");
     m_buffer = new value_type[m_bufelems];
     refill();
   }
@@ -65,7 +65,7 @@ struct backward_stream_reader {
   backward_stream_reader(std::string fname, long buf_bytes = (4L << 20))
       : m_bufelems((buf_bytes + sizeof(value_type) - 1) / sizeof(value_type)), m_filled(0L) {
     m_buffer = new value_type[m_bufelems];
-    m_file = utils::open_file(fname, "r");    
+    m_file = utils::file_open(fname, "r");    
     std::fseek(m_file, 0L, SEEK_END);
     refill();
   }
@@ -108,7 +108,7 @@ struct backward_skip_stream_reader {
   backward_skip_stream_reader(std::string fname, long skip_elems, long buf_bytes = (4L << 20))
       : m_bufelems((buf_bytes + sizeof(value_type) - 1) / sizeof(value_type)), m_filled(0L) {
     m_buffer = new value_type[m_bufelems];
-    m_file = utils::open_file(fname, "r");    
+    m_file = utils::file_open(fname, "r");    
     std::fseek(m_file, -(skip_elems * sizeof(value_type)), SEEK_END);
     refill();
   }
@@ -153,13 +153,13 @@ template<typename value_type>
 struct stream_writer {
   stream_writer(std::string fname, long bufsize = (4L << 20))
       : m_bufelems((bufsize + sizeof(value_type) - 1) / sizeof(value_type)) {
-    m_file = utils::open_file(fname.c_str(), "w");
+    m_file = utils::file_open(fname.c_str(), "w");
     m_buffer = new value_type[m_bufelems];
     m_filled = 0;
   }
 
   inline void flush() {
-    utils::add_objects_to_file(m_buffer, m_filled, m_file);
+    utils::write_to_file(m_buffer, m_filled, m_file);
     m_filled = 0;
   }
 
@@ -188,7 +188,7 @@ private:
 
 struct bit_stream_reader {
   bit_stream_reader(std::string filename) {
-    m_file = utils::open_file(filename.c_str(), "r");
+    m_file = utils::file_open(filename.c_str(), "r");
     m_buf = new unsigned char[k_bufsize];
     refill();
   }
@@ -229,7 +229,7 @@ private:
 
 struct bit_stream_writer {
   bit_stream_writer(std::string filename) {
-    f = utils::open_file(filename, "w");
+    f = utils::file_open(filename, "w");
     buf = new unsigned char[bufsize];
     if (!buf) {
       fprintf(stderr, "\nError: allocation error in bit_stream_writer\n");
@@ -241,7 +241,7 @@ struct bit_stream_writer {
 
   inline void flush() {
     if (pos_bit) ++filled; // final flush?
-    utils::add_objects_to_file<unsigned char>(buf, filled, f);
+    utils::write_to_file(buf, filled, f);
     filled = pos_bit = 0;
     std::fill(buf, buf + bufsize, 0);
   }
@@ -278,7 +278,7 @@ template<typename value_type>
 struct vbyte_stream_writer {
   vbyte_stream_writer(std::string fname, long bufsize = (4L << 20))
       : m_bufsize(bufsize) {
-    m_file = utils::open_file(fname, "w");
+    m_file = utils::file_open(fname, "w");
     m_buf = new unsigned char[m_bufsize + 512];
     m_filled = 0L;
   }
@@ -304,7 +304,7 @@ struct vbyte_stream_writer {
 
   private:
     inline void flush() {
-      utils::add_objects_to_file(m_buf, m_filled, m_file);
+      utils::write_to_file(m_buf, m_filled, m_file);
       m_filled = 0;
     }
 
@@ -318,7 +318,7 @@ struct vbyte_stream_writer {
 struct vbyte_stream_reader {
   vbyte_stream_reader(std::string fname, long bufsize = (4L << 20))
       : m_bufsize(bufsize) {
-    m_file = utils::open_file(fname, "r");
+    m_file = utils::file_open(fname, "r");
     m_buf = new unsigned char[m_bufsize];
     refill();
   }

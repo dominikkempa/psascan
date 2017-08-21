@@ -9,17 +9,21 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "../../src/psascan_src/bitvector.h"
-#include "../../src/psascan_src/multifile.h"
-#include "inmem_psascan.h"
+#include "../../src/psascan_src/bitvector.hpp"
+#include "../../src/psascan_src/io/multifile.hpp"
+#include "inmem_psascan.hpp"
 #include "divsufsort.h"
 #include "divsufsort64.h"
-#include "utils.h"
-#include "io_streamer.h"
+#include "utils.hpp"
+#include "io_streamer.hpp"
 
 
-void compute_gt_begin_reversed(unsigned char *text, long text_length, psascan_private::bitvector *gt_begin_reversed) {
-  long i = 1, el = 0;
+void compute_gt_begin_reversed(
+    const std::uint8_t *text,
+    std::uint64_t text_length,
+    psascan_private::bitvector *gt_begin_reversed) {
+
+  std::uint64_t i = 1, el = 0;
   while (i < text_length) {
     while (i + el < text_length && text[i + el] == text[el]) ++el;
     if (i + el < text_length && text[i + el] > text[el])
@@ -31,51 +35,62 @@ void compute_gt_begin_reversed(unsigned char *text, long text_length, psascan_pr
 }
 
 template<typename saidx_t, unsigned pagesize_log>
-void test(unsigned char *supertext, long supertext_length,
-    long text_beg, long text_end, std::uint64_t max_threads) {
+void test(
+    std::uint8_t *supertext,
+    std::uint64_t supertext_length,
+    std::uint64_t text_beg,
+    std::uint64_t text_end,
+    std::uint64_t max_threads) {
 
   // Sort supertext using divsufsort.
   long *supertext_sa = (long *)malloc(supertext_length * sizeof(long));
-  divsufsort64(supertext, supertext_sa, supertext_length);
+  divsufsort64(supertext, supertext_sa, (long)supertext_length);
 
   // Separate the ordering of the suffixes of text (correct answer).
-  long text_length = text_end - text_beg;
-  long *correct_answer = (long *)malloc(text_length * sizeof(long));
-  long ptr = 0;
-  for (long i = 0; i < supertext_length; ++i)
-    if (text_beg <= supertext_sa[i] && supertext_sa[i] < text_end)
+  std::uint64_t text_length = text_end - text_beg;
+  std::uint64_t *correct_answer =
+    (std::uint64_t *)malloc(text_length * sizeof(std::uint64_t));
+  std::uint64_t ptr = 0;
+  for (std::uint64_t i = 0; i < supertext_length; ++i)
+    if (text_beg <= (std::uint64_t)supertext_sa[i] &&
+        (std::uint64_t)supertext_sa[i] < text_end)
       correct_answer[ptr++] = supertext_sa[i] - text_beg;
 
   // Compute tail_gt_begin_reversed.
-  unsigned char *tail = supertext + text_end;
-  long tail_length = supertext_length - text_end;
+  const std::uint8_t *tail = supertext + text_end;
+  std::uint64_t tail_length = supertext_length - text_end;
   psascan_private::bitvector tail_gt_begin_reversed_bv(tail_length);
   compute_gt_begin_reversed(tail, tail_length, &tail_gt_begin_reversed_bv);
 
   // Store tail_gt_begin_reversed on disk as a multifile bitvector.
-  psascan_private::multifile *tail_gt_begin_reversed_multifile = new psascan_private::multifile();
+  psascan_private::multifile *tail_gt_begin_reversed_multifile =
+    new psascan_private::multifile();
   ptr = 0;
   while (ptr < tail_length) {
-    long left = tail_length - ptr;
-    long chunk = utils::random_long(1L, left);
+    std::uint64_t left = tail_length - ptr;
+    std::uint64_t chunk = utils::random_int64(1L, left);
    
-    // Store bits [ptr..ptr+chunk) from tail_gt_begin_reversed_bv into one file.
-    std::string chunk_filename = "gt_begin_reversed_bv" + utils::random_string_hash();
+    // Store bits [ptr..ptr + chunk) from
+    // tail_gt_begin_reversed_bv into one file.
+    std::string chunk_filename =
+      "gt_begin_reversed_bv" + utils::random_string_hash();
     bit_stream_writer *writer = new bit_stream_writer(chunk_filename);
-    for (long j = ptr; j < ptr + chunk; ++j)
+    for (std::uint64_t j = ptr; j < ptr + chunk; ++j)
       writer->write(tail_gt_begin_reversed_bv.get(j));
     delete writer;
 
     // Add this file to tail_gt_begin_reversed_multifile.
-    tail_gt_begin_reversed_multifile->add_file(ptr, ptr + chunk, chunk_filename);
+    tail_gt_begin_reversed_multifile->add_file(ptr,
+        ptr + chunk, chunk_filename);
     
     ptr += chunk;
   }
 
   // Write supertext to file.
   std::string supertext_filename = "supertext.txt";
-  stream_writer<unsigned char> *supertext_writer = new stream_writer<unsigned char>(supertext_filename);
-  for (long i = 0; i < supertext_length; ++i)
+  stream_writer<std::uint8_t> *supertext_writer =
+    new stream_writer<std::uint8_t>(supertext_filename);
+  for (std::uint64_t i = 0; i < supertext_length; ++i)
     supertext_writer->write(supertext[i]);
   delete supertext_writer;
 
@@ -85,52 +100,54 @@ void test(unsigned char *supertext, long supertext_length,
 
 
   // Run the tested algorithm.
-  unsigned char *text = supertext + text_beg;
-  unsigned char *bwtsa = (unsigned char *)malloc(text_length * (1 + sizeof(saidx_t)));
+  std::uint8_t *text = supertext + text_beg;
+  std::uint8_t *bwtsa =
+    (std::uint8_t *)malloc(text_length * (1 + sizeof(saidx_t)));
   saidx_t *computed_sa = (saidx_t *)bwtsa;
-  long max_blocks = 0; // 0 is setting max_blocks := max_threads
-  if (utils::random_long(0, 1)) max_blocks = utils::random_long(1L, 50L);
-  bool compute_bwt = (bool)utils::random_long(0L, 1L);
-  long tail_prefix_length = std::min(text_length, tail_length);
-  unsigned char *tail_prefix = NULL;
-  if (utils::random_long(0L, 1L) && tail_length > 0) {
-    tail_prefix = (unsigned char *)malloc(tail_prefix_length);
+  std::uint64_t max_blocks = 0; // 0 is setting max_blocks := max_threads
+  if (utils::random_int64(0, 1)) max_blocks = utils::random_int64(1L, 50L);
+  bool compute_bwt = (bool)utils::random_int64(0L, 1L);
+  std::uint64_t tail_prefix_length = std::min(text_length, tail_length);
+  std::uint8_t *tail_prefix = NULL;
+  if (utils::random_int64(0L, 1L) && tail_length > 0) {
+    tail_prefix = (std::uint8_t *)malloc(tail_prefix_length);
     std::copy(tail, tail + tail_prefix_length, tail_prefix);
   }
 
-  inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa, max_threads, compute_bwt,
-      false, NULL, max_blocks, text_beg, text_end, supertext_length, supertext_filename,
+  inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa,
+      max_threads, compute_bwt, false, NULL, max_blocks, text_beg,
+      text_end, supertext_length, supertext_filename,
       tail_gt_begin_reversed_multifile, NULL, tail_prefix);
 
   // Compare answers.
   bool eq = true;
-  for (long i = 0; i < text_length; ++i)
-    if ((long)computed_sa[i] != correct_answer[i]) eq = false;
+  for (std::uint64_t i = 0; i < text_length; ++i)
+    if ((std::uint64_t)computed_sa[i] != correct_answer[i]) eq = false;
   if (!eq) {
     fprintf(stdout, "Error:\n");
-    fprintf(stdout, "\tsupertext_length = %ld\n", supertext_length);
-    fprintf(stdout, "\tmax threads = %ld\n", max_threads);
+    fprintf(stdout, "\tsupertext_length = %lu\n", supertext_length);
+    fprintf(stdout, "\tmax threads = %lu\n", max_threads);
     fprintf(stdout, "\tsupertext = ");
-    for (long j = 0; j < supertext_length; ++j)
+    for (std::uint64_t j = 0; j < supertext_length; ++j)
       fprintf(stdout, "%c", supertext[j]);
     fprintf(stdout, "\n");
-    fprintf(stdout, "\ttext_beg = %ld\n", text_beg);
-    fprintf(stdout, "\ttext_end = %ld\n", text_end);
+    fprintf(stdout, "\ttext_beg = %lu\n", text_beg);
+    fprintf(stdout, "\ttext_end = %lu\n", text_end);
     fprintf(stdout, "\ttail_gt_begin_reversed_bv = ");
-    for (long j = 0; j < tail_length; ++j)
-      fprintf(stdout, "%ld", (long)tail_gt_begin_reversed_bv.get(j));
+    for (std::uint64_t j = 0; j < tail_length; ++j)
+      fprintf(stdout, "%lu", (std::uint64_t)tail_gt_begin_reversed_bv.get(j));
     fprintf(stdout, "\n");
     fprintf(stdout, "\tsupertext sa = ");
-    for (long j = 0; j < supertext_length; ++j)
-      fprintf(stdout, "%ld ", (long)supertext_sa[j]);
+    for (std::uint64_t j = 0; j < supertext_length; ++j)
+      fprintf(stdout, "%lu ", (std::uint64_t)supertext_sa[j]);
     fprintf(stdout, "\n");
     fprintf(stdout, "\tcorrect answer = ");
-    for (long j = 0; j < text_length; ++j)
-      fprintf(stdout, "%ld ", (long)correct_answer[j]);
+    for (std::uint64_t j = 0; j < text_length; ++j)
+      fprintf(stdout, "%lu ", (std::uint64_t)correct_answer[j]);
     fprintf(stdout, "\n");
     fprintf(stdout, "\tcomputed answer = ");
-    for (long j = 0; j < text_length; ++j)
-      fprintf(stdout, "%ld ", (long)computed_sa[j]);
+    for (std::uint64_t j = 0; j < text_length; ++j)
+      fprintf(stdout, "%lu ", (std::uint64_t)computed_sa[j]);
     fprintf(stdout, "\n");
     std::fflush(stdout);
 
@@ -146,40 +163,46 @@ void test(unsigned char *supertext, long supertext_length,
 
 
 template<typename saidx_t, unsigned pagesize_log>
-void test_random(int testcases, long max_length, int max_sigma) {
-  fprintf(stdout,"TEST, testcases = %d, max_n = %ld, max_sigma = %d, sizeof(saidx_t) = %ld, pagesize_log = %ld\n",
-      testcases, max_length, max_sigma, (long)sizeof(saidx_t), (long)pagesize_log);
-  unsigned char *supertext = new unsigned char[max_length + 1];
+void test_random(
+    int testcases,
+    std::uint64_t max_length,
+    int max_sigma) {
+
+  fprintf(stdout,"TEST, testcases = %d, max_n = %lu, "
+      "max_sigma = %d, sizeof(saidx_t) = %lu, pagesize_log = %lu\n",
+      testcases, max_length, max_sigma,
+      (std::uint64_t)sizeof(saidx_t), (std::uint64_t)pagesize_log);
+  std::uint8_t *supertext = new std::uint8_t[max_length + 1];
 
   for (int tc = 0; tc < testcases; ++tc) {
     // Print progress information.
     fprintf(stdout,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
     std::fflush(stdout);
 
-
-
-
     // Generate string.
-    long supertext_length = utils::random_long(1, max_length);
-    int sigma = utils::random_int(1, max_sigma);
-    if (max_sigma <= 26) utils::fill_random_letters(supertext, supertext_length, sigma);
+    std::uint64_t supertext_length = utils::random_int64(1, max_length);
+    int sigma = utils::random_int32(1, max_sigma);
+    if (max_sigma <= 26)
+      utils::fill_random_letters(supertext, supertext_length, sigma);
     else utils::fill_random_string(supertext, supertext_length, sigma);
-    std::uint64_t max_threads = utils::random_long(1, 50);
-    long text_beg = utils::random_long(0, supertext_length - 1);
-    long text_end = utils::random_long(text_beg + 1, supertext_length);
+    std::uint64_t max_threads = utils::random_int64(1, 50);
+    std::uint64_t text_beg = utils::random_int64(0, supertext_length - 1);
+    std::uint64_t text_end =
+      utils::random_int64(text_beg + 1, supertext_length);
 
 
 
-    /*long supertext_length = 325;
-    long max_threads = 16;
+    /*std::uint64_t supertext_length = 325;
+    std::uint64_t max_threads = 16;
     supertext[0] = 0;
     strcpy((char *)supertext, "adbbddacdcdacacccddcbdccbaaaabcaadcadcccabccbaaddabadadbadbaadabdcbcadaaacdbcdbbdccdcbacabcaadbdbcbcbbcbdbdbbadacbdbcddcaccbbaacccaaddbdaaabadcdabacbdabbdccddbbbbbaaddbdacadadacdcdcdaacdcbcdcdbadbddccdbccbbcdabcdaddccbdabbdcbcdabcdadbdadbadccccbbaddddabcccbbdcdcdcdcdcddccbaadcbcbacbbadabadaabdcabbdaabccbdbdadaabbccacdbbdbcc");
-    long text_beg = 125;
-    long text_end = 269;*/
+    std::uint64_t text_beg = 125;
+    std::uint64_t text_end = 269;*/
 
 
     // Run the test on generated string.
-    test<saidx_t, pagesize_log>(supertext, supertext_length, text_beg, text_end, max_threads);
+    test<saidx_t, pagesize_log>(supertext, supertext_length,
+        text_beg, text_end, max_threads);
   }
 
   // Clean up.

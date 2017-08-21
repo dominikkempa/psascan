@@ -1,141 +1,254 @@
+/**
+ * @file    src/psascan_src/utils.cpp
+ * @section LICENCE
+ *
+ * This file is part of pSAscan v0.2.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2014-2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <cstring>
-#include <errno.h>
-#include <stdint.h>
-#include <unistd.h>
+#include <cerrno>
+#include <ctime>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <string>
+#include <mutex>
 #include <fstream>
 #include <algorithm>
 
-#include "utils.h"
+#include "utils.hpp"
 
 
 namespace utils {
 
-void execute(std::string cmd) {
-  int system_ret = system(cmd.c_str());
-  if (system_ret) {
-    fprintf(stderr, "\nError: executing command [%s] returned %d.\n",
-              cmd.c_str(), system_ret);
-    std::exit(EXIT_FAILURE);
-  }
+std::mutex io_mutex;
+std::mutex allocator_mutex;
+std::uint64_t current_ram_allocation;
+std::uint64_t current_io_volume;
+std::uint64_t current_disk_allocation;
+std::uint64_t peak_ram_allocation;
+std::uint64_t peak_disk_allocation;
+
+void *allocate(std::uint64_t bytes) {
+  std::lock_guard<std::mutex> lk(allocator_mutex);
+  std::uint8_t *ptr = (std::uint8_t *)malloc(bytes + 8);
+  std::uint64_t *ptr64 = (std::uint64_t *)ptr;
+  *ptr64 = bytes;
+  std::uint8_t *ret = ptr + 8;
+  current_ram_allocation += bytes;
+  peak_ram_allocation =
+    std::max(peak_ram_allocation,
+        current_ram_allocation);
+  return (void *)ret;
 }
 
-void unsafe_execute(std::string cmd) {
-  int system_ret = system(cmd.c_str());
-  if (system_ret) {
-    fprintf(stderr, "\nError: executing command [%s] returned %d.\n",
-              cmd.c_str(), system_ret);
-  }
+void *aligned_allocate(std::uint64_t bytes, std::uint64_t align) {
+  std::uint8_t *ptr = (std::uint8_t *)allocate(bytes + (align - 1) + 8);
+  std::uint8_t *ptr2 = ptr + 8;
+  std::uint64_t n_blocks = ((std::uint64_t)ptr2 + align - 1) / align;
+  ptr2 = (std::uint8_t *)(n_blocks * align);
+  std::uint64_t *ptr64 = (std::uint64_t *)(ptr2 - 8);
+  *ptr64 = (std::uint64_t)ptr;
+  return (void *)ptr2;
 }
 
-void drop_cache() {
-  long double start = utils::wclock();
-  fprintf(stderr, "  Clearing cache: ");
-  fprintf(stderr, "Before:\n");
-  utils::unsafe_execute("free -m");
-  utils::unsafe_execute("echo 3 | tee /proc/sys/vm/drop_caches");
-  fprintf(stderr, "After:\n");
-  utils::unsafe_execute("free -m");
-  fprintf(stderr, "Clearing time: %.2Lf\n", utils::wclock() - start);
+void deallocate(void *tab) {
+  std::lock_guard<std::mutex> lk(allocator_mutex);
+  std::uint8_t *ptr = (std::uint8_t *)tab - 8;
+  std::uint64_t *ptr64 = (std::uint64_t *)ptr;
+  std::uint64_t bytes = *ptr64;
+  current_ram_allocation -= bytes;
+  free(ptr);
+}
+
+void aligned_deallocate(void *tab) {
+  std::uint8_t *ptr = (std::uint8_t *)tab;
+  std::uint64_t *ptr64 = (std::uint64_t *)(ptr - 8);
+  deallocate((void *)(*ptr64));
+}
+
+void initialize_stats() {
+  current_ram_allocation = 0;
+  current_disk_allocation = 0;
+  current_io_volume = 0;
+  peak_ram_allocation = 0;
+  peak_disk_allocation = 0;
+}
+
+std::uint64_t get_current_ram_allocation() {
+  return current_ram_allocation;
+}
+
+std::uint64_t get_peak_ram_allocation() {
+  return peak_ram_allocation;
+}
+
+std::uint64_t get_current_io_volume() {
+  return current_io_volume;
+}
+
+std::uint64_t get_current_disk_allocation() {
+  return current_disk_allocation;
+}
+
+std::uint64_t get_peak_disk_allocation() {
+  return peak_disk_allocation;
 }
 
 long double wclock() {
   timeval tim;
   gettimeofday(&tim, NULL);
-
   return tim.tv_sec + (tim.tv_usec / 1000000.0L);
 }
 
-std::FILE *open_file(std::string fname, std::string mode) {
-  std::FILE *f = std::fopen(fname.c_str(), mode.c_str());
+void sleep(long double duration_sec) {
+  long double timestamp = wclock();
+  while (wclock() - timestamp < duration_sec);
+}
+
+std::FILE *file_open(std::string filename, std::string mode) {
+  std::FILE *f = std::fopen(filename.c_str(), mode.c_str());
   if (f == NULL) {
-    std::perror(fname.c_str());
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
-
   return f;
 }
 
-long file_size(std::string fname) {
-  std::FILE *f = open_file(fname, "rt");
-  std::fseek(f, 0L, SEEK_END);
-  long size = std::ftell(f);
-  std::fclose(f);
-
-  return size;
+std::FILE *file_open_nobuf(std::string filename, std::string mode) {
+  std::FILE *f = std::fopen(filename.c_str(), mode.c_str());
+  if (f == NULL) {
+    std::perror(filename.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  if(std::setvbuf(f, NULL, _IONBF, 0) != 0) {
+    perror("setvbuf failed");
+    std::exit(EXIT_FAILURE);
+  }
+  return f;
 }
 
-bool file_exists(std::string fname) {
-  std::FILE *f = std::fopen(fname.c_str(), "r");
-  bool ret = (f != NULL);
+std::uint64_t file_size(std::string filename) {
+  std::FILE *f = file_open_nobuf(filename, "r");
+  std::fseek(f, 0, SEEK_END);
+  long size = std::ftell(f);
+  if (size < 0) {
+    std::perror(filename.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  std::fclose(f);
+  return (std::uint64_t)size;
+}
+
+bool file_exists(std::string filename) {
+  std::FILE *f = std::fopen(filename.c_str(), "r");
+  bool result = (f != NULL);
   if (f != NULL)
     std::fclose(f);
-
-  return ret;
+  return result;
 }
 
-void file_delete(std::string fname) {
-  int res = std::remove(fname.c_str());
-  if (res) {
-    fprintf(stderr, "Failed to delete %s: %s\n",
-        fname.c_str(), strerror(errno));
+void file_delete(std::string filename) {
+
+#ifdef MONITOR_DISK_USAGE
+  std::lock_guard<std::mutex> lk(io_mutex);
+  current_disk_allocation -= file_size(filename);
+#endif
+
+  int res = std::remove(filename.c_str());
+  if (res != 0) {
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
 }
 
-std::string absolute_path(std::string fname) {
+std::string absolute_path(std::string filename) {
   char path[1 << 12];
   bool created = false;
-
-  if (!file_exists(fname)) {
-    // We need to create the file, since realpath fails on non-existing files.
-    std::fclose(open_file(fname, "w"));
+  if (!file_exists(filename)) {
+    std::fclose(file_open(filename, "w"));
     created = true;
   }
-  if (!realpath(fname.c_str(), path)) {
-    fprintf(stderr, "\nError: realpath failed for %s\n", fname.c_str());
+  if (!realpath(filename.c_str(), path)) {
+    std::perror(filename.c_str());
     std::exit(EXIT_FAILURE);
   }
-
   if (created)
-    file_delete(fname);
-
+    file_delete(filename);
   return std::string(path);
 }
 
-void read_block(std::FILE *f, long beg, long length, unsigned char *b) {
-  std::fseek(f, beg, SEEK_SET);
-  read_objects_from_file<unsigned char>(b, length, f);
+void empty_page_cache(std::string filename) {
+  int fd = open(filename.c_str(), O_RDWR);
+  if (fd == -1) {
+    std::perror(filename.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  off_t length = lseek(fd, 0, SEEK_END);
+  lseek(fd, 0L, SEEK_SET);
+  posix_fadvise(fd, 0, length, POSIX_FADV_DONTNEED);
+  close(fd);
 }
 
-void read_block(std::string fname, long beg, long length, unsigned char *b) {
-  std::FILE *f = open_file(fname.c_str(), "r");
-  read_block(f, beg, length, b);
-  std::fclose(f);
+std::string get_timestamp() {
+  std::time_t result = std::time(NULL);
+  return std::string(std::ctime(&result));
 }
 
-int random_int(int p, int r) {
+std::int32_t random_int32(std::int32_t p, std::int32_t r) {
   return p + rand() % (r - p + 1);
 }
 
-long random_long(long p, long r) {
-  long x = random_int(0, 1000000000);
-  long y = random_int(0, 1000000000);
-  long z = x * 1000000000L + y;
-  return p + z % (r - p + 1);
+std::int64_t random_int64(std::int64_t p, std::int64_t r) {
+  std::uint64_t r30 = RAND_MAX * rand() + rand();
+  std::uint64_t s30 = RAND_MAX * rand() + rand();
+  std::uint64_t t4  = rand() & 0xf;
+  std::uint64_t r64 = (r30 << 34) + (s30 << 4) + t4;
+  return p + r64 % (r - p + 1);
 }
 
-void fill_random_string(unsigned char* &s, long length, int sigma) {
-  for (long i = 0; i < length; ++i)
-    s[i] = random_int(0, sigma - 1);
+void fill_random_string(std::uint8_t* &s,
+    std::uint64_t length, std::uint64_t sigma) {
+  for (std::uint64_t i = 0; i < length; ++i)
+    s[i] = random_int32(0, sigma - 1);
 }
 
-void fill_random_letters(unsigned char* &s, long n, int sigma) {
-  fill_random_string(s, n, sigma);
-  for (long i = 0; i < n; ++i) s[i] += 'a';
+void fill_random_letters(std::uint8_t* &s,
+    std::uint64_t length, std::uint64_t sigma) {
+  fill_random_string(s, length, sigma);
+  for (std::uint64_t i = 0; i < length; ++i)
+    s[i] += 'a';
 }
 
 std::string random_string_hash() {
@@ -145,14 +258,14 @@ std::string random_string_hash() {
   return ss.str();
 }
 
-long log2ceil(long x) {
-  long pow2 = 1, w = 0;
+std::uint64_t log2ceil(std::uint64_t x) {
+  std::uint64_t pow2 = 1, w = 0;
   while (pow2 < x) { pow2 <<= 1; ++w; }
   return w;
 }
 
-long log2floor(long x) {
-  long pow2 = 1, w = 0;
+std::uint64_t log2floor(std::uint64_t x) {
+  std::uint64_t pow2 = 1, w = 0;
   while ((pow2 << 1) <= x) { pow2 <<= 1; ++w; }
   return w;
 }
