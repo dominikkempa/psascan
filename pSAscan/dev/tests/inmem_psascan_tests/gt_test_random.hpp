@@ -12,6 +12,8 @@
 #include "utils.hpp"
 
 
+namespace gt_test_random_private {
+
 template<typename text_offset_type>
 void next(std::uint8_t *text,
     text_offset_type length,
@@ -205,41 +207,4 @@ void test_random(
   delete[] text;
 }
 
-
-int main() {
-  std::srand(std::time(0) + getpid());
-
-  // Redirect stderr to /dev/null
-  int redir = open("/dev/null", O_WRONLY);
-  dup2(redir, 2);
-  close(redir);
-
-  test_random<7> (50, 1000, 5);
-  test_random<12>(50, 1000, 5);
-  test_random<7> (50, 1000, 20);
-  test_random<12>(50, 1000, 20);
-  test_random<7> (50, 1000, 128);
-  test_random<12>(50, 1000, 128);
-  test_random<7> (50, 1000, 255);
-  test_random<12>(50, 1000, 255);
-  
-  test_random<7> (20, 10000, 5);
-  test_random<12>(20, 10000, 5);
-  test_random<7> (20, 10000, 20);
-  test_random<12>(20, 10000, 20);
-  test_random<7> (20, 10000, 128);
-  test_random<12>(20, 10000, 128);
-  test_random<7> (20, 10000, 255);
-  test_random<12>(20, 10000, 255);
-
-  test_random<7> (20, 1000000, 5);
-  test_random<12>(20, 1000000, 5);
-  test_random<7> (20, 1000000, 20);
-  test_random<12>(20, 1000000, 20);
-  test_random<7> (20, 1000000, 128);
-  test_random<12>(20, 1000000, 128);
-  test_random<7> (20, 1000000, 255);
-  test_random<12>(20, 1000000, 255);
-
-  fprintf(stdout, "All tests passed.\n");
-}
+}  // namespace gt_test_random_private

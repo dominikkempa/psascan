@@ -54,8 +54,6 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-// #define BLOCK_MATRIX_MODULE_DEBUG_MODE
-
 inline int lcp_compare(
     const std::uint8_t *text,
     std::uint64_t text_length,
@@ -1082,6 +1080,7 @@ void compute_block_rank_matrix(
         //    range of the next block.
 
 #ifdef BLOCK_MATRIX_MODULE_DEBUG_MODE
+
         // Check that both invariants hold.
         for (std::uint64_t j = next_primary_range_beg;
             j + 1 < next_primary_range_end; ++j) {

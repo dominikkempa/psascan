@@ -18,6 +18,26 @@
 #include "io_streamer.hpp"
 
 
+namespace pgt_test_random_private {
+
+void compute_gt_begin_for_text(
+    const std::uint8_t *supertext,
+    std::uint64_t supertext_length,
+    std::uint64_t text_beg,
+    std::uint64_t text_end,
+    psascan_private::bitvector *text_gt_begin) {
+
+  for (std::uint64_t i = text_beg + 1; i <= text_end; ++i) {
+    std::uint64_t lcp = 0;
+    while (i + lcp < supertext_length &&
+        supertext[i + lcp] == supertext[text_beg + lcp]) ++lcp;
+    
+    if (i + lcp < supertext_length &&
+        supertext[i + lcp] > supertext[text_beg + lcp])
+      text_gt_begin->set(i - text_beg - 1);
+  }
+}
+
 void compute_gt_begin_reversed(
     const std::uint8_t *text,
     std::uint64_t text_length,
@@ -42,19 +62,11 @@ void test(
     std::uint64_t text_end,
     std::uint64_t max_threads) {
 
-  // Sort supertext using divsufsort.
-  long *supertext_sa = (long *)malloc(supertext_length * sizeof(long));
-  divsufsort64(supertext, supertext_sa, supertext_length);
-
-  // Separate the ordering of the suffixes of text (correct answer).
   std::uint64_t text_length = text_end - text_beg;
-  std::uint64_t *correct_answer =
-    (std::uint64_t *)malloc(text_length * sizeof(std::uint64_t));
-  std::uint64_t ptr = 0;
-  for (std::uint64_t i = 0; i < supertext_length; ++i)
-    if (text_beg <= (std::uint64_t)supertext_sa[i] &&
-        (std::uint64_t)supertext_sa[i] < text_end)
-      correct_answer[ptr++] = (std::uint64_t)supertext_sa[i] - text_beg;
+  psascan_private::bitvector *text_gt_begin_correct =
+    new psascan_private::bitvector(text_length);
+  compute_gt_begin_for_text(supertext, supertext_length,
+      text_beg, text_end, text_gt_begin_correct);
 
   // Compute tail_gt_begin_reversed.
   const std::uint8_t *tail = supertext + text_end;
@@ -65,12 +77,12 @@ void test(
   // Store tail_gt_begin_reversed on disk as a multifile bitvector.
   psascan_private::multifile *tail_gt_begin_reversed_multifile =
     new psascan_private::multifile();
-  ptr = 0;
+  std::uint64_t ptr = 0;
   while (ptr < tail_length) {
     std::uint64_t left = tail_length - ptr;
     std::uint64_t chunk = utils::random_int64(1L, left);
    
-    // Store bits [ptr..ptr + chunk) from
+    // Store bits [ptr..ptr+chunk) from
     // tail_gt_begin_reversed_bv into one file.
     std::string chunk_filename =
       "gt_begin_reversed_bv" + utils::random_string_hash();
@@ -98,76 +110,72 @@ void test(
 
   // Run the tested algorithm.
   std::uint8_t *text = supertext + text_beg;
-  std::uint8_t *bwtsa =
-    (std::uint8_t *)malloc(text_length * (1 + sizeof(saidx_t)));
-  saidx_t *computed_sa = (saidx_t *)bwtsa;
-  std::uint8_t *computed_bwt = (std::uint8_t *)(computed_sa + text_length);
+  std::uint8_t *bwtsa = (std::uint8_t *)malloc(
+      text_length * (1 + sizeof(saidx_t)));
+  psascan_private::bitvector *text_gt_begin_computed =
+    new psascan_private::bitvector(text_length);
   std::uint64_t max_blocks = 0;
-  if (utils::random_int64(0, 1)) max_blocks = utils::random_int64(1L, 50L);
-  std::uint64_t computed_i0;
-  inmem_psascan<saidx_t, pagesize_log>(text, text_length,
-      bwtsa, max_threads, true, false, NULL, max_blocks,
+  if (utils::random_int64(0, 1))
+    max_blocks = utils::random_int64(1, 50L);
+  bool compute_bwt = (bool)utils::random_int64(0, 1);
+  inmem_psascan<saidx_t, pagesize_log>(text, text_length, bwtsa,
+      max_threads, compute_bwt, true, text_gt_begin_computed, max_blocks,
       text_beg, text_end, supertext_length, supertext_filename,
-      tail_gt_begin_reversed_multifile, &computed_i0);
-
+      tail_gt_begin_reversed_multifile);
 
 
   // Compare answers.
   bool eq = true;
-  std::uint64_t correct_i0 = 0;
   for (std::uint64_t i = 0; i < text_length; ++i) {
-    std::uint8_t correct_bwt =
-      ((correct_answer[i] == 0) ? 0 : text[correct_answer[i] - 1]);
-    if (computed_bwt[i] != correct_bwt) { eq = false; break; }
-    if (correct_answer[i] == 0) correct_i0 = i;
+    if (text_gt_begin_correct->get(i) !=
+        text_gt_begin_computed->get(text_length - 1 - i)) {
+      eq = false;
+      break;
+    }
   }
-  if (correct_i0 != computed_i0) eq = false;
 
   if (!eq) {
     fprintf(stdout, "Error:\n");
     fprintf(stdout, "\tsupertext_length = %lu\n", supertext_length);
     fprintf(stdout, "\tmax threads = %lu\n", max_threads);
+    fprintf(stderr, "\tmax blocks = %lu\n", max_blocks);
     fprintf(stdout, "\tsupertext = ");
     for (std::uint64_t j = 0; j < supertext_length; ++j)
       fprintf(stdout, "%c", supertext[j]);
     fprintf(stdout, "\n");
     fprintf(stdout, "\ttext_beg = %lu\n", text_beg);
     fprintf(stdout, "\ttext_end = %lu\n", text_end);
-    fprintf(stderr, "\tcorrect i0 = %lu\n", correct_i0);
-    fprintf(stderr, "\tcomputed i0 = %lu\n", computed_i0);
     fprintf(stdout, "\ttail_gt_begin_reversed_bv = ");
     for (std::uint64_t j = 0; j < tail_length; ++j)
       fprintf(stdout, "%lu", (std::uint64_t)tail_gt_begin_reversed_bv.get(j));
     fprintf(stdout, "\n");
-    fprintf(stdout, "\tsupertext sa = ");
-    for (std::uint64_t j = 0; j < supertext_length; ++j)
-      fprintf(stdout, "%lu ", (std::uint64_t)supertext_sa[j]);
-    fprintf(stdout, "\n");
-    fprintf(stdout, "\tcorrect bwt: ");
+    fprintf(stdout, "\tcorrect text_gt_begin: ");
     for (std::uint64_t i = 0; i < text_length; ++i)
-      fprintf(stdout, "%c",
-          ((correct_answer[i] == 0) ? 0 : text[correct_answer[i] - 1]));
+      fprintf(stdout, "%lu", (std::uint64_t)text_gt_begin_correct->get(i));
     fprintf(stdout, "\n");
-    fprintf(stdout, "\tcomputed bwt: ");
+        fprintf(stdout, "\tcomputed text_gt_begin: ");
     for (std::uint64_t i = 0; i < text_length; ++i)
-      fprintf(stdout, "%c", computed_bwt[i]);
+      fprintf(stdout, "%lu", (std::uint64_t)text_gt_begin_computed->get(i));
     fprintf(stdout, "\n");
-    std::fflush(stdout);
     std::fflush(stdout);
 
     std::exit(EXIT_FAILURE);
   }
 
 
-  delete tail_gt_begin_reversed_multifile; // also deletes files
   free(bwtsa);
-  free(correct_answer);
-  free(supertext_sa);
+  delete tail_gt_begin_reversed_multifile; // also deletes files
+  delete text_gt_begin_correct;
+  delete text_gt_begin_computed;  
 }
 
 
 template<typename saidx_t, unsigned pagesize_log>
-void test_random(int testcases, std::uint64_t max_length, int max_sigma) {
+void test_random(
+    int testcases,
+    std::uint64_t max_length,
+    int max_sigma) {
+
   fprintf(stdout,"TEST, testcases = %d, max_n = %lu, "
       "max_sigma = %d, sizeof(saidx_t) = %lu, pagesize_log = %lu\n",
       testcases, max_length, max_sigma,
@@ -175,12 +183,10 @@ void test_random(int testcases, std::uint64_t max_length, int max_sigma) {
   std::uint8_t *supertext = new std::uint8_t[max_length + 1];
 
   for (int tc = 0; tc < testcases; ++tc) {
+
     // Print progress information.
     fprintf(stdout,"%d (%.2Lf%%)\r", tc, (tc * 100.L) / testcases);
     std::fflush(stdout);
-
-
-
 
     // Generate string.
     std::uint64_t supertext_length = utils::random_int64(1, max_length);
@@ -194,7 +200,6 @@ void test_random(int testcases, std::uint64_t max_length, int max_sigma) {
       utils::random_int64(text_beg + 1, supertext_length);
 
 
-
     /*std::uint64_t supertext_length = 325;
     std::uint64_t max_threads = 16;
     supertext[0] = 0;
@@ -204,76 +209,11 @@ void test_random(int testcases, std::uint64_t max_length, int max_sigma) {
 
 
     // Run the test on generated string.
-    test<saidx_t, pagesize_log>(supertext, supertext_length,
-        text_beg, text_end, max_threads);
+    test<saidx_t, pagesize_log>(supertext, supertext_length, text_beg, text_end, max_threads);
   }
 
   // Clean up.
   delete[] supertext;
 }
 
-
-int main() {
-  std::srand(std::time(0) + getpid());
-
-  // Redirect stdout to /dev/null
-  int redir = open("/dev/null", O_WRONLY);
-  dup2(redir, 2);
-  close(redir);
-
-  test_random<uint40, 2>(10000,   10,      5);
-  test_random<uint40, 5>(10000,   10,      5);
-  test_random<uint40, 8>(10000,   10,      5);
-  test_random<uint40, 2>(10000,   10,    255);
-  test_random<uint40, 5>(10000,   10,    255);
-  test_random<uint40, 8>(10000,   10,    255);
-  test_random<int,    2>(10000,   10,      5);
-  test_random<int,    5>(10000,   10,      5);
-  test_random<int,    8>(10000,   10,      5);
-  test_random<int,    2>(10000,   10,    255);
-  test_random<int,    5>(10000,   10,    255);
-  test_random<int,    8>(10000,   10,    255);
-
-  test_random<uint40, 2>(1000,   100,      5);
-  test_random<uint40, 5>(1000,   100,      5);
-  test_random<uint40, 8>(1000,   100,      5);
-  test_random<uint40, 2>(1000,   100,    255);
-  test_random<uint40, 5>(1000,   100,    255);
-  test_random<uint40, 8>(1000,   100,    255);
-  test_random<int,    2>(1000,   100,      5);
-  test_random<int,    5>(1000,   100,      5);
-  test_random<int,    8>(1000,   100,      5);
-  test_random<int,    2>(1000,   100,    255);
-  test_random<int,    5>(1000,   100,    255);
-  test_random<int,    8>(1000,   100,    255);
-
-  test_random<uint40, 2>(200,   1000,      5);
-  test_random<uint40, 5>(200,   1000,      5);
-  test_random<uint40, 8>(200,   1000,      5);
-  test_random<uint40, 2>(200,   1000,    255);
-  test_random<uint40, 5>(200,   1000,    255);
-  test_random<uint40, 8>(200,   1000,    255);
-  test_random<int,    2>(200,   1000,      5);
-  test_random<int,    5>(200,   1000,      5);
-  test_random<int,    8>(200,   1000,      5);
-  test_random<int,    2>(200,   1000,    255);
-  test_random<int,    5>(200,   1000,    255);
-  test_random<int,    8>(200,   1000,    255);
-
-  test_random<uint40, 2>(20,   1000000,      5);
-  test_random<uint40, 5>(20,   1000000,      5);
-  test_random<uint40, 8>(20,   1000000,      5);
-  test_random<uint40, 2>(20,   1000000,    255);
-  test_random<uint40, 5>(20,   1000000,    255);
-  test_random<uint40, 8>(20,   1000000,    255);
-  test_random<int,    2>(20,   1000000,      5);
-  test_random<int,    5>(20,   1000000,      5);
-  test_random<int,    8>(20,   1000000,      5);
-  test_random<int,    2>(20,   1000000,    255);
-  test_random<int,    5>(20,   1000000,    255);
-  test_random<int,    8>(20,   1000000,    255);
-
-  fprintf(stdout,"All tests passed.\n");
-  std::fflush(stdout);
-}
-
+}  // namespace pgt_test_random_private

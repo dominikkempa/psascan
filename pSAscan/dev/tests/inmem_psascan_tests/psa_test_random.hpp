@@ -18,6 +18,8 @@
 #include "io_streamer.hpp"
 
 
+namespace psa_test_random_private {
+
 void compute_gt_begin_reversed(
     const std::uint8_t *text,
     std::uint64_t text_length,
@@ -209,108 +211,4 @@ void test_random(
   delete[] supertext;
 }
 
-
-int main() {
-  std::srand(std::time(0) + getpid());
-
-  // Redirect stdout to /dev/null
-  int redir = open("/dev/null", O_WRONLY);
-  dup2(redir, 2);
-  close(redir);
-  
-
-  test_random<uint40, 2>(1000,   10,      5);
-  test_random<uint40, 5>(1000,   10,      5);
-  test_random<uint40, 8>(1000,   10,      5);
-  test_random<uint40, 2>(1000,   10,    255);
-  test_random<uint40, 5>(1000,   10,    255);
-  test_random<uint40, 8>(1000,   10,    255);
-  test_random<int,    2>(1000,   10,      5);
-  test_random<int,    5>(1000,   10,      5);
-  test_random<int,    8>(1000,   10,      5);
-  test_random<int,    2>(1000,   10,    255);
-  test_random<int,    5>(1000,   10,    255);
-  test_random<int,    8>(1000,   10,    255);
-
-  test_random<uint40, 2>(1000,   50,      5);
-  test_random<uint40, 5>(1000,   50,      5);
-  test_random<uint40, 8>(1000,   50,      5);
-  test_random<uint40, 2>(1000,   50,    255);
-  test_random<uint40, 5>(1000,   50,    255);
-  test_random<uint40, 8>(1000,   50,    255);
-  test_random<int,    2>(1000,   50,      5);
-  test_random<int,    5>(1000,   50,      5);
-  test_random<int,    8>(1000,   50,      5);
-  test_random<int,    2>(1000,   50,    255);
-  test_random<int,    5>(1000,   50,    255);
-  test_random<int,    8>(1000,   50,    255);
-
-  test_random<uint40, 2>(1000,   100,      5);
-  test_random<uint40, 5>(1000,   100,      5);
-  test_random<uint40, 8>(1000,   100,      5);
-  test_random<uint40, 2>(1000,   100,    255);
-  test_random<uint40, 5>(1000,   100,    255);
-  test_random<uint40, 8>(1000,   100,    255);
-  test_random<int,    2>(1000,   100,      5);
-  test_random<int,    5>(1000,   100,      5);
-  test_random<int,    8>(1000,   100,      5);
-  test_random<int,    2>(1000,   100,    255);
-  test_random<int,    5>(1000,   100,    255);
-  test_random<int,    8>(1000,   100,    255);
-
-  test_random<uint40, 2>(200,   1000,      5);
-  test_random<uint40, 5>(200,   1000,      5);
-  test_random<uint40, 8>(200,   1000,      5);
-  test_random<uint40, 2>(200,   1000,    255);
-  test_random<uint40, 5>(200,   1000,    255);
-  test_random<uint40, 8>(200,   1000,    255);
-  test_random<int,    2>(200,   1000,      5);
-  test_random<int,    5>(200,   1000,      5);
-  test_random<int,    8>(200,   1000,      5);
-  test_random<int,    2>(200,   1000,    255);
-  test_random<int,    5>(200,   1000,    255);
-  test_random<int,    8>(200,   1000,    255);
-
-  test_random<int, 1>(1000, 300, 5);
-  test_random<int, 1>(1000, 300, 128);
-  test_random<int, 3>(1000, 300, 5);
-  test_random<int, 3>(1000, 300, 128);
-  test_random<int, 5>(1000, 300, 5);
-  test_random<int, 5>(1000, 300, 128);
-  test_random<int, 12>(1000, 300, 5);
-  test_random<int, 12>(1000, 300, 128);
-  test_random<int, 1>(1000, 300, 255);
-  test_random<int, 3>(1000, 300, 255);
-  test_random<int, 5>(1000, 300, 255);
-  test_random<int, 12>(1000, 300, 255);
-
-  test_random<int, 1>(100, 1000, 5);
-  test_random<int, 1>(100, 1000, 128);
-  test_random<int, 3>(100, 1000, 5);
-  test_random<int, 3>(100, 1000, 128);
-  test_random<int, 5>(100, 1000, 5);
-  test_random<int, 5>(100, 1000, 128);
-  test_random<int, 12>(100, 1000, 5);
-  test_random<int, 12>(100, 1000, 128);
-  test_random<int, 1>(100, 1000, 255);
-  test_random<int, 3>(100, 1000, 255);
-  test_random<int, 5>(100, 1000, 255);
-  test_random<int, 12>(100, 1000, 255);
-
-  test_random<uint40, 2>(20,   1000000,      5);
-  test_random<uint40, 5>(20,   1000000,      5);
-  test_random<uint40, 8>(20,   1000000,      5);
-  test_random<uint40, 2>(20,   1000000,    255);
-  test_random<uint40, 5>(20,   1000000,    255);
-  test_random<uint40, 8>(20,   1000000,    255);
-  test_random<int,    2>(20,   1000000,      5);
-  test_random<int,    5>(20,   1000000,      5);
-  test_random<int,    8>(20,   1000000,      5);
-  test_random<int,    2>(20,   1000000,    255);
-  test_random<int,    5>(20,   1000000,    255);
-  test_random<int,    8>(20,   1000000,    255);
-
-  fprintf(stdout,"All tests passed.\n");
-  std::fflush(stdout);
-}
-
+}  // namespace psa_test_random_private
