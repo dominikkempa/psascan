@@ -56,12 +56,16 @@ namespace inmem_psascan_private {
  *   In Proc. CPM 2014, p. 232-241.
  **/
 
-//==============================================================================
-// Compute range [microblock_beg..microblock_end) of bits in the output
-// bitvector gt_out.
-//==============================================================================
-void gt_end_to_gt_begin_aux(const std::uint8_t *text, std::uint64_t text_length,
-    std::uint64_t block_beg, std::uint64_t block_end, bitvector *gt) {
+//=============================================================================
+// Compute range [block_beg..block_end) of bits in the bitvector gt.
+//=============================================================================
+void gt_end_to_gt_begin_aux(
+    const std::uint8_t *text,
+    std::uint64_t text_length,
+    std::uint64_t block_beg,
+    std::uint64_t block_end,
+    bitvector *gt) {
+
   std::uint64_t block_size = block_end - block_beg;
   const std::uint8_t *pat = text + block_beg, *txt = pat;
 
@@ -70,9 +74,10 @@ void gt_end_to_gt_begin_aux(const std::uint8_t *text, std::uint64_t text_length,
   std::uint64_t rev_end = text_length - block_beg;
 
   while (i < block_size) {
-    // Compute lcp(text[left_block_beg..), text[left_block_beg+i..),
-    // but compare not more than left_block_size symbols (we have gt
-    // to resolve the long comparisons).
+
+    // Compute lcp(text[block_beg..), text[block_beg+i..),
+    // but compare no more than block_size symbols (we
+    // have gt to resolve the long comparisons).
     while (block_beg + i + el < block_end && txt[i + el] == pat[el])
       update_ms(pat, ++el, s, p);
 
@@ -121,31 +126,36 @@ void gt_end_to_gt_begin_aux(const std::uint8_t *text, std::uint64_t text_length,
 //==============================================================================
 // Change gt_end bitvector into gt_begin using string range matching.
 //==============================================================================
-void gt_end_to_gt_begin(const std::uint8_t *text, std::uint64_t text_length,
-    bitvector *gt, std::uint64_t max_block_size) {
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+void gt_end_to_gt_begin(
+    const std::uint8_t *text,
+    std::uint64_t text_length,
+    bitvector *gt,
+    std::uint64_t max_block_size) {
 
-  //----------------------------------------------------------------------------
-  // STEP 1: Compute the last bit in every block.
-  //----------------------------------------------------------------------------
+  std::uint64_t n_blocks =
+    (text_length + max_block_size - 1) / max_block_size;
+
+  // Compute the last bit in every block.
   for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+    std::uint64_t block_end = text_length -
+      (n_blocks - 1 - i) * max_block_size;
     std::uint64_t rev_beg = text_length - block_end;
     gt->flip(rev_beg);
   }
 
-  //----------------------------------------------------------------------------
-  // STEP 2: compute remaining bits in every block.
-  //----------------------------------------------------------------------------
+  // Compute remaining bits in every block.
   std::thread **threads = new std::thread*[n_blocks];
   for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-    std::uint64_t block_beg = (std::uint64_t)std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+    std::uint64_t block_end = text_length -
+      (n_blocks - 1 - i) * max_block_size;
+    std::uint64_t block_beg = (std::uint64_t)std::max(0L,
+        (std::int64_t)block_end - (std::int64_t)max_block_size);
 
     threads[i] = new std::thread(gt_end_to_gt_begin_aux,
         text, text_length, block_beg, block_end, gt);
   }
 
+  // Clean up.
   for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
   for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
   delete[] threads;

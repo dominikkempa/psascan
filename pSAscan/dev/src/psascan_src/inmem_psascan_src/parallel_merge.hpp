@@ -60,11 +60,11 @@ namespace inmem_psascan_private {
  *   J. ACM 53(6), p. 918-936 (2006).
  **/
 
-//==============================================================================
+//=============================================================================
 // Compute the range [res_beg..res_beg+res_size) of the output (i.e., the
 // sequence after merging). The range is guaranteed to be aligned with page
 // boundaries.
-//==============================================================================
+//=============================================================================
 template<typename pagearray_type>
 void parallel_merge_aux(
     const pagearray_type *l_pagearray,
@@ -81,8 +81,14 @@ void parallel_merge_aux(
   typedef typename pagearray_type::value_type value_type;
   static const std::uint32_t pagesize = pagearray_type::pagesize;
 
-  std::uint64_t res_beg = std::max(0L, output->get_page_addr(page_range_beg) - output->m_origin);
-  std::uint64_t res_end = std::min((std::int64_t)output->m_length, output->get_page_addr(page_range_end) - output->m_origin);
+  std::uint64_t res_beg = std::max(
+      (std::int64_t)0,
+      output->get_page_addr(page_range_beg) -
+      output->m_origin);
+  std::uint64_t res_end = std::min(
+      (std::int64_t)output->m_length,
+      output->get_page_addr(page_range_end) -
+      output->m_origin);
   std::uint64_t res_size = res_end - res_beg;
 
   std::uint64_t lpage_read = 0;
@@ -125,10 +131,12 @@ void parallel_merge_aux(
         // We put it into free pages if we read exactly
         // pagesize elements from it. This means the no other
         // thread will attemp to read from it in the future.
-        if (rpage_read == pagesize) freepages.push(r_pagearray->m_pageindex[rpage_id - 1]);
+        if (rpage_read == pagesize)
+          freepages.push(r_pagearray->m_pageindex[rpage_id - 1]);
 
-        // Note: we don't have to check, if the page below exists, because we have
-        // a sentinel page in the page index of every pagearray.
+        // Note: we don't have to check, if the page
+        // below exists, because we have a sentinel
+        // page in the page index of every pagearray.
         rpage = r_pagearray->m_pageindex[rpage_id++];
         rpage_offset = 0;
         rpage_read = 0;
@@ -153,10 +161,12 @@ void parallel_merge_aux(
 
         // We reached the end of page in the left
         // subarray, proceed analogously.
-        if (lpage_read == pagesize) freepages.push(l_pagearray->m_pageindex[lpage_id - 1]);
+        if (lpage_read == pagesize)
+          freepages.push(l_pagearray->m_pageindex[lpage_id - 1]);
 
-        // Note: we don't have to check, if the page below exists, because we have
-        // a sentinel page in the page index of every pagearray.
+        // Note: we don't have to check, if the page
+        // below exists, because we have a sentinel
+        // page in the page index of every pagearray.
         lpage = l_pagearray->m_pageindex[lpage_id++];
         lpage_offset = 0;
         lpage_read = 0;
@@ -174,24 +184,33 @@ void parallel_merge_aux(
 }
 
 template<typename pagearray_type>
-pagearray_type *parallel_merge(pagearray_type *l_pagearray,
-    pagearray_type *r_pagearray, const inmem_gap_array *gap, std::uint64_t max_threads,
-    std::uint64_t i0, std::uint64_t &aux_result, std::uint64_t what_to_add) {
+pagearray_type *parallel_merge(
+    pagearray_type *l_pagearray,
+    pagearray_type *r_pagearray,
+    const inmem_gap_array *gap,
+    std::uint64_t max_threads,
+    std::uint64_t i0,
+    std::uint64_t &aux_result,
+    std::uint64_t what_to_add) {
+
   static const std::uint32_t pagesize_log = pagearray_type::pagesize_log;
   static const std::uint32_t pagesize = pagearray_type::pagesize;
   typedef typename pagearray_type::value_type value_type;
   typedef pagearray<value_type, pagesize_log> output_type;
 
-  //----------------------------------------------------------------------------
-  // STEP 1: compute the initial parameters for each thread.
-  //----------------------------------------------------------------------------
+  // Compute the initial parameters for each thread.
   fprintf(stderr, "queries: ");
   long double start = utils::wclock();
-  std::uint64_t length = l_pagearray->m_length + r_pagearray->m_length;
+  std::uint64_t length =
+    l_pagearray->m_length +
+    r_pagearray->m_length;
   std::uint64_t n_pages = (length + pagesize - 1) / pagesize;
-  std::uint64_t pages_per_thread = (n_pages + max_threads - 1) / max_threads;
-  std::uint64_t n_threads = (n_pages + pages_per_thread - 1) / pages_per_thread;
-  output_type *result = new output_type(l_pagearray->m_origin, length);
+  std::uint64_t pages_per_thread =
+    (n_pages + max_threads - 1) / max_threads;
+  std::uint64_t n_threads =
+    (n_pages + pages_per_thread - 1) / pages_per_thread;
+  output_type *result =
+    new output_type(l_pagearray->m_origin, length);
 
   std::uint64_t *left_idx = new std::uint64_t[n_threads];
   std::uint64_t *right_idx = new std::uint64_t[n_threads];
@@ -203,16 +222,19 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   std::uint64_t *gap_answer_b = new std::uint64_t[n_threads];
   for (std::uint64_t i = 0; i < n_threads; ++i) {
     std::uint64_t page_range_beg = i * pages_per_thread;
-    std::uint64_t res_beg = (std::uint64_t)std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
+    std::uint64_t res_beg = std::max((std::int64_t)0,
+        result->get_page_addr(page_range_beg) - result->m_origin);
     gap_query[i] = res_beg;
   }
 
   // Answer these queries in parallel and convert the answers
   // to left_idx, right_idx and remaining_gap values.
-  aux_result = gap->answer_queries(n_threads, gap_query, gap_answer_a, gap_answer_b, max_threads, i0);
+  aux_result = gap->answer_queries(n_threads, gap_query,
+      gap_answer_a, gap_answer_b, max_threads, i0);
   for (std::uint64_t i = 0; i < n_threads; ++i) {
     std::uint64_t page_range_beg = i * pages_per_thread;
-    std::uint64_t res_beg = (std::uint64_t)std::max(0L, result->get_page_addr(page_range_beg) - result->m_origin);
+    std::uint64_t res_beg = std::max((std::int64_t)0,
+        result->get_page_addr(page_range_beg) - result->m_origin);
     std::uint64_t j = gap_answer_a[i], s = gap_answer_b[i];
     left_idx[i] = j;
     right_idx[i] = res_beg - j;
@@ -223,16 +245,15 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
   delete[] gap_answer_b;
   fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
 
-  //----------------------------------------------------------------------------
-  // STEP 2: merge the arrays.
-  //----------------------------------------------------------------------------
+  // Merge the arrays.
   fprintf(stderr, "merge: ");
   start = utils::wclock();
 
   std::thread **threads = new std::thread*[n_threads];
   for (std::uint64_t t = 0; t < n_threads; ++t) {
     std::uint64_t page_range_beg = t * pages_per_thread;
-    std::uint64_t page_range_end = std::min(page_range_beg + pages_per_thread, n_pages);
+    std::uint64_t page_range_end =
+      std::min(page_range_beg + pages_per_thread, n_pages);
 
     threads[t] = new std::thread(parallel_merge_aux<pagearray_type>,
         l_pagearray, r_pagearray, result, gap,  left_idx[t], right_idx[t],
@@ -254,7 +275,8 @@ pagearray_type *parallel_merge(pagearray_type *l_pagearray,
     std::uint64_t size = length % pagesize;
     value_type *src = result->m_pageindex[0];
     value_type *dest = result->get_page_addr(0);
-    std::copy(src + pagesize - size, src + pagesize, dest + pagesize - size);
+    std::copy(src + pagesize - size,
+        src + pagesize, dest + pagesize - size);
     result->m_pageindex[0] = dest;
     usedpage[0] = true;
 

@@ -4,7 +4,8 @@ CC = $(CXX)
 CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x -march=native -DBLOCK_MATRIX_MODULE_DEBUG_MODE
 #CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x -DBLOCK_MATRIX_MODULE_DEBUG_MODE
 
-all: test_random sa_test_file psa_test_file bwt_test_file pbwt_test_file gt_test_file pgt_test_file multi_test_file
+#all: test_random sa_test_file psa_test_file bwt_test_file pbwt_test_file gt_test_file pgt_test_file multi_test_file
+all: test_random
 
 test_random:
 	$(CC) $(CFLAGS) -o test_random test_random_main.cpp utils.cpp ../../src/psascan_src/utils.cpp -fopenmp -ldivsufsort -ldivsufsort64

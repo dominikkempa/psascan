@@ -42,6 +42,7 @@
 #include <algorithm>
 
 #include "../bitvector.hpp"
+#include "../utils.hpp"
 #include "../io/multifile.hpp"
 #include "../io/background_block_reader.hpp"
 #include "inmem_gap_array.hpp"
@@ -61,7 +62,7 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-//==============================================================================
+//=============================================================================
 // We assume sa is already allocated.
 //
 // What should be done is some kind of optimization to the initial gt
@@ -69,7 +70,7 @@ namespace inmem_psascan_private {
 // also that the last block is not renamed and so on. The end result should
 // be, that when used with one thread, the procedure simply runs divsufsort
 // and there is no overhead of running this function over running divsufsort.
-//==============================================================================
+//=============================================================================
 template<typename text_offset_type, unsigned pagesize_log = 12>
 void inmem_psascan(
     std::uint8_t *text,
@@ -87,14 +88,17 @@ void inmem_psascan(
     const multifile *tail_gt_begin_reversed = NULL,
     std::uint64_t *i0 = NULL,
     std::uint8_t *tail_prefix_preread = NULL) {
+
   static const std::uint32_t pagesize = (1U << pagesize_log);
   long double absolute_start = utils::wclock();
-  long double start;
+  long double start = (long double)0;
 
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length) {
-    fprintf(stderr, "\n\nError: text is too long (%lu bytes),\n", text_length);
-    fprintf(stderr, "       std::numeric_limits<text_offset_type>::max() = %lu\n",
-        (std::uint64_t)std::numeric_limits<text_offset_type>::max());
+  std::uint64_t max_text_offset_type =
+    std::numeric_limits<text_offset_type>::max();
+  if (max_text_offset_type < text_length) {
+    fprintf(stderr, "\n\nError: text is too long (%lu bytes),\n"
+        "       std::numeric_limits<text_offset_type>::max() = %lu\n",
+        text_length, max_text_offset_type);
     std::exit(EXIT_FAILURE);
   }
 
@@ -112,28 +116,35 @@ void inmem_psascan(
   bool has_tail = (text_end != supertext_length);
 
   if (!has_tail && tail_prefix_preread != NULL) {
-    fprintf(stderr, "\n\nError: has_tail == false but tail_prefix_preread != NULL\n");
+    fprintf(stderr, "\n\nError: has_tail == false "
+        "but tail_prefix_preread != NULL\n");
     std::exit(EXIT_FAILURE);
   }
 
-  // long max_block_size = (text_length + max_blocks - 1) / max_blocks;
-  // while ((max_block_size & 7) || (max_block_size & pagesize_mask)) ++max_block_size;
-  // long n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  // std::uint64_t max_block_size =
+  //   (text_length + max_blocks - 1) / max_blocks;
+  // while ((max_block_size & 7) ||
+  //     (max_block_size & pagesize_mask))
+  //   ++max_block_size;
+  // std::uint64_t n_blocks =
+  //   (text_length + max_block_size - 1) / max_block_size;
 
-  //----------------------------------------------------------------------------
-  // min_block_size must be a multiple ot alignment unit. Alignement unit is to
-  // simplify the computation involving bitvectors and page arrays. Note: it
-  // may happen then min_block_size > text_length. This is perfectly fine due
-  // to the way we compute block boundaries (always separate if for the last
-  // block).
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
+  // min_block_size must be a multiple ot alignment unit. Alignement
+  // unit is to simplify the computation involving bitvectors and page
+  // arrays. Note: it may happen then min_block_size > text_length. This
+  // is perfectly fine due to the way we compute block boundaries (always
+  // separate if for the last block).
+  //---------------------------------------------------------------------------
 
   std::uint64_t alignment_unit = std::max(pagesize, 8U);
   std::uint64_t max_block_size = (text_length + max_blocks - 1) / max_blocks;
-  while ((max_block_size & (alignment_unit - 1)) && max_block_size < text_length)
+  while ((max_block_size & (alignment_unit - 1)) &&
+      max_block_size < text_length)
     ++max_block_size;
 
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks =
+    (text_length + max_block_size - 1) / max_block_size;
 
   if (!compute_gt_begin) {
     if (gt_begin) {
@@ -144,24 +155,31 @@ void inmem_psascan(
       gt_begin = new bitvector(text_length);
   } else {
     if (!gt_begin) {
-      fprintf(stderr, "inmem_sascan: gt_begin was requested but is not allocated!\n");
+      fprintf(stderr, "inmem_sascan: gt_begin was "
+          "requested but is not allocated!\n");
       std::exit(EXIT_FAILURE);
     }
   }
 
-  fprintf(stderr, "Text length = %lu (%.2LfMiB)\n", text_length, text_length / (1024.L * 1024));
-  fprintf(stderr, "Max block size = %lu (%.2LfMiB)\n", max_block_size, max_block_size / (1024.L * 1024));
+  fprintf(stderr, "Text length = %lu (%.2LfMiB)\n",
+      text_length, text_length / (1024.L * 1024));
+  fprintf(stderr, "Max block size = %lu (%.2LfMiB)\n",
+      max_block_size, max_block_size / (1024.L * 1024));
   fprintf(stderr, "Max blocks = %lu\n", max_blocks);
   fprintf(stderr, "Number of blocks = %ld\n", n_blocks);
   fprintf(stderr, "Max threads = %lu\n", max_threads);
-  fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
+  fprintf(stderr, "sizeof(text_offset_type) = %lu\n",
+      sizeof(text_offset_type));
   fprintf(stderr, "Pagesize = %u\n", (1U << pagesize_log));
   fprintf(stderr, "Compute bwt = %s\n", compute_bwt ? "true" : "false");
-  fprintf(stderr, "Compute gt begin = %s\n", compute_gt_begin ? "true" : "false");
+  fprintf(stderr, "Compute gt begin = %s\n",
+      compute_gt_begin ? "true" : "false");
   fprintf(stderr, "Text beg = %lu\n", text_beg);
   fprintf(stderr, "Text end = %lu\n", text_end);
-  fprintf(stderr, "Supertext length = %lu (%.2LfMiB)\n", supertext_length, supertext_length / (1024.L * 1024));
-  fprintf(stderr, "Supertext filename = %s\n", supertext_filename.c_str());
+  fprintf(stderr, "Supertext length = %lu (%.2LfMiB)\n",
+      supertext_length, supertext_length / (1024.L * 1024));
+  fprintf(stderr, "Supertext filename = %s\n",
+      supertext_filename.c_str());
   fprintf(stderr, "Has tail = %s\n", has_tail ? "true" : "false");
   fprintf(stderr, "\n");
 
@@ -174,28 +192,31 @@ void inmem_psascan(
   background_block_reader *tail_prefix_background_reader = NULL;
   if (has_tail && tail_prefix_preread == NULL)
     tail_prefix_background_reader =
-      new background_block_reader(supertext_filename, text_end, tail_prefix_length);
+      new background_block_reader(supertext_filename,
+          text_end, tail_prefix_length);
 
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   // STEP 1: compute initial bitvectors, and partial suffix arrays.
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   if (n_blocks > 1 || compute_gt_begin || has_tail) {
     fprintf(stderr, "Compute initial bitvectors:\n");
     start = utils::wclock();
-    compute_initial_gt_bitvectors(text, text_length, gt_begin, max_block_size,
-        max_threads, text_end, supertext_length, tail_gt_begin_reversed,
-        tail_prefix_background_reader, tail_prefix_preread);
+    compute_initial_gt_bitvectors(text, text_length, gt_begin,
+        max_block_size, max_threads, text_end, supertext_length,
+        tail_gt_begin_reversed, tail_prefix_background_reader,
+        tail_prefix_preread);
     fprintf(stderr, "Total time: %.2Lfs\n\n", utils::wclock() - start);
   }
 
   fprintf(stderr, "Initial sufsort:\n");
   start = utils::wclock();
-  initial_partial_sufsort(text, text_length, gt_begin, bwtsa, max_block_size, max_threads, has_tail);
+  initial_partial_sufsort(text, text_length, gt_begin,
+      bwtsa, max_block_size, max_threads, has_tail);
   fprintf(stderr, "Total time: %.2Lfs\n\n", utils::wclock() - start);
 
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   // STEP 2: compute matrix of block ranks.
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   fprintf(stderr, "Compute matrix of initial ranks: ");
   start = utils::wclock();
   std::uint64_t **block_rank_matrix = new std::uint64_t*[n_blocks];
@@ -205,7 +226,8 @@ void inmem_psascan(
       max_block_size, text_beg, supertext_length, tail_gt_begin_reversed,
       tail_prefix_background_reader, tail_prefix_preread, block_rank_matrix);
 
-  // Stop reading next block in the background or free memory taken by next block.
+  // Stop reading next block in the background
+  // or free memory taken by next block.
   if (has_tail) {
     if (tail_prefix_background_reader != NULL) {
       tail_prefix_background_reader->stop();
@@ -215,10 +237,10 @@ void inmem_psascan(
 
   fprintf(stderr, "%.2Lfs\n\n", utils::wclock() - start);
 
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   // STEP 3: compute the gt bitvectors for blocks that will be on the right
   //         side during the merging.
-  //----------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   if (n_blocks > 1 || compute_gt_begin) {
     fprintf(stderr, "Overwrite gt_end with gt_begin: ");
     start = utils::wclock();
@@ -227,35 +249,45 @@ void inmem_psascan(
   }
 
   float rl_ratio = 10.L;  // estimated empirically
-  // Note that 9n for the 32-bit version and 10n for 40-bit version are the most reasonable
-  // space usages we can get. In the worst case there are two blocks, thus during the
-  // merging the rank + gap array for the left block will take 2.5n. This added to the 7.125n
-  // (for 40-bit) and 6.125n (for 32-bit) gives 9.6125n and 8.625n space usages.
+
+  // Note that 9n for the 32-bit version and 10n for 40-bit version
+  // are the most reasonable space usages we can get. In the worst
+  // case there are two blocks, thus during the merging the rank +
+  // gap array for the left block will take 2.5n. This added to the
+  // 7.125n (for 40-bit) and 6.125n (for 32-bit) gives 9.6125n and
+  // 8.625n space usages.
   std::uint64_t max_ram_usage_per_input_byte = 10L;  // peak ram usage = 10n
   std::uint32_t max_left_size = (std::uint32_t)std::max(1,
-      (std::int32_t)floor(n_blocks * (((long double)max_ram_usage_per_input_byte - (2.125L + sizeof(text_offset_type))) / 5.L)));
+      (std::int32_t)floor(n_blocks *
+        (((long double)max_ram_usage_per_input_byte -
+          (2.125L + sizeof(text_offset_type))) / 5.L)));
+
   fprintf(stderr, "Assumed rl_ratio: %.2f\n", rl_ratio);
   fprintf(stderr, "Max left size = %u\n", max_left_size);
   fprintf(stderr, "Peak memory usage during last merge = %.3Lfn\n",
-      (2.125L + sizeof(text_offset_type)) + (5.L * max_left_size) / n_blocks);
+      (2.125L + sizeof(text_offset_type)) +
+      (5.L * max_left_size) / n_blocks);
   MergeSchedule schedule(n_blocks, rl_ratio, max_left_size);
 
   fprintf(stderr, "Skewed merge schedule:\n");
   print_schedule(schedule, n_blocks);
   fprintf(stderr, "\n");
 
-  std::int64_t *i0_array = new std::int64_t[n_blocks];
+  std::uint64_t *i0_array = new std::uint64_t[n_blocks];
   if (n_blocks > 1 || compute_bwt) {
     for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - block_id) * max_block_size;
-      std::uint64_t block_beg = (std::uint64_t)std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end = text_length -
+        (n_blocks - 1 - block_id) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       if (block_id + 1 != n_blocks || compute_bwt) {
         fprintf(stderr, "Compute BWT for block %ld: ", block_id + 1);
         long double bwt_start = utils::wclock();
-        compute_bwt_in_bwtsa<text_offset_type>(text + block_beg, block_size,
-            bwtsa + block_beg, max_threads, i0_array[block_id]);
+        compute_bwt_in_bwtsa<text_offset_type>(
+            text + block_beg, block_size,
+            bwtsa + block_beg, i0_array[block_id]);
         fprintf(stderr, "%.2Lfs\n", utils::wclock() - bwt_start);
       }
     }
@@ -263,13 +295,15 @@ void inmem_psascan(
   }
 
   if (n_blocks > 1) {
-    std::uint64_t i0_result;
+    std::uint64_t i0_result = 0;
     pagearray<bwtsa_t<text_offset_type>, pagesize_log> *result =
-      inmem_bwtsa_merge<text_offset_type, pagesize_log>(text, text_length, bwtsa,
-          gt_begin, max_block_size, 0, n_blocks, max_threads, compute_gt_begin,
-          compute_bwt, i0_result, schedule, text_beg, text_end,
-          supertext_length, supertext_filename, tail_gt_begin_reversed,
-          i0_array, block_rank_matrix);
+      inmem_bwtsa_merge<text_offset_type, pagesize_log>(
+          text, text_length, bwtsa, gt_begin, max_block_size,
+          0, n_blocks, max_threads, compute_gt_begin, compute_bwt,
+          i0_result, schedule, text_beg, text_end, supertext_length,
+          supertext_filename, tail_gt_begin_reversed, i0_array,
+          block_rank_matrix);
+
     if (i0) *i0 = i0_result;
 
     // Permute SA to plain array.
@@ -280,8 +314,10 @@ void inmem_psascan(
 
     delete result;
   } else if (compute_bwt) {
-    if (i0) *i0 = i0_array[0];
+    if (i0)
+      *i0 = i0_array[0];
   }
+
   delete[] i0_array;
   for (std::uint64_t j = 0; j < n_blocks; ++j)
     delete[] block_rank_matrix[j];
@@ -298,7 +334,7 @@ void inmem_psascan(
     // Allocate aux, copy bwt into aux.
     fprintf(stderr, "Copy bwtsa.bwt into aux memory: ");
     start = utils::wclock();
-    bwt = (std::uint8_t *)malloc(text_length);
+    bwt = utils::allocate_array<std::uint8_t>(text_length);
 
 #ifdef _OPENMP
     #pragma omp parallel for
@@ -316,7 +352,9 @@ void inmem_psascan(
   fprintf(stderr, "Shrink bwtsa.sa into sa: ");
   start = utils::wclock();
 
-  parallel_shrink<bwtsa_t<text_offset_type>, text_offset_type>(bwtsa, text_length, max_threads);
+  typedef bwtsa_t<text_offset_type> bwtsa_type;
+  parallel_shrink<bwtsa_type, text_offset_type>(
+      bwtsa, text_length, max_threads);
 
   fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
 
@@ -325,7 +363,9 @@ void inmem_psascan(
     // Copy from aux into the end of bwtsa.
     fprintf(stderr, "Copy bwt from aux memory to the end of bwtsa: ");
     start = utils::wclock();
-    std::uint8_t *dest = (std::uint8_t *)(((text_offset_type *)bwtsa) + text_length);
+    std::uint8_t *dest =
+      (std::uint8_t *)(((text_offset_type *)bwtsa) + text_length);
+
 #ifdef _OPENMP
     #pragma omp parallel for
     for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -336,7 +376,7 @@ void inmem_psascan(
       dest[j] = bwt[j];
 #endif
 
-    free(bwt);
+    utils::deallocate(bwt);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -344,7 +384,8 @@ void inmem_psascan(
   fprintf(stderr, "\n\nComputation finished. Summary:\n");
   fprintf(stderr, "  elapsed time: %.2Lfs (%.4Lfs/MiB)\n", total_sascan_time,
       total_sascan_time / ((long double)text_length / (1 << 20)));
-  fprintf(stderr, "  speed: %.2LfMiB/s\n", ((long double)text_length / (1 << 20)) / total_sascan_time);
+  fprintf(stderr, "  speed: %.2LfMiB/s\n",
+      ((long double)text_length / (1 << 20)) / total_sascan_time);
 }
 
 }  // namespace inmem_psascan_private

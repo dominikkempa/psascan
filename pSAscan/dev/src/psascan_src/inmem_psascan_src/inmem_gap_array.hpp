@@ -73,58 +73,89 @@ class inmem_gap_array {
     //    gapsum[i] = gap[0] + .. + gap[i * block_size - 1].
     //
     //=========================================================================
-    static void answer_single_gap_query(const inmem_gap_array *gap,
-        std::uint64_t block_size, const std::uint64_t *gapsum, std::uint64_t a,
-        std::uint64_t &b, std::uint64_t &c) {
-      std::uint64_t n_blocks = (gap->m_length + block_size - 1) / block_size;
+    static void answer_single_gap_query(
+        const inmem_gap_array *gap,
+        std::uint64_t block_size,
+        const std::uint64_t *gapsum,
+        std::uint64_t a,
+        std::uint64_t &b,
+        std::uint64_t &c) {
 
-      // Find the block containing the correct index. To do that  find the largest
-      // j such that gapsum[j] + block_size * j - 1 < a and start searching from
-      // j * block_size.
+      std::uint64_t n_blocks =
+        (gap->m_length + block_size - 1) / block_size;
+
+      // Find the block containing the correct index.
+      // To do that find the largest j such that
+      // gapsum[j] + block_size * j - 1 < a and start
+      // searching from j * block_size.
       std::uint64_t j = 0;
-      while (j + 1 < n_blocks && gapsum[j + 1] + block_size * (j + 1) < a + 1) ++j;
+      while (j + 1 < n_blocks &&
+          gapsum[j + 1] + block_size * (j + 1) < a + 1) ++j;
 
-      // Invariant: the j we are searching for is > j * block_size - 1.
+      // Invariant: the j we are searching
+      // for is > j * block_size - 1.
 
       std::uint64_t sum = gapsum[j];
       j = block_size * j;
-      std::uint64_t excess_ptr = std::lower_bound(gap->m_excess.begin(),
-          gap->m_excess.end(), j) - gap->m_excess.begin();
+      std::uint64_t excess_ptr =
+        std::lower_bound(gap->m_excess.begin(),
+            gap->m_excess.end(), j) - gap->m_excess.begin();
       while (true) {
 
         // Invariant: sum = gap[0] + .. + gap[j - 1].
-        // Compute gap[j] using small gap array representation.
+        // Compute gap[j] using small gap array
+        // representation.
         std::uint64_t gap_j = gap->m_count[j];
-        while (excess_ptr < gap->m_excess.size() && gap->m_excess[excess_ptr] == j) {
+        while (excess_ptr < gap->m_excess.size() &&
+            gap->m_excess[excess_ptr] == j) {
           gap_j += 256;
           ++excess_ptr;
         }
 
-        if (j + sum + gap_j >= a) { b = j; c = sum + gap_j; return; }
-        else { sum += gap_j; ++j; }
+        if (j + sum + gap_j >= a) {
+          b = j;
+          c = sum + gap_j;
+          return;
+        } else {
+          sum += gap_j;
+          ++j;
+        }
       }
     }
 
     //=========================================================================
     // Compute gap[0] + gap[1] + .. + gap[j - 1] with the help of gapsum array.
     //=========================================================================
-    static std::uint64_t compute_sum3(const inmem_gap_array *gap, std::uint64_t j,
-        std::uint64_t max_block_size, std::uint64_t *gapsum) {
+    static std::uint64_t compute_sum3(
+        const inmem_gap_array *gap,
+        std::uint64_t j,
+        std::uint64_t max_block_size,
+        std::uint64_t *gapsum) {
 
       // Invariant: j > 0.
-      if (j <= 0) {  // XXX delete this check for release
+      if (j == 0) {
         fprintf(stderr, "\nError: j <= 0 in compute_sum3\n");
         std::exit(EXIT_FAILURE);
       }
 
       std::uint64_t block_id = j / max_block_size;
       std::uint64_t result = gapsum[block_id];
-
       std::uint64_t scan_beg = block_id * max_block_size;
       std::uint64_t scan_end = j;
-      std::uint64_t occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), scan_end - 1)
-               - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), scan_beg);
-      result += 256UL * std::max(0UL, occ);
+      std::int64_t occ =  // XXX really needed signed int?
+        std::upper_bound(
+            gap->m_excess.begin(),
+            gap->m_excess.end(),
+            scan_end - 1) -
+        std::lower_bound(
+            gap->m_excess.begin(),
+            gap->m_excess.end(),
+            scan_beg);
+
+      result +=
+        (std::uint64_t)256 *
+        (std::uint64_t)std::max((std::int64_t)0, occ);
+
       for (std::uint64_t i = block_id * max_block_size; i < j; ++i)
         result += gap->m_count[i];
 
@@ -135,25 +166,40 @@ class inmem_gap_array {
     // Compute sum of gap values for blocks in range [range_beg..range_end).
     // The sum for each block is stored in gapsum array.
     //=========================================================================
-    static void compute_sum2(const inmem_gap_array *gap, std::uint64_t range_beg,
-        std::uint64_t range_end, std::uint64_t max_block_size, std::uint64_t *gapsum) {
-      for (std::uint64_t block_id = range_beg; block_id < range_end; ++block_id) {
+    static void compute_sum2(
+        const inmem_gap_array *gap,
+        std::uint64_t range_beg,
+        std::uint64_t range_end,
+        std::uint64_t max_block_size,
+        std::uint64_t *gapsum) {
+
+      for (std::uint64_t block_id = range_beg;
+          block_id < range_end; ++block_id) {
         std::uint64_t block_beg = block_id * max_block_size;
-        std::uint64_t block_end = std::min(block_beg + max_block_size, gap->m_length);
+        std::uint64_t block_end =
+          std::min(block_beg + max_block_size, gap->m_length);
 
         // Invariant: block_end > 0.
-        if (block_end <= 0) {  // XXX remove for relase
+        if (block_end == 0) {
           fprintf(stderr, "\nblock_end <= 0 in compute_sum2\n");
           std::exit(EXIT_FAILURE);
         }
 
         // Process block.
-        std::uint64_t occ = std::upper_bound(gap->m_excess.begin(), gap->m_excess.end(), block_end - 1)
-                 - std::lower_bound(gap->m_excess.begin(), gap->m_excess.end(), block_beg);
-        std::uint64_t block_gap_sum = 256UL * std::max(0UL, occ);
+        std::int64_t occ =
+          std::upper_bound(
+              gap->m_excess.begin(),
+              gap->m_excess.end(),
+              block_end - 1) -
+          std::lower_bound(
+              gap->m_excess.begin(),
+              gap->m_excess.end(),
+              block_beg);
+        std::uint64_t block_gap_sum =
+          (std::uint64_t)256 *
+          (std::uint64_t)std::max((std::int64_t)0, occ);
         for (std::uint64_t j = block_beg; j < block_end; ++j)
           block_gap_sum += gap->m_count[j];
-
         gapsum[block_id] = block_gap_sum;
       }
     }
@@ -164,24 +210,33 @@ class inmem_gap_array {
     //   - the answer to i-th query is stored in b[i]
     //   - in addition we also return gap[0] + .. + gap[j] in c[i]
     //
-    // To do that we first split the gap array into blocks of size of about
-    // length / max_threads and (in parallel) compute sums of gap values inside
-    // these blocks. We the accumulate these sums into array of prefix sums.
+    // To do that we first split the gap array into blocks of size of
+    // about length / max_threads and (in parallel) compute sums of gap
+    // values inside these blocks. We the accumulate these sums into
+    // array of prefix sums.
     //
-    // To answer each of the queries we start a separate thread. Each thread uses
-    // the partial sums of gap array at block boundaries to find a good starting
-    // point for search and then scans the gap array from there.
+    // To answer each of the queries we start a separate thread. Each
+    // thread uses the partial sums of gap array at block boundaries to
+    // find a good starting point for search and then scans the gap array
+    // from there.
     //=========================================================================
-    std::int64_t answer_queries(std::uint64_t n_queries, const std::uint64_t *a,
-        std::uint64_t *b, std::uint64_t *c, std::uint64_t max_threads,
-        std::int64_t i0) const {
+    std::uint64_t answer_queries(
+        std::uint64_t n_queries,
+        const std::uint64_t *a,
+        std::uint64_t *b,
+        std::uint64_t *c,
+        std::uint64_t max_threads,
+        std::uint64_t i0) const {
 
       //-----------------------------------------------------------------------
       // STEP 1: split gap array into at most max_threads blocks
       // and in parallel compute sum of values inside each block.
       //-----------------------------------------------------------------------
-      std::uint64_t max_block_size = std::min(4UL << 20, (m_length + max_threads - 1) / max_threads);
-      std::uint64_t n_blocks = (m_length + max_block_size - 1) / max_block_size;
+      std::uint64_t max_block_size = std::min(
+          ((std::uint64_t)4) << 20,
+          (m_length + max_threads - 1) / max_threads);
+      std::uint64_t n_blocks =
+        (m_length + max_block_size - 1) / max_block_size;
       std::uint64_t *gapsum = new std::uint64_t[n_blocks];
   
       // Each thread handles range of blocks.
@@ -199,29 +254,29 @@ class inmem_gap_array {
       for (std::uint64_t i = 0; i < n_ranges; ++i) delete threads[i];
       delete[] threads;
 
-      //-----------------------------------------------------------------------
-      // STEP 2: compute partial sum from block counts.
-      //-----------------------------------------------------------------------
-      for (std::uint64_t i = 0, s = 0, t; i < n_blocks; ++i)
-        { t = gapsum[i]; gapsum[i] = s; s += t; }
+      // Compute partial sum from block counts.
+      for (std::uint64_t i = 0, s = 0, t; i < n_blocks; ++i) {
+        t = gapsum[i];
+        gapsum[i] = s;
+        s += t;
+      }
 
-      //-----------------------------------------------------------------------
-      // STEP 3: Answer the queries in parallel.
-      //-----------------------------------------------------------------------
+      // Answer the queries in parallel.
       threads = new std::thread*[n_queries];
       for (std::uint64_t i = 0; i < n_queries; ++i)
-        threads[i] = new std::thread(answer_single_gap_query, this,
-          max_block_size, gapsum, a[i], std::ref(b[i]), std::ref(c[i]));
+        threads[i] = new std::thread(
+            answer_single_gap_query,
+            this, max_block_size, gapsum,
+            a[i], std::ref(b[i]), std::ref(c[i]));
+
       for (std::uint64_t i = 0; i < n_queries; ++i) threads[i]->join();
       for (std::uint64_t i = 0; i < n_queries; ++i) delete threads[i];
       delete[] threads;
 
-      std::int64_t result = -1;
-      if (i0 != -1) 
-        result = compute_sum3(this, i0 + 1, max_block_size, gapsum);
-  
+      std::uint64_t result =
+        compute_sum3(this, i0 + 1, max_block_size, gapsum);
+
       delete[] gapsum;
-  
       return result;
     }
 };

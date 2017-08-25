@@ -47,18 +47,25 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-//==============================================================================
+//=============================================================================
 // Rename the given block using its gt bitvector.
-//==============================================================================
-void rename_block(std::uint8_t *text, std::uint64_t text_length, std::uint64_t block_beg,
-    std::uint64_t block_length, bitvector *gt, bool &renaming_error) {
+//=============================================================================
+void rename_block(
+    std::uint8_t *text,
+    std::uint64_t text_length,
+    std::uint64_t block_beg,
+    std::uint64_t block_length,
+    bitvector *gt,
+    bool &renaming_error) {
+
   std::uint64_t block_end = block_beg + block_length;
   std::uint64_t beg_rev = text_length - block_end;
   std::uint8_t *block = text + block_beg;
   std::uint8_t last = block[block_length - 1];
   bool err = false;
   for (std::uint64_t i = 0; i + 1 < block_length; ++i)
-    if (block[i] > last || (block[i] == last && gt->get(beg_rev + i + 1))) {
+    if (block[i] > last ||
+        (block[i] == last && gt->get(beg_rev + i + 1))) {
       if (block[i] == 255)
         err = true;
       ++block[i];
@@ -71,9 +78,9 @@ void rename_block(std::uint8_t *text, std::uint64_t text_length, std::uint64_t b
     renaming_error = true;
 }
 
-//==============================================================================
+//=============================================================================
 // Re-rename block back to original.
-//==============================================================================
+//=============================================================================
 void rerename_block(std::uint8_t *block, std::uint64_t block_length) {
   std::uint8_t last = block[block_length - 1] - 1;
   for (std::uint64_t i = 0; i < block_length; ++i)
@@ -84,19 +91,32 @@ void rerename_block(std::uint8_t *block, std::uint64_t block_length) {
 // Given gt bitvectors, compute partial suffix arrays of blocks.
 //==============================================================================
 template<typename block_offset_type>
-void initial_partial_sufsort(std::uint8_t *, std::uint64_t, bitvector *,
-    bwtsa_t<block_offset_type> *, std::uint64_t, std::uint64_t, bool) {
-  fprintf(stderr, "\n\nError: initial_partial_sufsort: given block_offset_type is "
-      "not supported, sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
+void initial_partial_sufsort(
+    std::uint8_t *,
+    std::uint64_t,
+    bitvector *,
+    bwtsa_t<block_offset_type> *,
+    std::uint64_t,
+    std::uint64_t, bool) {
+  fprintf(stderr, "\n\nError: initial_partial_sufsort: "
+      "given block_offset_type is not supported, "
+      "sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
   std::exit(EXIT_FAILURE);
 }
 
 template<>
-void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
-    bitvector* gt, bwtsa_t<std::int64_t> *bwtsa, std::uint64_t max_block_size,
-    std::uint64_t max_threads, bool has_tail) {
+void initial_partial_sufsort(
+    std::uint8_t *text,
+    std::uint64_t text_length,
+    bitvector* gt,
+    bwtsa_t<std::int64_t> *bwtsa,
+    std::uint64_t max_block_size,
+    std::uint64_t max_threads,
+    bool has_tail) {
+
   long double start = utils::wclock();
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks =
+    (text_length + max_block_size - 1) / max_block_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
@@ -108,8 +128,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg =
+        std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rename_block, text, text_length,
@@ -128,14 +150,17 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     delete[] renaming_error;
 
     if (err) {
-      fprintf(stdout, "\n\nError: byte with value 255 was detected in the input text!\n"
-          "See the section on limitations in the README for more information.\n");
+      fprintf(stdout, "\n\nError: byte with value 255 was "
+          "detected in the input text!\n"
+          "See the section on limitations in the README "
+          "for more information.\n");
       std::fflush(stdout);
       std::exit(EXIT_FAILURE);
     }
   }
 
   {
+
     // Use 64-bit divsufsort.
     std::int64_t *temp_sa = (std::int64_t *)bwtsa;
 
@@ -146,8 +171,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(run_divsufsort<std::int64_t>,
@@ -162,7 +189,8 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
 
     fprintf(stderr, "  Expand 64-bit integers to bwtsa objects: ");
     start = utils::wclock();
-    parallel_expand<std::int64_t, bwtsa_t<int64_t> >(temp_sa, text_length, max_threads);
+    parallel_expand<std::int64_t, bwtsa_t<int64_t> >(temp_sa,
+        text_length, max_threads);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -174,8 +202,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rerename_block,
@@ -192,11 +222,18 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
 
 
 template<>
-void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
-    bitvector* gt, bwtsa_t<uint40> *bwtsa, std::uint64_t max_block_size,
-    std::uint64_t max_threads, bool has_tail) {
+void initial_partial_sufsort(
+    std::uint8_t *text,
+    std::uint64_t text_length,
+    bitvector* gt,
+    bwtsa_t<uint40> *bwtsa,
+    std::uint64_t max_block_size,
+    std::uint64_t max_threads,
+    bool has_tail) {
+
   long double start = utils::wclock();
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks =
+    (text_length + max_block_size - 1) / max_block_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
@@ -210,8 +247,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rename_block, text, text_length,
@@ -230,8 +269,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     delete[] renaming_error;
 
     if (err) {
-      fprintf(stdout, "\n\nError: byte with value 255 was detected in the input text!\n"
-          "See the section on limitations in the README for more information.\n");
+      fprintf(stdout, "\n\nError: byte with value 255 "
+          "was detected in the input text!\n"
+          "See the section on limitations in the README "
+          "for more information.\n");
       std::fflush(stdout);
       std::exit(EXIT_FAILURE);
     }
@@ -252,8 +293,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(run_divsufsort<std::int32_t>,
@@ -268,7 +311,8 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
 
     fprintf(stderr, "  Expand 32-bit integers to bwtsa objects: ");
     start = utils::wclock();
-    parallel_expand<std::int32_t, bwtsa_t<uint40> >(temp_sa, text_length, max_threads);
+    parallel_expand<std::int32_t, bwtsa_t<uint40> >(temp_sa,
+        text_length, max_threads);
     fprintf(stderr, "%.2Lfs\n", utils::wclock() - start);
   }
 
@@ -280,8 +324,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     start = utils::wclock();
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rerename_block,
@@ -297,11 +343,18 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
 }
 
 template<>
-void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
-    bitvector* gt, bwtsa_t<int> *bwtsa, std::uint64_t max_block_size, std::uint64_t max_threads,
+void initial_partial_sufsort(
+    std::uint8_t *text,
+    std::uint64_t text_length,
+    bitvector* gt,
+    bwtsa_t<int> *bwtsa,
+    std::uint64_t max_block_size,
+    std::uint64_t max_threads,
     bool has_tail) {
+
   long double start = utils::wclock();
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_blocks =
+    (text_length + max_block_size - 1) / max_block_size;
 
   //----------------------------------------------------------------------------
   // STEP 1: Rename the blocks in parallel.
@@ -314,11 +367,14 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     std::fill(renaming_error, renaming_error + n_blocks, false);
     std::thread **threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
-      threads[i] = new std::thread(rename_block, text, text_length, block_beg,
+      threads[i] = new std::thread(rename_block, text,
+          text_length, block_beg,
           block_size, gt, std::ref(renaming_error[i]));
     }
 
@@ -334,8 +390,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     delete[] renaming_error;
 
     if (err) {
-      fprintf(stdout, "\n\nError: byte with value 255 was detected in the input text!\n"
-          "See the section on limitations in the README for more information.\n");
+      fprintf(stdout, "\n\nError: byte with value 255 "
+          "was detected in the input text!\n"
+          "See the section on limitations in the README "
+          "for more information.\n");
       std::fflush(stdout);
       std::exit(EXIT_FAILURE);
     }
@@ -350,8 +408,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
   for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-    std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+    std::uint64_t block_end =
+      text_length - (n_blocks - 1 - i) * max_block_size;
+    std::uint64_t block_beg = std::max((std::int64_t)0,
+        (std::int64_t)block_end - (std::int64_t)max_block_size);
     std::uint64_t block_size = block_end - block_beg;
 
     threads[i] = new std::thread(run_divsufsort<int>,
@@ -377,8 +437,10 @@ void initial_partial_sufsort(std::uint8_t *text, std::uint64_t text_length,
     start = utils::wclock();
     threads = new std::thread*[n_blocks];
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
-      std::uint64_t block_beg = std::max(0L, (std::int64_t)block_end - (std::int64_t)max_block_size);
+      std::uint64_t block_end =
+        text_length - (n_blocks - 1 - i) * max_block_size;
+      std::uint64_t block_beg = std::max((std::int64_t)0,
+          (std::int64_t)block_end - (std::int64_t)max_block_size);
       std::uint64_t block_size = block_end - block_beg;
 
       threads[i] = new std::thread(rerename_block,

@@ -36,7 +36,7 @@
 
 #include <cstdint>
 #include <algorithm>
-#include <thread>
+#include <omp.h>
 
 #include "../utils.hpp"
 #include "bwtsa.hpp"
@@ -45,42 +45,39 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-template<typename block_offset_type>
-void compute_bwt_in_bwtsa_aux(const std::uint8_t *text, std::uint64_t beg,
-    std::uint64_t end, bwtsa_t<block_offset_type> *dest, std::int64_t *i0) {
-  *i0 = -1;
-  for (std::uint64_t j = beg; j < end; ++j) {
-    if ((long)dest[j].m_sa > 0) dest[j].m_bwt = text[dest[j].m_sa - 1];
-    else { dest[j].m_bwt = 0; *i0 = j; }
-  }
-}
 
 template<typename block_offset_type>
-void compute_bwt_in_bwtsa(const std::uint8_t *text, std::uint64_t length,
-  bwtsa_t<block_offset_type> *dest, std::uint64_t max_threads, std::int64_t &result) {
-  std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
-  std::uint64_t n_blocks = (length + max_block_size - 1) / max_block_size;
-  std::int64_t *index_0 = new std::int64_t[n_blocks];
+void compute_bwt_in_bwtsa(
+    const std::uint8_t *text,
+    std::uint64_t text_length,
+    bwtsa_t<block_offset_type> *dest,
+    std::uint64_t &longest_suffix_rank) {
 
-  // Compute bwt and find i0, where sa[i0] == 0.
-  std::thread **threads = new std::thread*[n_blocks];
-  for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_beg = i * max_block_size;
-    std::uint64_t block_end = std::min(block_beg + max_block_size, length);
+  longest_suffix_rank = 0;
+  std::uint64_t max_threads = omp_get_max_threads();
+  std::uint64_t max_block_size =
+    (text_length + max_threads - 1) / max_threads;
+  std::uint64_t n_blocks =
+    (text_length + max_block_size - 1) / max_block_size;
 
-    threads[i] = new std::thread(compute_bwt_in_bwtsa_aux<block_offset_type>,
-        text, block_beg, block_end, dest, index_0 + i);
+  #pragma omp parallel num_threads(n_blocks)
+  {
+    std::uint64_t thread_id = omp_get_thread_num();
+    std::uint64_t block_beg = thread_id * max_block_size;
+    std::uint64_t block_end = std::min(text_length,
+        block_beg + max_block_size);
+
+    for (std::uint64_t i = block_beg; i < block_end; ++i) {
+      std::uint64_t sa_value = dest[i].m_sa;
+
+      if (sa_value > 0) {
+        dest[i].m_bwt = text[sa_value - 1];
+      } else {
+        dest[i].m_bwt = 0;
+        longest_suffix_rank = i;
+      }
+    }
   }
-
-  for (std::uint64_t i = 0; i < n_blocks; ++i) threads[i]->join();
-  for (std::uint64_t i = 0; i < n_blocks; ++i) delete threads[i];
-  delete[] threads;
-
-  // Find and return i0.
-  result = -1;
-  for (std::uint64_t i = 0; i < n_blocks; ++i)
-    if (index_0[i] != -1) result = index_0[i];
-  delete[] index_0;
 }
 
 }  // namespace inmem_psascan_private

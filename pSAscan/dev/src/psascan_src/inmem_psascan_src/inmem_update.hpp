@@ -47,20 +47,22 @@
 namespace psascan_private {
 namespace inmem_psascan_private {
 
-//==============================================================================
+//=============================================================================
 // This object creates a given number of threads that will perform gap array
-// updates. Most of the time all threads are sleeping on a conditional variable.
-// Once the gap buffer is available for processing, they are all woken up and
-// perform the update in parallel. The caller then waits until all threads are
-// finished and then puts the gap buffer in the poll of empty buffers.
-//
-// Only one object of this class should exist.
-//==============================================================================
+// updates. Most of the time all threads are sleeping on a conditional
+// variable. Once the gap buffer is available for processing, they are all
+// woken up and perform the update in parallel. The caller then waits until
+// all threads are finished and then puts the gap buffer in the poll of empty
+// buffers. Only one object of this class should exist.
+//=============================================================================
 template<typename block_offset_type>
 struct gap_parallel_updater {
 
   template<typename T>
-  static void parallel_update(gap_parallel_updater<T> *updater, std::uint64_t id) {
+  static void parallel_update(
+      gap_parallel_updater<T> *updater,
+      std::uint64_t id) {
+
     while (true) {
 
       // Wait until there is a gap buffer available or the
@@ -111,17 +113,21 @@ struct gap_parallel_updater {
     }
   }
 
-  gap_parallel_updater(inmem_gap_array *gap_array, std::uint64_t threads_cnt)
-      : m_gap_array(gap_array),
-        m_threads_cnt(threads_cnt),
-        m_avail_no_more(false) {
+  gap_parallel_updater(
+      inmem_gap_array *gap_array,
+      std::uint64_t threads_cnt) :
+    m_gap_array(gap_array),
+    m_threads_cnt(threads_cnt),
+    m_avail_no_more(false) {
+
     m_avail = new bool[m_threads_cnt];
     std::fill(m_avail, m_avail + m_threads_cnt, false);
     m_threads = new std::thread*[m_threads_cnt];
 
     // After this, threads immediately hang up on m_avail_cv.
     for (std::uint64_t i = 0; i < m_threads_cnt; ++i)
-      m_threads[i] = new std::thread(parallel_update<block_offset_type>, this, i);
+      m_threads[i] =
+        new std::thread(parallel_update<block_offset_type>, this, i);
   }
 
   ~gap_parallel_updater() {
@@ -143,7 +149,8 @@ struct gap_parallel_updater {
 
   void update(const gap_buffer<block_offset_type> *buffer) {
 
-    // Prepare a message for each thread that new buffer is available.
+    // Prepare a message for each thread
+    // that new buffer is available.
     std::unique_lock<std::mutex> lk(m_avail_mutex);
     m_finished = 0;
     m_buffer = buffer;
@@ -160,8 +167,9 @@ struct gap_parallel_updater {
       m_finished_cv.wait(lk2);
     lk2.unlock();
 
-    // We are done processing the buffer. The caller of this method
-    // can now place the buffer into the poll of empty buffers.
+    // We are done processing the buffer. The caller
+    // of this method can now place the buffer into
+    // the poll of empty buffers.
   }
 
 private:
@@ -178,18 +186,21 @@ private:
   bool *m_avail;
   bool m_avail_no_more;
 
-  // The mutex below is to protect m_finished. The condition
-  // variable allows the caller to wait (and to be notified when done)
-  // until threads complete processing their section of the buffer.
+  // The mutex below is to protect m_finished. The
+  // condition variable allows the caller to wait
+  // (and to be notified when done) until threads
+  // complete processing their section of the buffer.
   std::uint64_t m_finished;
   std::mutex m_finished_mutex;
   std::condition_variable m_finished_cv;
 };
 
 template<typename block_offset_type>
-void inmem_gap_updater(gap_buffer_poll<block_offset_type> *full_gap_buffers,
+void inmem_gap_updater(
+    gap_buffer_poll<block_offset_type> *full_gap_buffers,
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
-    inmem_gap_array *gap, std::uint64_t n_increasers) {
+    inmem_gap_array *gap,
+    std::uint64_t n_increasers) {
 
   gap_parallel_updater<block_offset_type> *updater =
     new gap_parallel_updater<block_offset_type>(gap, n_increasers);
@@ -198,10 +209,12 @@ void inmem_gap_updater(gap_buffer_poll<block_offset_type> *full_gap_buffers,
 
     // Get a buffer from the poll of full buffers.
     std::unique_lock<std::mutex> lk(full_gap_buffers->m_mutex);
-    while (!full_gap_buffers->available() && !full_gap_buffers->finished())
+    while (!full_gap_buffers->available() &&
+        !full_gap_buffers->finished())
       full_gap_buffers->m_cv.wait(lk);
 
-    if (!full_gap_buffers->available() && full_gap_buffers->finished()) {
+    if (!full_gap_buffers->available() &&
+        full_gap_buffers->finished()) {
 
       // There will be no more full buffers -- exit.
       lk.unlock();

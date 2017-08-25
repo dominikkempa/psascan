@@ -130,8 +130,10 @@ void compute_partial_gt_end(
       }
 
       if ((el == tail_length) ||
-          (i + el == range_size && !tail_gt_beg_rev.access(tail_length - el)) ||
-          (i + el < range_size && txt[i + el] > tail_prefix[el]))
+          (i + el == range_size &&
+           !tail_gt_beg_rev.access(tail_length - el)) ||
+          (i + el < range_size &&
+           txt[i + el] > tail_prefix[el]))
         gt->set(revbeg + i);
 
       std::uint64_t j = i_max;
@@ -340,7 +342,8 @@ void compute_initial_gt_bitvectors(
   start = utils::wclock();
   std::thread **threads = new std::thread*[n_blocks];
   for (std::uint64_t i = 0; i < n_blocks; ++i) {
-    std::uint64_t block_end = text_length - (n_blocks - 1 - i) * max_block_size;
+    std::uint64_t block_end =
+      text_length - (n_blocks - 1 - i) * max_block_size;
     std::uint64_t block_beg = std::max((std::int64_t)0,
         (std::int64_t)block_end - (std::int64_t)max_block_size);
 
@@ -399,6 +402,7 @@ void compute_initial_gt_bitvectors(
         mb_beg, mb_end, gt, undecided, all_decided);
   }
 
+  // Clean up.
   fprintf(stderr, "  Deallocate: ");
   start = utils::wclock();
   delete[] threads;

@@ -40,6 +40,8 @@
 #include <algorithm>
 #include <omp.h>
 
+#include "../utils.hpp"
+
 
 namespace psascan_private {
 namespace inmem_psascan_private {
@@ -53,7 +55,9 @@ namespace inmem_psascan_private {
  *   In Proc. ALENEX 2013, p. 103-112.
  **/
 
-template<typename pagearray_type, typename rank_type, std::uint64_t k_isa_sampling_rate_log>
+template<typename pagearray_type,
+         typename rank_type,
+         std::uint64_t k_isa_sampling_rate_log>
 class sparse_isa {
   private:
     static const std::uint64_t k_isa_sampling_rate;
@@ -61,44 +65,51 @@ class sparse_isa {
     static const std::uint64_t k_sigma;
 
   public:
-    sparse_isa(const pagearray_type *bwtsa, const std::uint8_t *text,
-        const rank_type *rank, std::uint64_t length, std::uint64_t i0) {
+    sparse_isa(
+        const pagearray_type *bwtsa,
+        const std::uint8_t *text,
+        const rank_type *rank,
+        std::uint64_t text_length,
+        std::uint64_t i0) {
+
       m_bwtsa = bwtsa;
-      m_length = length;
+      m_text_length = text_length;
       m_rank = rank;
       m_text = text;
       m_i0 = i0;
 
-      if (m_length <= 0) {
-        fprintf(stderr, "\nError: m_length in the constructor of sparse_isa\n");
+      if (m_text_length == 0) {
+        fprintf(stderr, "\nError: m_text_length in "
+            "the constructor of sparse_isa\n");
         std::exit(EXIT_FAILURE);
       }
 
-      std::uint64_t items = (m_length + k_isa_sampling_rate - 1) / k_isa_sampling_rate + 1;
-      m_sparse_isa = (std::uint64_t *)malloc(items * sizeof(std::uint64_t));
+      std::uint64_t items =
+        (m_text_length + k_isa_sampling_rate - 1) / k_isa_sampling_rate + 1;
+      m_sparse_isa = utils::allocate_array<std::uint64_t>(items);
 
 #ifdef _OPENMP
       #pragma omp parallel for
-      for (std::uint64_t j = 0; j < m_length; ++j) {
+      for (std::uint64_t j = 0; j < m_text_length; ++j) {
         std::uint64_t sa_j = (*m_bwtsa)[j].m_sa;
         if (!(sa_j & k_isa_sampling_rate_mask))
           m_sparse_isa[sa_j >> k_isa_sampling_rate_log] = j;
-        if (sa_j + 1 == m_length) m_last_isa = j;
+        if (sa_j + 1 == m_text_length) m_last_isa = j;
       }
 #else
-      for (std::uint64_t j = 0; j < m_length; ++j) {
+      for (std::uint64_t j = 0; j < m_text_length; ++j) {
         std::uint64_t sa_j = (*m_bwtsa)[j].m_sa;
         if (!(sa_j & k_isa_sampling_rate_mask))
           m_sparse_isa[sa_j >> k_isa_sampling_rate_log] = j;
-        if (sa_j + 1 == m_length) m_last_isa = j;
+        if (sa_j + 1 == m_text_length) m_last_isa = j;
       }
 #endif
 
-      m_count = (std::uint64_t *)malloc(k_sigma * sizeof(std::uint64_t));
+      m_count = utils::allocate_array<std::uint64_t>(k_sigma);
       for (std::uint64_t j = 0; j < k_sigma; ++j)
-        m_count[j] = rank->rank(length, (std::uint8_t)j);
+        m_count[j] = rank->rank(m_text_length, (std::uint8_t)j);
 
-      ++m_count[text[length - 1]];
+      ++m_count[text[m_text_length - 1]];
       --m_count[0];
 
       for (std::uint64_t i = 0, s = 0; i < k_sigma; ++i) {
@@ -109,44 +120,47 @@ class sparse_isa {
     }
 
     inline std::uint64_t query(std::uint64_t j) const {
-      std::int64_t isa_i;
-      std::uint64_t i = ((j + k_isa_sampling_rate - 1) >> k_isa_sampling_rate_log);
-      if ((i << k_isa_sampling_rate_log) < m_length) {
+      std::uint64_t isa_i = 0;
+      std::uint64_t i =
+        ((j + k_isa_sampling_rate - 1) >> k_isa_sampling_rate_log);
+
+      if ((i << k_isa_sampling_rate_log) < m_text_length) {
         isa_i = m_sparse_isa[i];
         i <<= k_isa_sampling_rate_log;
       } else {
         isa_i = m_last_isa;
-        i = m_length - 1;
+        i = m_text_length - 1;
       }
 
       while (i != j) {
 
         // Compute ISA[i - 1] from ISA[i].
-        // Invariant:
-        //   i > 0
-        //   isa_i >= 0
-        //   isa_i = ISA[i]
-        //   j <= i
+        // Invariants: i > j, isa_i = ISA[i].
         std::uint8_t c = m_text[i - 1];
-        std::int64_t delta = ((std::uint64_t)isa_i > m_i0 && c == 0);
+        std::uint64_t delta =
+          (isa_i > m_i0 && c == 0);
 
-        isa_i = (std::int64_t)m_count[c] + (std::int64_t)m_rank->rank(isa_i, c) - delta;
-        if (isa_i < 0 || ((std::uint64_t)((*m_bwtsa)[isa_i].m_sa)) + 1 != i)
+        isa_i =
+          (std::uint64_t)m_count[c] +
+          (std::uint64_t)m_rank->rank(isa_i, c);
+        if ((isa_i == 0 && delta == 1) ||
+            (std::uint64_t)((*m_bwtsa)[isa_i - delta].m_sa) + 1 != i)
           ++isa_i;
+        isa_i -= delta;
 
         --i;
       }
 
-      return (std::uint64_t)isa_i;
+      return isa_i;
     }
 
     ~sparse_isa() {
-      free(m_sparse_isa);
-      free(m_count);
+      utils::deallocate(m_count);
+      utils::deallocate(m_sparse_isa);
     }
 
   private:
-    std::uint64_t m_length;
+    std::uint64_t m_text_length;
     std::uint64_t m_last_isa;
     std::uint64_t m_i0;
 
@@ -158,16 +172,28 @@ class sparse_isa {
     const rank_type *m_rank;
 };
 
-template<typename pagearray_type, typename rank_type, std::uint64_t k_isa_sampling_rate_log>
-  const std::uint64_t sparse_isa<pagearray_type, rank_type, k_isa_sampling_rate_log>
+template<typename pagearray_type,
+  typename rank_type,
+  std::uint64_t k_isa_sampling_rate_log>
+  const std::uint64_t sparse_isa<pagearray_type,
+  rank_type,
+  k_isa_sampling_rate_log>
   ::k_isa_sampling_rate = (1UL << k_isa_sampling_rate_log);
 
-template<typename pagearray_type, typename rank_type, std::uint64_t k_isa_sampling_rate_log>
-  const std::uint64_t sparse_isa<pagearray_type, rank_type, k_isa_sampling_rate_log>
+template<typename pagearray_type,
+  typename rank_type,
+  std::uint64_t k_isa_sampling_rate_log>
+  const std::uint64_t sparse_isa<pagearray_type,
+  rank_type,
+  k_isa_sampling_rate_log>
   ::k_isa_sampling_rate_mask = (1UL << k_isa_sampling_rate_log) - 1;
 
-template<typename pagearray_type, typename rank_type, std::uint64_t k_isa_sampling_rate_log>
-  const std::uint64_t sparse_isa<pagearray_type, rank_type, k_isa_sampling_rate_log>
+template<typename pagearray_type,
+  typename rank_type,
+  std::uint64_t k_isa_sampling_rate_log>
+  const std::uint64_t sparse_isa<pagearray_type,
+  rank_type,
+  k_isa_sampling_rate_log>
   ::k_sigma = 256UL;
 
 

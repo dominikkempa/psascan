@@ -63,7 +63,8 @@ namespace inmem_psascan_private {
 //    * it reads and writes bits in range
 //      [stream_block_beg..stream_block_end) from gt bitvector right to left.
 //==============================================================================
-template<typename rank_type, typename block_offset_type>
+template<typename rank_type,
+         typename block_offset_type>
 void inmem_parallel_stream(
     const std::uint8_t *text,
     std::uint64_t text_length,
@@ -73,8 +74,8 @@ void inmem_parallel_stream(
     const std::uint64_t *count,
     gap_buffer_poll<block_offset_type> *full_gap_buffers,
     gap_buffer_poll<block_offset_type> *empty_gap_buffers,
-    long i,
-    long i0,
+    std::uint64_t initial_rank,
+    std::uint64_t longest_suffix_rank,
     const rank_type *rank,
     std::uint64_t gap_range_size,
     std::uint64_t n_increasers,
@@ -83,84 +84,89 @@ void inmem_parallel_stream(
     std::uint32_t *oracle,
     bool need_gt) {
 
-  //----------------------------------------------------------------------------
-  // STEP 1: initialize structures necessary to do the buffer partitions.
-  //----------------------------------------------------------------------------
+  // Initialize structures necessary
+  // to do the buffer partitions.
   static const std::uint64_t max_buckets = 4096;
-  std::uint32_t *block_id_to_sblock_id = new std::uint32_t[max_buckets];
+  std::uint32_t *block_id_to_sblock_id =
+    new std::uint32_t[max_buckets];
 
   std::uint64_t bucket_size = 1;
   std::uint64_t bucket_size_bits = 0;
-  while ((gap_range_size + bucket_size - 1) / bucket_size > max_buckets)
-    bucket_size <<= 1, ++bucket_size_bits;
-  std::uint64_t n_buckets = (gap_range_size + bucket_size - 1) / bucket_size;
+  while ((gap_range_size + bucket_size - 1)
+      / bucket_size > max_buckets) {
+    bucket_size <<= 1;
+    ++bucket_size_bits;
+  }
+  std::uint64_t n_buckets =
+    (gap_range_size + bucket_size - 1) / bucket_size;
   std::uint32_t *block_count = new std::uint32_t[n_buckets];
 
   static const std::uint64_t buffer_sample_size = 512;
   std::vector<block_offset_type> samples(buffer_sample_size);
   std::uint64_t *ptr = new std::uint64_t[n_increasers];
-  block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
+  block_offset_type *bucket_lbound =
+    new block_offset_type[n_increasers + 1];
 
-  //----------------------------------------------------------------------------
-  // STEP 2: perform the actual streaming.
-  //----------------------------------------------------------------------------
+  // Actual streaming follows.
   std::uint64_t j = stream_block_end;
   bool gt_bit = gt->get(text_length - j);
+  std::uint64_t current_rank = initial_rank;
   while (j > stream_block_beg) {
 
-    // 2.a
-    //
     // Get a buffer from the poll of empty buffers.
     std::unique_lock<std::mutex> lk(empty_gap_buffers->m_mutex);
-    while (!empty_gap_buffers->available()) empty_gap_buffers->m_cv.wait(lk);
-    gap_buffer<block_offset_type> *b = empty_gap_buffers->get();
+    while (!empty_gap_buffers->available())
+      empty_gap_buffers->m_cv.wait(lk);
+
+    gap_buffer<block_offset_type> *b =
+      empty_gap_buffers->get();
     lk.unlock();
     empty_gap_buffers->m_cv.notify_one();
 
-    // 2.b
-    //
-    // Process buffer, i.e., fill with gap values.
+    // Fill buffer with gap values.
     std::uint64_t left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
-    std::fill(block_count, block_count + n_buckets, (std::uint32_t)0);
+    std::fill(block_count,
+        block_count + n_buckets, (std::uint32_t)0);
 
     if (need_gt) {
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        bool new_gt_bit = (i > i0);
+        bool new_gt_bit =
+          (current_rank > longest_suffix_rank);
         if (new_gt_bit) gt->set(text_length - j);
         else gt->reset(text_length - j);
 
+        // One step of backwards search.
         std::uint8_t c = text[j - 1];
-
-        // Compute new i.
         std::uint64_t delta = (new_gt_bit && c == 0);
-        i = (count[c] + rank->rank(i, c)) - delta;
-        if (c == last && gt_bit) ++i;
-
-        temp[t] = i;
-        block_count[i >> bucket_size_bits]++;
+        current_rank = count[c] + rank->rank(current_rank, c);
+        if (c == last && gt_bit)
+          ++current_rank;
+        current_rank -= delta;
+        temp[t] = current_rank;
+        block_count[current_rank >> bucket_size_bits]++;
 
         --j;
         gt_bit = gt->get(text_length - j);
       }
     } else {
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        bool new_gt_bit = (i > i0);
+        bool new_gt_bit =
+          (current_rank > longest_suffix_rank);
 
+        // One step of backwards search.
         std::uint8_t c = text[j - 1];
-
-        // Compute new i.
         std::uint64_t delta = (new_gt_bit && c == 0);
-        i = (count[c] + rank->rank(i, c)) - delta;
-        if (c == last && gt_bit) ++i;
-
-        temp[t] = i;
-        block_count[i >> bucket_size_bits]++;
+        current_rank = count[c] + rank->rank(current_rank, c);
+        if (c == last && gt_bit)
+          ++current_rank;
+        current_rank -= delta;
+        temp[t] = current_rank;
+        block_count[current_rank >> bucket_size_bits]++;
 
         --j;
         gt_bit = gt->get(text_length - j);
       }
-
     }
 
     // 2.c
@@ -168,7 +174,8 @@ void inmem_parallel_stream(
     // Partition the buffer into equal n_increasers parts.
 
     // Compute super-buckets.
-    std::uint64_t ideal_sblock_size = (b->m_filled + n_increasers - 1) / n_increasers;
+    std::uint64_t ideal_sblock_size =
+      (b->m_filled + n_increasers - 1) / n_increasers;
     std::uint64_t max_sbucket_size = 0;
     std::uint64_t bucket_id_beg = 0;
     for (std::uint64_t t = 0; t < n_increasers; ++t) {
@@ -202,21 +209,25 @@ void inmem_parallel_stream(
       }
     } else {
 
-      // Repeat the partition into sbuckets, this time using random sample.
-      // This is a fallback mechanism in case the quick partition failed,
-      // and is expected to happen very rarely.
+      // Repeat the partition into sbuckets, this time
+      // using random sample. This is a fallback mechanism
+      // in case the quick partition failed, and is expected
+      // to happen very rarely.
       
       // Compute random sample of elements in the buffer.
       for (std::uint64_t t = 0; t < buffer_sample_size; ++t)
         samples[t] = temp[utils::random_int64(0L, b->m_filled - 1)];
       std::sort(samples.begin(), samples.end());
-      samples.erase(std::unique(samples.begin(), samples.end()), samples.end());
+      samples.erase(std::unique(
+            samples.begin(), samples.end()), samples.end());
 
       // Compute bucket boundaries (lower bound is enough).
-      std::fill(bucket_lbound, bucket_lbound + n_increasers + 1,
+      std::fill(bucket_lbound,
+          bucket_lbound + n_increasers + 1,
           (block_offset_type)gap_range_size);
 
-      std::uint64_t step = (samples.size() + n_increasers - 1) / n_increasers;
+      std::uint64_t step =
+        (samples.size() + n_increasers - 1) / n_increasers;
       for (std::uint64_t t = 1, p = step; p < samples.size(); ++t, p += step)
         bucket_lbound[t] = (samples[p - 1] + samples[p] + 1) / 2;
       bucket_lbound[0] = 0;
@@ -224,9 +235,10 @@ void inmem_parallel_stream(
       // Compute bucket sizes and sblock id into oracle array.
       std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        long x = temp[t];
+        std::uint64_t x = temp[t];
         std::uint64_t id = n_increasers;
-        while ((long)bucket_lbound[id] > x) --id;
+        while ((std::uint64_t)bucket_lbound[id] > x)
+          --id;
         oracle[t] = id;
         b->sblock_size[id]++;
       }
@@ -249,8 +261,10 @@ void inmem_parallel_stream(
 
     // 2.d
     //
-    // Add the buffer to the poll of full buffers and notify waiting thread.
-    std::unique_lock<std::mutex> lk2(full_gap_buffers->m_mutex);
+    // Add the buffer to the poll of full
+    // buffers and notify waiting thread.
+    std::unique_lock<std::mutex>
+      lk2(full_gap_buffers->m_mutex);
     full_gap_buffers->add(b);
     lk2.unlock();
     full_gap_buffers->m_cv.notify_one();
@@ -269,6 +283,7 @@ void inmem_parallel_stream(
   // are going to be produced by streaming threads.
   full_gap_buffers->m_cv.notify_one();
 
+  // Clean up.
   delete[] block_count;
   delete[] block_id_to_sblock_id;
   delete[] ptr;

@@ -1069,7 +1069,9 @@ void compute_block_rank_matrix(
         if (next_primary_range_size > 1) {
           next_psa_first = next_block_psa[next_primary_range_beg].m_sa;
           next_psa_second = next_block_psa[next_primary_range_beg + 1].m_sa;
-          delta = (std::int64_t)next_psa_second - (std::int64_t)next_psa_first;
+          delta =
+            (std::int64_t)next_psa_second -
+            (std::int64_t)next_psa_first;
         }
 
         // Invariant:
