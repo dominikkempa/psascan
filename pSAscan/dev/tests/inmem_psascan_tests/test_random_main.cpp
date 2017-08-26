@@ -34,7 +34,7 @@ int main() {
   gt_test_random_private::test_random<7> (10, 1000, 255);
   gt_test_random_private::test_random<12>(10, 1000, 255);
   gt_test_random_private::test_random<7> (5, 10000, 255);
-  gt_test_random_private::test_random<12>(5, 10000, 255);
+//  gt_test_random_private::test_random<12>(5, 10000, 255);
 
 #else
   gt_test_random_private::test_random<7> (50, 1000, 5);
@@ -86,17 +86,17 @@ int main() {
   pgt_test_random_private::test_random<int,    8>(10,   100,    255);
 
   pgt_test_random_private::test_random<uint40, 2>(5,   1000,    255);
-  pgt_test_random_private::test_random<uint40, 5>(5,   1000,    255);
-  pgt_test_random_private::test_random<uint40, 8>(5,   1000,    255);
-  pgt_test_random_private::test_random<int,    2>(5,   1000,    255);
+//  pgt_test_random_private::test_random<uint40, 5>(5,   1000,    255);
+//  pgt_test_random_private::test_random<uint40, 8>(5,   1000,    255);
+//  pgt_test_random_private::test_random<int,    2>(5,   1000,    255);
   pgt_test_random_private::test_random<int,    5>(5,   1000,    255);
-  pgt_test_random_private::test_random<int,    8>(5,   1000,    255);
+//  pgt_test_random_private::test_random<int,    8>(5,   1000,    255);
 
-  pgt_test_random_private::test_random<uint40, 2>(5,   10000,    255);
+//  pgt_test_random_private::test_random<uint40, 2>(5,   10000,    255);
   pgt_test_random_private::test_random<uint40, 5>(5,   10000,    255);
-  pgt_test_random_private::test_random<uint40, 8>(5,   10000,    255);
-  pgt_test_random_private::test_random<int,    2>(5,   10000,    255);
-  pgt_test_random_private::test_random<int,    5>(5,   10000,    255);
+//  pgt_test_random_private::test_random<uint40, 8>(5,   10000,    255);
+//  pgt_test_random_private::test_random<int,    2>(5,   10000,    255);
+//  pgt_test_random_private::test_random<int,    5>(5,   10000,    255);
   pgt_test_random_private::test_random<int,    8>(5,   10000,    255);
 
 #else
@@ -162,12 +162,12 @@ int main() {
   sa_test_random_private::test_random<2> (20, 100, 255);
   sa_test_random_private::test_random<5> (20, 100, 255);
   sa_test_random_private::test_random<7> (20, 100, 255);
-  sa_test_random_private::test_random<2> (10, 1000, 255);
-  sa_test_random_private::test_random<5> (10, 1000, 255);
+//  sa_test_random_private::test_random<2> (10, 1000, 255);
+//  sa_test_random_private::test_random<5> (10, 1000, 255);
   sa_test_random_private::test_random<7> (10, 1000, 255);
-  sa_test_random_private::test_random<2> (5, 10000, 255);
+//  sa_test_random_private::test_random<2> (5, 10000, 255);
   sa_test_random_private::test_random<5> (5, 10000, 255);
-  sa_test_random_private::test_random<7> (5, 10000, 255);
+//  sa_test_random_private::test_random<7> (5, 10000, 255);
 
 #else
   sa_test_random_private::test_random<1> (30, 300, 5);
@@ -242,21 +242,21 @@ int main() {
   psa_test_random_private::test_random<int,    5>(10,   100,    255);
   psa_test_random_private::test_random<int,    8>(10,   100,    255);
 
-  psa_test_random_private::test_random<uint40, 2>(5,   1000,    255);
+//  psa_test_random_private::test_random<uint40, 2>(5,   1000,    255);
   psa_test_random_private::test_random<uint40, 5>(5,   1000,    255);
-  psa_test_random_private::test_random<uint40, 8>(5,   1000,    255);
-  psa_test_random_private::test_random<int,    2>(5,   1000,    255);
-  psa_test_random_private::test_random<int,    5>(5,   1000,    255);
+//  psa_test_random_private::test_random<uint40, 8>(5,   1000,    255);
+//  psa_test_random_private::test_random<int,    2>(5,   1000,    255);
+//  psa_test_random_private::test_random<int,    5>(5,   1000,    255);
   psa_test_random_private::test_random<int,    8>(5,   1000,    255);
 
-  psa_test_random_private::test_random<int, 1>(2, 1000, 255);
+//  psa_test_random_private::test_random<int, 1>(2, 1000, 255);
   psa_test_random_private::test_random<int, 3>(2, 1000, 255);
-  psa_test_random_private::test_random<int, 5>(2, 1000, 255);
-  psa_test_random_private::test_random<int, 12>(2, 1000, 255);
+//  psa_test_random_private::test_random<int, 5>(2, 1000, 255);
+//  psa_test_random_private::test_random<int, 12>(2, 1000, 255);
 
-  psa_test_random_private::test_random<int,    2>(2,   10000,    255);
+//  psa_test_random_private::test_random<int,    2>(2,   10000,    255);
   psa_test_random_private::test_random<int,    5>(2,   10000,    255);
-  psa_test_random_private::test_random<int,    8>(2,   10000,    255);
+//  psa_test_random_private::test_random<int,    8>(2,   10000,    255);
 
 #else
   psa_test_random_private::test_random<uint40, 2>(1000,   10,      5);
@@ -359,10 +359,10 @@ int main() {
 #ifndef NDEBUG
   bwt_test_random_private::test_random<7> (30, 100, 255);
   bwt_test_random_private::test_random<12>(30, 100, 255);
-  bwt_test_random_private::test_random<7> (10, 1000, 255);
+//  bwt_test_random_private::test_random<7> (10, 1000, 255);
   bwt_test_random_private::test_random<12>(10, 1000, 255);  
   bwt_test_random_private::test_random<7> (5, 10000, 255);
-  bwt_test_random_private::test_random<12>(5, 10000, 255);
+//  bwt_test_random_private::test_random<12>(5, 10000, 255);
 
 #else
   bwt_test_random_private::test_random<7> (1000, 10, 5);
@@ -432,17 +432,17 @@ int main() {
   pbwt_test_random_private::test_random<int,    8>(10,   100,    255);
 
   pbwt_test_random_private::test_random<uint40, 2>(4,   1000,    255);
-  pbwt_test_random_private::test_random<uint40, 5>(4,   1000,    255);
-  pbwt_test_random_private::test_random<uint40, 8>(4,   1000,    255);
-  pbwt_test_random_private::test_random<int,    2>(4,   1000,    255);
-  pbwt_test_random_private::test_random<int,    5>(4,   1000,    255);
+//  pbwt_test_random_private::test_random<uint40, 5>(4,   1000,    255);
+//  pbwt_test_random_private::test_random<uint40, 8>(4,   1000,    255);
+//  pbwt_test_random_private::test_random<int,    2>(4,   1000,    255);
+//  pbwt_test_random_private::test_random<int,    5>(4,   1000,    255);
   pbwt_test_random_private::test_random<int,    8>(4,   1000,    255);
 
   pbwt_test_random_private::test_random<uint40, 2>(2,   10000,    255);
-  pbwt_test_random_private::test_random<uint40, 5>(2,   10000,    255);
-  pbwt_test_random_private::test_random<uint40, 8>(2,   10000,    255);
-  pbwt_test_random_private::test_random<int,    2>(2,   10000,    255);
-  pbwt_test_random_private::test_random<int,    5>(2,   10000,    255);
+//  pbwt_test_random_private::test_random<uint40, 5>(2,   10000,    255);
+//  pbwt_test_random_private::test_random<uint40, 8>(2,   10000,    255);
+//  pbwt_test_random_private::test_random<int,    2>(2,   10000,    255);
+//  pbwt_test_random_private::test_random<int,    5>(2,   10000,    255);
   pbwt_test_random_private::test_random<int,    8>(2,   10000,    255);
 
 #else

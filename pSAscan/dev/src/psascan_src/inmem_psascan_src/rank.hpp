@@ -127,19 +127,28 @@ class rank4n {
       n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
       n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
 
-      m_count = (std::uint64_t *)malloc(256L * sizeof(std::uint64_t));
-      std::fill(m_count, m_count + 256, 0UL);
-      if (!m_length) return;
+      m_count = utils::allocate_array<std::uint64_t>(256);
+      std::fill(m_count, m_count + 256, (std::uint64_t)0);
+      if (!m_length)
+        return;
 
       long double start = utils::wclock();
-      m_sblock_header = (std::uint64_t *)malloc(n_sblocks * sizeof(std::uint64_t) * k_sigma);
-      m_cblock_header = (std::uint64_t *)malloc(n_cblocks * sizeof(std::uint64_t));
-      m_cblock_header2 = (std::uint64_t *)malloc(n_cblocks * k_sigma * sizeof(std::uint64_t));
-      m_cblock_mapping = (std::uint8_t *)malloc(n_cblocks * k_sigma * 2);
-      m_cblock_type = (std::uint8_t *)malloc((n_cblocks + 7) / 8);
-      m_freq_trunk = (std::uint32_t *)calloc(n_cblocks * k_cblock_size, sizeof(std::uint32_t));
+      m_sblock_header =
+        utils::allocate_array<std::uint64_t>(n_sblocks * k_sigma);
+      m_cblock_header = utils::allocate_array<std::uint64_t>(n_cblocks);
+      m_cblock_header2 =
+        utils::allocate_array<std::uint64_t>(n_cblocks * k_sigma);
+      m_cblock_mapping =
+        utils::allocate_array<std::uint8_t>(n_cblocks * k_sigma * 2);
+      m_cblock_type =
+        utils::allocate_array<std::uint8_t>((n_cblocks + 7) / 8);
+      m_freq_trunk =
+        utils::allocate_array<std::uint32_t>(n_cblocks * k_cblock_size);
+      std::fill(m_freq_trunk,
+          m_freq_trunk + n_cblocks * k_cblock_size, (std::uint32_t)0);
       std::fill(m_cblock_type, m_cblock_type + (n_cblocks + 7) / 8, 0);
-      std::uint8_t *bwt = (std::uint8_t *)malloc(length + k_cblock_size);
+      std::uint8_t *bwt =
+        utils::allocate_array<std::uint8_t>(length + k_cblock_size);
       long double alloc_time = utils::wclock() - start;
       if (alloc_time > 0.05L)
         fprintf(stderr, "alloc: %.2Lfs ", alloc_time);
@@ -148,41 +157,48 @@ class rank4n {
       encode_type_II(bwt, max_threads);
 
       m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
-      free(bwt);
+      utils::deallocate(bwt);
     }
 
-    void encode_type_I(const pagearray_type *ptext, std::uint8_t *bwt,
+    void encode_type_I(
+        const pagearray_type *ptext,
+        std::uint8_t *bwt,
         std::uint64_t max_threads) {
+
       //------------------------------------------------------------------------
-      // STEP 1: split all cblocks into equal size ranges (except possible the
-      //         last one). Each range is processed by one thread. During this
-      //         step we compute: (i) type of each cblock, (ii) encode all
-      //         type-I cblocks and for all type-II cblocks, we compute and
-      //         store: symbol mapping, symbol type (freq / rare / non-occurring)
-      //         and values of freq_cnt_log and rare_cnt_log.
+      // STEP 1: split all cblocks into equal size ranges (except
+      // possibly the last one). Each range is processed by one thread.
+      // During this step we compute: (i) type of each cblock, (ii) encode
+      // all type-I cblocks and for all type-II cblocks, we compute and
+      // store: symbol mapping, symbol type (freq / rare / non-occurring)
+      // and values of freq_cnt_log and rare_cnt_log.
       //------------------------------------------------------------------------
       std::uint64_t range_size = (n_cblocks + max_threads - 1) / max_threads;
       std::uint64_t n_ranges = (n_cblocks + range_size - 1) / range_size;
 
-      std::uint64_t *rare_trunk_size = new std::uint64_t[n_cblocks];
-      std::fill(rare_trunk_size, rare_trunk_size + n_cblocks, 0);
+      std::uint64_t *rare_trunk_size =
+        utils::allocate_array<std::uint64_t>(n_cblocks);
+      std::fill(rare_trunk_size,
+          rare_trunk_size + n_cblocks, (std::uint64_t)0);
 
-      bool *cblock_type = new bool[n_cblocks];
-      std::fill(cblock_type, cblock_type + n_cblocks, 0);
+      bool *cblock_type = utils::allocate_array<bool>(n_cblocks);
+      std::fill(cblock_type, cblock_type + n_cblocks, (bool)0);
 
-      std::uint32_t **occ = (std::uint32_t **)malloc(n_ranges * sizeof(std::uint32_t *));
+      std::uint32_t **occ = utils::allocate_array<std::uint32_t*>(n_ranges);
       for (std::uint64_t i = 0; i < n_ranges; ++i)
-        occ[i] = (std::uint32_t *)malloc((k_cblock_size + 1) * sizeof(std::uint32_t));
+        occ[i] = utils::allocate_array<std::uint32_t>(k_cblock_size + 1);
 
       fprintf(stderr, "s1: ");
       long double start = utils::wclock();
       std::thread **threads = new std::thread*[n_ranges];
       for (std::uint64_t i = 0; i < n_ranges; ++i) {
         std::uint64_t range_beg = i * range_size;
-        std::uint64_t range_end = std::min(range_beg + range_size, n_cblocks);
+        std::uint64_t range_end =
+          std::min(range_beg + range_size, n_cblocks);
 
-        threads[i] = new std::thread(encode_type_I_aux, std::ref(*this),
-            ptext, range_beg, range_end, rare_trunk_size, cblock_type, occ[i], bwt);
+        threads[i] = new std::thread(encode_type_I_aux,
+            std::ref(*this), ptext, range_beg, range_end,
+            rare_trunk_size, cblock_type, occ[i], bwt);
       }
 
       for (std::uint64_t i = 0; i < n_ranges; ++i) threads[i]->join();
@@ -190,8 +206,8 @@ class rank4n {
       delete[] threads;
 
       for (std::uint64_t i = 0; i < n_ranges; ++i)
-        free(occ[i]);
-      free(occ);
+        utils::deallocate(occ[i]);
+      utils::deallocate(occ);
 
       fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
 
@@ -245,34 +261,55 @@ class rank4n {
         m_count[k_sigma - 1] += k_cblock_size -
           ((m_cblock_header2[ptr + k_sigma - 1] >> 5) & k_2cblock_size_mask);
       }
-      m_rare_trunk = (std::uint32_t *)calloc(rare_trunk_total_size, sizeof(std::uint32_t));
+      m_rare_trunk =
+        utils::allocate_array<std::uint32_t>(rare_trunk_total_size);
+      std::fill(m_rare_trunk,
+          m_rare_trunk + rare_trunk_total_size, (std::uint32_t)0);
 
-      delete[] cblock_type;
-      delete[] rare_trunk_size;
+      utils::deallocate(cblock_type);
+      utils::deallocate(rare_trunk_size);
 
       fprintf(stderr, "%.2Lfs ", utils::wclock() - start);
     }
 
-    static void encode_type_I_aux(rank4n &r, const pagearray_type *ptext,
-        std::uint64_t cblock_range_beg, std::uint64_t cblock_range_end,
-        std::uint64_t *rare_trunk_size, bool *cblock_type, std::uint32_t *occ, std::uint8_t *bwt) {
+    static void encode_type_I_aux(
+        rank4n &r,
+        const pagearray_type *ptext,
+        std::uint64_t cblock_range_beg,
+        std::uint64_t cblock_range_end,
+        std::uint64_t *rare_trunk_size,
+        bool *cblock_type,
+        std::uint32_t *occ,
+        std::uint8_t *bwt) {
+
       std::vector<std::pair<uint32_t, std::uint8_t> > sorted_chars;
       std::vector<std::uint8_t> freq_chars;
       std::vector<std::uint8_t> rare_chars;
 
-      std::uint32_t *refpoint_precomputed = (std::uint32_t *)malloc(k_cblock_size * sizeof(std::uint32_t));
-      std::uint32_t *cblock_count = new std::uint32_t[k_sigma];
-      std::uint32_t *list_beg = new std::uint32_t[k_sigma];
-      std::uint32_t *list_beg2 = new std::uint32_t[k_sigma];
-      bool *isfreq = new bool[k_sigma];
-      std::uint32_t *lookup_bits_precomputed = new std::uint32_t[k_sigma];
-      std::uint32_t *min_block_size_precomputed = new std::uint32_t[k_sigma];
-      std::uint64_t *refpoint_mask_precomputed = new std::uint64_t[k_sigma];
+      // XXX Merge these allocations into one?
+      // XXX is this done in multiple threads?
+      // XXX If so, this is not correct approach.
+      std::uint32_t *refpoint_precomputed =
+        utils::allocate_array<std::uint32_t>(k_cblock_size);
+      std::uint32_t *cblock_count =
+        utils::allocate_array<std::uint32_t>(k_sigma);
+      std::uint32_t *list_beg =
+        utils::allocate_array<std::uint32_t>(k_sigma);
+      std::uint32_t *list_beg2 =
+        utils::allocate_array<std::uint32_t>(k_sigma);
+      bool *isfreq = utils::allocate_array<bool>(k_sigma);
+      std::uint32_t *lookup_bits_precomputed =
+        utils::allocate_array<std::uint32_t>(k_sigma);
+      std::uint32_t *min_block_size_precomputed =
+        utils::allocate_array<std::uint32_t>(k_sigma);
+      std::uint64_t *refpoint_mask_precomputed =
+        utils::allocate_array<std::uint64_t>(k_sigma);
 
       typedef typename pagearray_type::value_type value_type;
 
       // Process cblocks one by one.
-      for (std::uint64_t cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
+      for (std::uint64_t cblock_id = cblock_range_beg;
+          cblock_id < cblock_range_end; ++cblock_id) {
         std::uint64_t cblock_beg = cblock_id << k_cblock_size_log;
         std::uint64_t cblock_end = cblock_beg + k_cblock_size;
 
@@ -298,7 +335,6 @@ class rank4n {
           ++cblock_count[0];
         }
 
-
         // Compute starting positions of occurrences lists.
         for (std::uint32_t j = 0, t, s = 0; j < k_sigma; ++j) {
           t = cblock_count[j];
@@ -310,7 +346,8 @@ class rank4n {
         // Store pointers to beginnings of occurrence lists in the type-I
         // cblock header. Note: this implicitly encodes cblock counts.
         for (std::uint32_t c = 0; c < k_sigma; ++c)
-          r.m_cblock_header2[(cblock_id << k_sigma_log) + c] = (list_beg[c] << 5);
+          r.m_cblock_header2[(cblock_id << k_sigma_log) + c] =
+            (list_beg[c] << 5);
 
         // Sort symbol counts by frequencies.
         sorted_chars.clear();
@@ -363,17 +400,20 @@ class rank4n {
         std::sort(rare_chars.begin(), rare_chars.end());
         std::fill(isfreq, isfreq + 256, false);
         for (std::uint32_t c = 0; c < 256; ++c)
-          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_missing;
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] =
+            k_char_type_missing;
         for (std::uint32_t i = 0; i < freq_chars.size(); ++i) {
           std::uint8_t c = freq_chars[i];
           isfreq[c] = true;
           r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
-          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_freq;
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] =
+            k_char_type_freq;
         }
         for (std::uint32_t i = 0; i < rare_chars.size(); ++i) {
           std::uint8_t c = rare_chars[i];
           r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1] = i;
-          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] = k_char_type_rare;
+          r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)] =
+            k_char_type_rare;
         }
 
         std::uint32_t nofreq_cnt = 0L;
@@ -388,10 +428,12 @@ class rank4n {
           for (std::uint64_t i = cblock_beg; i < cblock_end; ++i)
             occ[list_beg2[bwt[i]]++] = i - cblock_beg;
 
-          // Precompute helper arrays and and store lookup bits into the header.
+          // Precompute helper arrays and and
+          // store lookup bits into the header.
           for (std::uint32_t c = 0; c < k_sigma; ++c) {
             lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 2);
-            r.m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
+            r.m_cblock_header2[(cblock_id << 8) + c] |=
+              lookup_bits_precomputed[c];
             if (cblock_count[c])
               min_block_size_precomputed[c] = k_cblock_size / cblock_count[c];
             else min_block_size_precomputed[c] = 0;
@@ -409,7 +451,8 @@ class rank4n {
             std::uint32_t freq = cblock_count[c];
             std::uint32_t min_block_size = min_block_size_precomputed[c];
             std::uint32_t lookup_bits = lookup_bits_precomputed[c];
-            std::uint32_t refpoint_dist_mask_neg = refpoint_mask_precomputed[c];
+            std::uint32_t refpoint_dist_mask_neg =
+              refpoint_mask_precomputed[c];
             std::uint32_t c_list_beg = list_beg[c];
 
             for (std::uint32_t j = 0; j < freq; ++j)
@@ -420,42 +463,50 @@ class rank4n {
             for (std::uint32_t j = 0; j < freq; ++j) {
               refpoint_precomputed[j] = (block_beg & refpoint_dist_mask_neg);
               block_beg += min_block_size;
-              if ((((std::uint64_t)block_beg * freq) >> k_cblock_size_log) == j) ++block_beg;
+              if ((((std::uint64_t)block_beg * freq) >> k_cblock_size_log) == j)
+                ++block_beg;
             }
 
             std::uint32_t refpoint, block_id;
             std::uint32_t mask = (~((1UL << lookup_bits) - 1));
             if (freq) {
               for (std::uint64_t j = freq; j > 0; --j) {
-                block_id = (((std::uint64_t)occ[c_list_beg + j - 1] * freq) >> k_cblock_size_log);
+                block_id =
+                  (((std::uint64_t)occ[c_list_beg + j - 1] * freq) >> k_cblock_size_log);
                 refpoint = refpoint_precomputed[block_id];
                 cblock_trunk[c_list_beg + block_id] &= mask;
                 cblock_trunk[c_list_beg + block_id] |= (j - 1);
-                cblock_trunk[c_list_beg + j - 1] |= ((occ[c_list_beg + j - 1] - refpoint) << lookup_bits);
+                cblock_trunk[c_list_beg + j - 1] |=
+                  ((occ[c_list_beg + j - 1] - refpoint) << lookup_bits);
               }
             }
           }
         } else {
+
           // Update rare_trunk_size.
           if (rare_cnt) {
-            std::uint64_t rare_blocks = 1 + (nofreq_cnt + rare_cnt - 1) / rare_cnt;
+            std::uint64_t rare_blocks =
+              1 + (nofreq_cnt + rare_cnt - 1) / rare_cnt;
             rare_trunk_size[cblock_id] = rare_blocks * rare_cnt;
           }
         }
       }
 
       // Clean up.
-      delete[] list_beg;
-      delete[] list_beg2;
-      delete[] isfreq;
-      delete[] cblock_count;
-      delete[] lookup_bits_precomputed;
-      delete[] min_block_size_precomputed;
-      delete[] refpoint_mask_precomputed;
-      free(refpoint_precomputed);
+      utils::deallocate(refpoint_mask_precomputed);
+      utils::deallocate(min_block_size_precomputed);
+      utils::deallocate(lookup_bits_precomputed);
+      utils::deallocate(isfreq);
+      utils::deallocate(list_beg2);
+      utils::deallocate(list_beg);
+      utils::deallocate(cblock_count);
+      utils::deallocate(refpoint_precomputed);
     }
 
-    void encode_type_II(const std::uint8_t *bwt, std::uint64_t max_threads) {
+    void encode_type_II(
+        const std::uint8_t *bwt,
+        std::uint64_t max_threads) {
+
       fprintf(stderr, "s3: ");
       long double start = utils::wclock();
 
@@ -480,34 +531,39 @@ class rank4n {
 
     static void encode_type_II_aux(rank4n &r, std::uint64_t cblock_range_beg,
         std::uint64_t cblock_range_end, const std::uint8_t *bwt) {
-      std::uint8_t *freq_map = new std::uint8_t[k_sigma];
-      std::uint8_t *rare_map = new std::uint8_t[k_sigma];
-      std::uint64_t *cur_count = new std::uint64_t[k_sigma];
-      std::uint64_t *off = new std::uint64_t[k_sigma];
-
-      std::uint64_t *sblock_h = new std::uint64_t[k_sigma];
-      bool *israre = new bool[k_sigma];
+      std::uint8_t *freq_map = utils::allocate_array<std::uint8_t>(k_sigma);
+      std::uint8_t *rare_map = utils::allocate_array<std::uint8_t>(k_sigma);
+      std::uint64_t *cur_count = utils::allocate_array<std::uint64_t>(k_sigma);
+      std::uint64_t *off = utils::allocate_array<std::uint64_t>(k_sigma);
+      std::uint64_t *sblock_h = utils::allocate_array<std::uint64_t>(k_sigma);
+      bool *israre = utils::allocate_array<bool>(k_sigma);
 
       std::vector<std::uint8_t> freq_chars;
       std::vector<std::uint8_t> rare_chars;
 
-      for (std::uint64_t cblock_id = cblock_range_beg; cblock_id < cblock_range_end; ++cblock_id) {
+      for (std::uint64_t cblock_id = cblock_range_beg;
+          cblock_id < cblock_range_end; ++cblock_id) {
         std::uint64_t cblock_beg = cblock_id << k_cblock_size_log;
         std::uint64_t cblock_end = cblock_beg + k_cblock_size;
 
         // Skip the cblock if it was type-I encoded.
-        if (r.m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7))) continue;
+        if (r.m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7)))
+          continue;
 
         // Retreive symbol counts up to this cblock begin and
         // pointer to rare trunk size from cblock headers.
         for (std::uint32_t c = 0; c < k_sigma; ++c)
-          cur_count[c] = (r.m_cblock_header2[(cblock_id << 8) + c] >> (k_cblock_size_log + 6));
+          cur_count[c] =
+            (r.m_cblock_header2[(cblock_id << 8) + c] >>
+             (k_cblock_size_log + 6));
 
         std::uint64_t r_filled  = (r.m_cblock_header[cblock_id] >> 16);
         std::uint64_t r_ptr = r_filled;
 
-        std::uint64_t freq_cnt_log = (r.m_cblock_header[cblock_id] & 255UL);
-        std::uint64_t rare_cnt_log = ((r.m_cblock_header[cblock_id] >> 8) & 255UL);
+        std::uint64_t freq_cnt_log =
+          (r.m_cblock_header[cblock_id] & 255UL);
+        std::uint64_t rare_cnt_log =
+          ((r.m_cblock_header[cblock_id] >> 8) & 255UL);
         std::uint64_t freq_cnt = (1UL << freq_cnt_log);
         std::uint64_t rare_cnt = (1UL << rare_cnt_log);
         std::uint64_t rare_cnt_mask = rare_cnt - 1;
@@ -516,14 +572,18 @@ class rank4n {
         rare_chars.clear();
         std::fill(israre, israre + k_sigma, true);
         for (std::uint64_t c = 0; c < k_sigma; ++c) {
-          std::uint8_t type = r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)];
+          std::uint8_t type =
+            r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id)];
+
           if (type == k_char_type_freq) {
             israre[c] = false;
             freq_chars.push_back(c);
-            freq_map[c] = r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1];
+            freq_map[c] =
+              r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1];
           } else if (type == k_char_type_rare) {
             rare_chars.push_back(c);
-            rare_map[c] = r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1];
+            rare_map[c] =
+              r.m_cblock_mapping[2 * (c * r.n_cblocks + cblock_id) + 1];
             freq_map[c] = freq_cnt - 1;
           }
         }
@@ -534,8 +594,10 @@ class rank4n {
         }
 
         std::uint64_t sblock_id = (cblock_beg >> k_sblock_size_log);
-        std::copy(r.m_sblock_header + (sblock_id << 8), r.m_sblock_header + (sblock_id << 8) + k_sigma, sblock_h);
-        for (std::uint64_t j = 0; j < k_sigma; ++j) off[j] = cur_count[j] - sblock_h[j];
+        std::copy(r.m_sblock_header + (sblock_id << 8),
+            r.m_sblock_header + (sblock_id << 8) + k_sigma, sblock_h);
+        for (std::uint64_t j = 0; j < k_sigma; ++j)
+          off[j] = cur_count[j] - sblock_h[j];
 
         std::uint64_t nofreq_cnt = 0;
         std::uint64_t freq_chars_size = freq_chars.size();
@@ -568,17 +630,18 @@ class rank4n {
 
         for (std::uint64_t j = 0; j < rare_cnt; ++j) {
           std::uint8_t ch = (j < rare_chars.size() ? rare_chars[j] : 0);
-          std::uint64_t local_rank = cur_count[ch] - r.m_sblock_header[(sblock_id << 8) + ch];
+          std::uint64_t local_rank =
+            cur_count[ch] - r.m_sblock_header[(sblock_id << 8) + ch];
           r.m_rare_trunk[r_filled++] = (local_rank << 8);
         }
       }
 
-      delete[] cur_count;
-      delete[] sblock_h;
-      delete[] freq_map;
-      delete[] rare_map;
-      delete[] israre;
-      delete[] off;
+      utils::deallocate(israre);
+      utils::deallocate(sblock_h);
+      utils::deallocate(off);
+      utils::deallocate(cur_count);
+      utils::deallocate(rare_map);
+      utils::deallocate(freq_map);
     }
 
     inline std::uint64_t rank(std::uint64_t i, std::uint8_t c) const {
@@ -676,46 +739,60 @@ class rank4n {
         std::uint64_t block_id = (i >> freq_cnt_bits);
 
         if (type == k_char_type_freq) {
+
           // Case 1 (fastest): symbol c was frequent in the context block.
           // Answer a query using frequent trunk.
-          std::uint64_t block_rank = (m_freq_trunk[(block_id << freq_cnt_bits) + c_map] >> 8);
+          std::uint64_t block_rank =
+            (m_freq_trunk[(block_id << freq_cnt_bits) + c_map] >> 8);
           std::uint64_t extra = 0;
           for (std::uint64_t j = (block_id << freq_cnt_bits); j < i; ++j)
             if ((m_freq_trunk[j] & 255) == c_map) ++extra;
 
           return sblock_rank + block_rank + extra;
         } else if (type == k_char_type_rare) {
+
           // Case 2: symbol c was rare inside the context block.
           // Compute new_i.
           std::uint64_t rare_trunk_ptr = (m_cblock_header[cblock_id] >> 16);
-          std::uint64_t new_i = (m_freq_trunk[((block_id + 1) << freq_cnt_bits) - 1] >> 8);
+          std::uint64_t new_i =
+            (m_freq_trunk[((block_id + 1) << freq_cnt_bits) - 1] >> 8);
           for (std::uint64_t j = (block_id << freq_cnt_bits); j < i; ++j)
-            if ((m_freq_trunk[j] & 255) + 1 == (1U << freq_cnt_bits)) ++new_i;
+            if ((m_freq_trunk[j] & 255) + 1 == (1U << freq_cnt_bits))
+              ++new_i;
       
           // Answer a query on rare trunk.
           std::uint64_t rare_block_id = (new_i >> rare_cnt_bits);
           std::uint64_t block_rank = (m_rare_trunk[rare_trunk_ptr +
             (rare_block_id << rare_cnt_bits) + c_map] >> 8);
           std::uint64_t extra = 0;
-          for (std::uint64_t j = (rare_block_id << rare_cnt_bits); j < new_i; ++j)
-            if ((m_rare_trunk[rare_trunk_ptr + j] & 255) == c_map) ++extra;
+          for (std::uint64_t j = (rare_block_id << rare_cnt_bits);
+              j < new_i; ++j)
+            if ((m_rare_trunk[rare_trunk_ptr + j] & 255) == c_map)
+              ++extra;
 
           return sblock_rank + block_rank + extra;
         } else {
+
           // Case 3: symbol c does not occur in the context block.
           // Find the first cblock where c occurrs.
-          while (cblock_id < n_cblocks && (cblock_id & k_cblocks_in_sblock_mask) &&
-              m_cblock_mapping[2 * (c * n_cblocks + cblock_id)] == k_char_type_missing)
+          while (cblock_id < n_cblocks &&
+              (cblock_id & k_cblocks_in_sblock_mask) &&
+              m_cblock_mapping[2 * (c * n_cblocks + cblock_id)] ==
+              k_char_type_missing)
             ++cblock_id;
 
           if (cblock_id == n_cblocks) {
+
             // We reached the end of encoding, return count[c].
             return m_count[c];
           } else if (!(cblock_id & k_cblocks_in_sblock_mask)) {
+
             // We reached the boundary of superblock,
             // retreive the answer from superblock header.
-            return m_sblock_header[256 * (cblock_id >> k_cblocks_in_sblock_log) + c];
+            return m_sblock_header[256 *
+              (cblock_id >> k_cblocks_in_sblock_log) + c];
           } else {
+
             // We found cblock where c occurrs, but it wasn't on the
             // sblock boundary. In the recursive call this will either
             // be case 1 or case 2.
@@ -727,15 +804,15 @@ class rank4n {
 
     ~rank4n() {
       if (m_length) {
-        free(m_sblock_header);
-        free(m_cblock_header);
-        free(m_cblock_header2);
-        free(m_cblock_mapping);
-        free(m_cblock_type);
-        free(m_freq_trunk);
-        free(m_rare_trunk);
+        utils::deallocate(m_rare_trunk);
+        utils::deallocate(m_freq_trunk);
+        utils::deallocate(m_cblock_type);
+        utils::deallocate(m_cblock_mapping);
+        utils::deallocate(m_cblock_header2);
+        utils::deallocate(m_cblock_header);
+        utils::deallocate(m_sblock_header);
       }
-      free(m_count);
+      utils::deallocate(m_count);
     }
 };
 

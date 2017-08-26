@@ -497,11 +497,13 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   // Compute gap array of the left half-block wrt to the right half-block.
   // RAM: left_block_rank, left_block_sabwt, handles to right block psa and gt_begin.
   left_block_gap = new buffered_gap_array(left_block_size + 1, gap_filename);
-  compute_gap<block_offset_type>(left_block_rank, left_block_size,
-      left_block_gap, right_block_beg, right_block_end, text_length,
-      max_threads, left_block_i0, gap_buf_size, left_block_last,
-      initial_ranks2, text_filename, output_filename,
-      right_block_gt_begin_rev, newtail_gt_begin_rev);
+  compute_gap<block_offset_type>(
+      left_block_rank, left_block_size, left_block_gap,
+      right_block_beg, right_block_end, text_length,
+      max_threads, left_block_i0, gap_buf_size,
+      left_block_last, initial_ranks2, text_filename,
+      output_filename, right_block_gt_begin_rev,
+      newtail_gt_begin_rev);
   delete left_block_rank;
   delete right_block_gt_begin_rev;
 
