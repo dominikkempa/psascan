@@ -41,6 +41,15 @@
 
 namespace psascan_private {
 
+/**
+ * Data structure answering approximate rank queries. Based on the
+ * LZ-ISA parsing algorithm described in
+ *
+ *   Dominik Kempa, Simon J. Puglisi:
+ *   Lempel-Ziv Factorization: Simple, Fast, Practical.
+ *   In Proc. ALENEX 2013, p. 103-112.
+ **/
+
 template<std::uint64_t k_sampling_rate_log>
 class approx_rank {
   private:
