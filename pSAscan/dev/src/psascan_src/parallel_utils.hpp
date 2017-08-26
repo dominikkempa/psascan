@@ -47,7 +47,7 @@ std::uint64_t convert_array_to_vbyte_slab(const std::uint64_t *tab,
     std::uint8_t *dest) {
 
 #ifdef _OPENMP
-  std::uint64_t max_threads = omp_get_num_threads();
+  std::uint64_t max_threads = omp_get_max_threads();
   std::uint64_t max_block_size = (length + max_threads - 1) / max_threads;
   std::uint64_t n_blocks = (length + max_block_size - 1) / max_block_size;
   std::vector<std::uint64_t> block_slab_length(n_blocks + 1, (std::uint64_t)0);

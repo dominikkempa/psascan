@@ -119,7 +119,7 @@ class sparse_isa {
       // Compute symbol counts.
       m_count = utils::allocate_array<std::uint64_t>(k_sigma);
       for (std::uint64_t i = 0; i < k_sigma; ++i)
-        m_count[i] = rank->rank(m_length, (std::uint8_t)i);
+        m_count[i] = rank->query(m_length, (std::uint8_t)i);
       ++m_count[text[m_length - 1]];
       --m_count[0];
 
@@ -148,7 +148,7 @@ class sparse_isa {
         // Invariant: isa_i = ISA[i], j <= i.
         std::uint8_t c = m_text[i - 1];
         std::uint64_t delta = (isa_i > m_i0 && c == 0);
-        std::int64_t temp = (m_count[c] + m_rank->rank(isa_i, c)) - delta;
+        std::int64_t temp = (m_count[c] + m_rank->query(isa_i, c)) - delta;
         while (temp < 0 || (std::uint64_t)m_psa[temp] + 1 != i)
           ++temp;
 
