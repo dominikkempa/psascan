@@ -43,7 +43,7 @@
 #include <thread>
 
 #include "approx_rank.hpp"
-#include "sparse_isa.hpp"
+#include "space_efficient_isa.hpp"
 #include "utils.hpp"
 #include "io/background_block_reader.hpp"
 #include "io/background_chunk_reader.hpp"
@@ -318,15 +318,15 @@ void em_compute_initial_ranks(
 
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
     typedef approx_rank<1L> rank_type;
-    typedef sparse_isa<rank_type, block_offset_type, 1L> isa_type;
+    typedef space_efficient_isa<rank_type, block_offset_type, 1L> isa_type;
 #else
     typedef approx_rank<8L> rank_type;
-    typedef sparse_isa<rank_type, block_offset_type, 8L> isa_type;
+    typedef space_efficient_isa<rank_type, block_offset_type, 8L> isa_type;
 #endif
     rank_type *pbwt_rank =
-      new rank_type(block_pbwt, block_length, max_threads);
-    isa_type *block_sparse_isa =
-      new isa_type(block_psa, block, block_length, i0, pbwt_rank);
+      new rank_type(block_pbwt, block_length);
+    isa_type *block_isa =
+      new isa_type(block_psa, block, pbwt_rank, block_length, i0);
 
     std::uint64_t prev_rank = initial_rank_after_tail;
     for (std::uint64_t t_plus = n_threads; t_plus > 0; --t_plus) {
@@ -345,16 +345,19 @@ void em_compute_initial_ranks(
 
         // Valid values for mid are in [left..right).
         std::uint64_t mid = (left + right) / 2;
-
         if ((std::uint64_t)block_psa[mid] +
             stream_block_size >= block_length) {
-          std::uint64_t suf_len = block_length - (std::uint64_t)block_psa[mid];
-          if (gt_reader->access(text_length - (stream_block_beg + suf_len)))
+          std::uint64_t suf_len =
+            block_length - (std::uint64_t)block_psa[mid];
+          if (gt_reader->access(text_length -
+                (stream_block_beg + suf_len)))
             left = mid + 1;
           else right = mid; 
         } else {
-          std::uint64_t j = (std::uint64_t)block_psa[mid] + stream_block_size;
-          if (block_sparse_isa->query(j) < prev_rank) left = mid + 1;
+          std::uint64_t j =
+            (std::uint64_t)block_psa[mid] + stream_block_size;
+          if (block_isa->query(j) < prev_rank)
+            left = mid + 1;
           else right = mid;
         }
       }
@@ -364,7 +367,7 @@ void em_compute_initial_ranks(
     }
 
     delete pbwt_rank;
-    delete block_sparse_isa;
+    delete block_isa;
     delete gt_reader;
   } else {
     for (std::uint64_t t = 0; t < n_threads; ++t)

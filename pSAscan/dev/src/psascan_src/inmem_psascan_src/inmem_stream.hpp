@@ -139,7 +139,7 @@ void inmem_parallel_stream(
         // One step of backwards search.
         std::uint8_t c = text[j - 1];
         std::uint64_t delta = (new_gt_bit && c == 0);
-        current_rank = count[c] + rank->rank(current_rank, c);
+        current_rank = count[c] + rank->query(current_rank, c);
         if (c == last && gt_bit)
           ++current_rank;
         current_rank -= delta;
@@ -157,7 +157,7 @@ void inmem_parallel_stream(
         // One step of backwards search.
         std::uint8_t c = text[j - 1];
         std::uint64_t delta = (new_gt_bit && c == 0);
-        current_rank = count[c] + rank->rank(current_rank, c);
+        current_rank = count[c] + rank->query(current_rank, c);
         if (c == last && gt_bit)
           ++current_rank;
         current_rank -= delta;

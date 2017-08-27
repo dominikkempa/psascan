@@ -50,8 +50,12 @@ void test(
   std::uint8_t *gt_begin_reversed = new std::uint8_t[tail_length];
   for (std::uint64_t j = 1; j <= tail_length; ++j) {
     std::uint64_t lcp = 0;
-    while (j + lcp < tail_length && tail[lcp] == tail[j + lcp]) ++lcp;
-    gt_begin_reversed[tail_length - j] = (j + lcp < tail_length && tail[lcp] < tail[j + lcp]);
+    while (j + lcp < tail_length &&
+        tail[lcp] == tail[j + lcp])
+      ++lcp;
+
+    gt_begin_reversed[tail_length - j] =
+      (j + lcp < tail_length && tail[lcp] < tail[j + lcp]);
   }
   
   // Write gt_begin_reversed to several files.
@@ -74,15 +78,20 @@ void test(
   
   // Run the tested algorithm.
   std::uint64_t max_threads = utils::random_int64(1L, 20L);
-  std::uint64_t stream_max_block_size = (tail_length + max_threads - 1) / max_threads;
-  std::uint64_t n_threads = (tail_length + stream_max_block_size - 1) / stream_max_block_size;
+  std::uint64_t stream_max_block_size =
+    (tail_length + max_threads - 1) / max_threads;
+  std::uint64_t n_threads =
+    (tail_length + stream_max_block_size - 1) / stream_max_block_size;
   std::vector<std::uint64_t> result;
-  em_compute_initial_ranks(block, block_psa, block_beg, block_end, text_length,
-      text_filename, &gt_begin_rev_multifile, result, n_threads, tail_beg);
+  em_compute_initial_ranks(block, block_psa,
+      block_beg, block_end, text_length,
+      text_filename, &gt_begin_rev_multifile,
+      result, n_threads, tail_beg);
 
   // Compare computed answers to correct answers.
   for (std::uint64_t t = 0; t < n_threads; ++t) {
-    std::uint64_t stream_block_beg = tail_beg + t * stream_max_block_size;
+    std::uint64_t stream_block_beg =
+      tail_beg + t * stream_max_block_size;
 
     const std::uint8_t *pat = text + stream_block_beg;
     std::uint64_t pat_length = text_length - stream_block_beg;
@@ -103,7 +112,8 @@ void test(
       fprintf(stderr, "\tblock_beg = %lu\n", block_beg);
       fprintf(stderr, "\tblock_end = %lu\n", block_end);
       fprintf(stderr, "\ttail_beg = %lu\n", tail_beg);
-      fprintf(stderr, "\tstream_block_max_size = %lu\n", stream_max_block_size);
+      fprintf(stderr, "\tstream_block_max_size = %lu\n",
+          stream_max_block_size);
       fprintf(stderr, "\tn_threads = %lu\n", n_threads);
       fprintf(stderr, "\tt = %lu\n", t);
       fprintf(stderr, "\tcorrect srank = %lu\n", srank);
@@ -143,7 +153,8 @@ void test_random(
     std::uint64_t block_beg   = head_length;
     std::uint64_t block_end   = head_length + block_length;
     std::uint64_t tail_beg    = block_end + mid_length;
-    std::uint64_t text_length = head_length + block_length + mid_length + tail_length;
+    std::uint64_t text_length =
+      head_length + block_length + mid_length + tail_length;
 
     std::uint64_t sigma = utils::random_int64(1L, max_sigma);
 
@@ -165,25 +176,47 @@ void test_random(
 int main() {
   std::srand(std::time(0) + getpid());
 
-  test_random(10000,  10,      5);
-  test_random(10000,  10,     20);
-  test_random(10000,  10,    256);
+#ifdef NDEBUG
+  test_random(1000,  10,      5);
+  test_random(1000,  10,     20);
+  test_random(1000,  10,    256);
 
-  test_random(8000,  100,     5);
-  test_random(8000,  100,    20);
-  test_random(8000,  100,   256);
+  test_random(800,  100,     5);
+  test_random(800,  100,    20);
+  test_random(800,  100,   256);
 
-  test_random(3000,  300,     5);
-  test_random(3000,  300,    20);
-  test_random(3000,  300,   256);
+  test_random(300,  300,     5);
+  test_random(300,  300,    20);
+  test_random(300,  300,   256);
 
-  test_random(1000,  1000,    5);
-  test_random(1000,  1000,   20);
-  test_random(1000,  1000,  256);
+  test_random(100,  1000,    5);
+  test_random(100,  1000,   20);
+  test_random(100,  1000,  256);
 
-  test_random(300,  10000,    5);
-  test_random(300,  10000,   20);
-  test_random(300,  10000,  256);
+  test_random(30,  10000,    5);
+  test_random(30,  10000,   20);
+  test_random(30,  10000,  256);
+#else
+  test_random(100,  10,      5);
+  test_random(100,  10,     20);
+  test_random(100,  10,    256);
+
+  test_random(80,  100,     5);
+  test_random(80,  100,    20);
+  test_random(80,  100,   256);
+
+  test_random(30,  300,     5);
+  test_random(30,  300,    20);
+  test_random(30,  300,   256);
+
+  test_random(10,  1000,    5);
+  test_random(10,  1000,   20);
+  test_random(10,  1000,  256);
+
+  test_random(3,  10000,    5);
+  test_random(3,  10000,   20);
+  test_random(3,  10000,  256);
+#endif
 
   fprintf(stderr, "All tests passed.\n");
 }

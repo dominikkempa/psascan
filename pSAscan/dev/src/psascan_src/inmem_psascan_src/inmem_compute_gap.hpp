@@ -52,7 +52,7 @@
 #include "inmem_bwt_from_sa.hpp"
 #include "pagearray.hpp"
 #include "bwtsa.hpp"
-#include "sparse_isa.hpp"
+#include "space_efficient_isa.hpp"
 
 
 namespace psascan_private {
@@ -95,19 +95,20 @@ void inmem_compute_gap(
   //---------------------------------------------------------------------------
   // STEP 2: compute symbol counts and the last symbol of the left block.
   //---------------------------------------------------------------------------
-  std::uint64_t *count = new std::uint64_t[256];
-  for (std::uint32_t j = 0; j < 256; ++j)
-    count[j] = rank->rank(left_block_size, (std::uint8_t)j);
+  static const std::uint64_t k_sigma = 256;
+  std::uint64_t *count = new std::uint64_t[k_sigma];
+  for (std::uint64_t c = 0; c < k_sigma; ++c)
+    count[c] = rank->query(left_block_size, (std::uint8_t)c);
 
   const std::uint8_t *left_block = text + left_block_beg;
   std::uint8_t last = left_block[left_block_size - 1];
   ++count[last];
   --count[0];
 
-  for (std::uint64_t i = 0, s = 0, t; i < 256; ++i) {
-    t = count[i];
-    count[i] = s;
-    s += t;
+  for (std::uint64_t i = 0, sum = 0, temp = 0; i < k_sigma; ++i) {
+    temp = count[i];
+    count[i] = sum;
+    sum += temp;
   }
 
   //---------------------------------------------------------------------------
@@ -182,8 +183,14 @@ void inmem_compute_gap(
     // Build the data structure allowing answering ISA queries.
     start = utils::wclock();
     typedef pagearray<bwtsa_type, pagesize_log> pagearray_type;
-    typedef sparse_isa<pagearray_type, rank_type, 12U> sparse_isa_type;
-    sparse_isa_type *sp_isa = new sparse_isa_type(&bwtsa,
+
+#ifdef INMEM_PSASCAN_DEBUG
+    typedef space_efficient_isa<pagearray_type, rank_type, 2> isa_type;
+#else
+    typedef space_efficient_isa<pagearray_type, rank_type, 12> isa_type;
+#endif
+
+    isa_type *sp_isa = new isa_type(&bwtsa,
         text + left_block_beg, rank, left_block_size, i0);
     fprintf(stderr, "%.3Lfs ", utils::wclock() - start);
 

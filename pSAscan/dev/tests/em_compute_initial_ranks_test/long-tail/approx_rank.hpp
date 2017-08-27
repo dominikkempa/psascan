@@ -34,145 +34,276 @@
 #ifndef __SRC_PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
 #define __SRC_PSASCAN_SRC_APPROX_RANK_HPP_INCLUDED
 
-#include <thread>
+#include <cstdint>
 #include <algorithm>
+#include <omp.h>
+
+#include "utils.hpp"
 
 
 namespace psascan_private {
 
-template<long k_sampling_rate_log>
+/**
+ * Data structure answering approximate rank queries. based on the
+ * LZ-ISA algorithm computing Lempel-Ziv (LZ77) factorization described in
+ *
+ *   Dominik Kempa, Simon J. Puglisi:
+ *   Lempel-Ziv Factorization: Simple, Fast, Practical.
+ *   In Proc. ALENEX 2013, p. 103-112.
+ **/
+
+template<std::uint64_t k_sampling_rate_log>
 class approx_rank {
   private:
-    long *m_list_size;
-    long **m_list;
+    static const std::uint64_t k_sampling_rate;
+    static const std::uint64_t k_sampling_rate_mask;
 
-    static const long k_sampling_rate;
-    static const long k_sampling_rate_mask;
-
-  public:
-    long *m_count;
-
-  private:
-    static void compute_symbol_count_aux(const unsigned char *text, long beg,
-        long end, long *symbol_count) {
-      for (long j = beg; j < end; ++j)
-        ++symbol_count[text[j]];
-    }
-
-    static void compute_occ_list_aux(const unsigned char *text, long beg,
-        long end, long *symbol_count, long **list) {
-
-      // Compute where to start writing positions for each symbol.
-      long *ptr = new long[256];
-      for (long c = 0; c < 256; ++c)
-        ptr[c] = (symbol_count[c] + k_sampling_rate - 1) / k_sampling_rate;
-
-      // Add occurrences in the block to the lists.
-      for (long j = beg; j < end; ++j) {
-        unsigned char c = text[j];
-        if (!((symbol_count[c]++) & k_sampling_rate_mask))
-          list[c][ptr[c]++] = j;
-      }
-
-      // Clean up.
-      delete[] ptr;
-    }
+    std::uint8_t *m_mem;
+    std::uint64_t *m_lists;
+    std::uint64_t *m_cum_symbol_count;
 
   public:
-    approx_rank(const unsigned char *text, long length, long max_threads) {
 
-      // Compute symbol counts in each block.
-      long max_block_size = (length + max_threads - 1) / max_threads;
-      long n_threads = (length + max_block_size - 1) / max_block_size;
-      long **symbol_count = new long*[n_threads];
-      for (long j = 0; j < n_threads; ++j) {
-        symbol_count[j] = new long[256];
-        std::fill(symbol_count[j], symbol_count[j] + 256, 0L);
+    //=========================================================================
+    // Constructor
+    //=========================================================================
+    approx_rank(
+        const std::uint8_t *text,
+        std::uint64_t text_length) {
+
+      // Set the alphabet size.
+      static const std::uint64_t k_sigma = 256;
+
+      // Allocate all memory.
+      std::uint64_t max_samples =
+        (text_length >> k_sampling_rate_log);
+      std::uint64_t toalloc =
+        (k_sigma + 1) * sizeof(std::uint64_t) +
+        max_samples * sizeof(std::uint64_t);
+      m_mem = utils::allocate_array<std::uint8_t>(toalloc);
+
+      // Assign memory for symbol counts.
+      std::uint8_t *mem_ptr = m_mem;
+      m_cum_symbol_count = (std::uint64_t *)mem_ptr;
+      mem_ptr += (k_sigma + 1) * sizeof(std::uint64_t);
+
+      // Assign memory for lists.
+      m_lists = (std::uint64_t *)mem_ptr;
+      mem_ptr += max_samples * sizeof(std::uint64_t);
+
+      // Compute lists.
+      {
+#ifdef _OPENMP
+
+        // Compute basic parameters.
+        std::uint64_t max_threads = omp_get_max_threads();
+        std::uint64_t max_block_size =
+          (text_length + max_threads - 1) / max_threads;
+        std::uint64_t n_blocks =
+          (text_length + max_block_size - 1) / max_block_size;
+
+        // Allocate a set of counts for each block.
+        std::uint64_t *blocks_counts =
+          utils::allocate_array<std::uint64_t>(k_sigma * n_blocks);
+
+        // Compute counts in each block.
+        #pragma omp parallel num_threads(n_blocks)
+        {
+
+          // Compute basic parameters
+          // (block boundaries, etc).
+          std::uint64_t block_id = omp_get_thread_num();
+          std::uint64_t block_beg = block_id * max_block_size;
+          std::uint64_t block_end = std::min(text_length,
+              block_beg + max_block_size);
+          std::uint64_t *block_counts =
+            blocks_counts + block_id * k_sigma;
+
+          // Zero-initialize block counts.
+          std::fill(block_counts, block_counts + k_sigma, 0);
+
+          // Fill in block counts.
+          for (std::uint64_t i = block_beg; i < block_end; ++i)
+            ++block_counts[text[i]];
+        }
+
+        // Compute global cumulative
+        // symbol counts.
+        {
+          std::uint64_t total_symbol_count = 0;
+          for (std::uint64_t c = 0; c < k_sigma; ++c) {
+
+            // Prefix sum for symbol c.
+            std::uint64_t total_c_count = 0;
+            for (std::uint64_t block_id = 0;
+                block_id < n_blocks; ++block_id) {
+              std::uint64_t temp = blocks_counts[block_id * k_sigma + c];
+              blocks_counts[block_id * k_sigma + c] = total_c_count;
+              total_c_count += temp;
+            }
+
+            // Update m_symbol_count and
+            // total_symbol_count.
+            m_cum_symbol_count[c] = total_symbol_count;
+            total_symbol_count += total_c_count;
+          }
+
+          // Set the sentinel count.
+          m_cum_symbol_count[k_sigma] =
+            total_symbol_count;
+        }
+
+        // Fill in lists.
+        #pragma omp parallel num_threads(n_blocks)
+        {
+
+          // Compute basic parameters.
+          std::uint64_t block_id = omp_get_thread_num();
+          std::uint64_t block_beg = block_id * max_block_size;
+          std::uint64_t block_end = std::min(text_length,
+              block_beg + max_block_size);
+          std::uint64_t *block_counts =
+            blocks_counts + block_id * k_sigma;
+
+          // Fill in lists.
+          for (std::uint64_t i = block_beg; i < block_end; ++i) {
+            std::uint8_t c = text[i];
+            ++block_counts[c];
+
+            // Store the sample.
+            if (!(block_counts[c] & k_sampling_rate_mask)) {
+              std::uint64_t list_beg =
+                (m_cum_symbol_count[c] >> k_sampling_rate_log);
+              std::uint64_t offset =
+                (block_counts[c] >> k_sampling_rate_log) - 1;
+              m_lists[list_beg + offset] = i;
+            }
+          }
+        }
+
+        // Clean up.
+        utils::deallocate(blocks_counts);
+#else
+
+        // Zero-initialize symbol counts.
+        std::fill(m_cum_symbol_count,
+            m_cum_symbol_count + k_sigma, 0);
+
+        // Compute symbol counts.
+        for (std::uint64_t i = 0; i < text_length; ++i)
+          ++m_cum_symbol_count[text[i]];
+
+        // Compute exclusive prefix
+        // sum over symbol counts.
+        {
+          std::uint64_t total_symbol_count = 0;
+          for (std::uint64_t c = 0; c < k_sigma; ++c) {
+            std::uint64_t total_c_count = m_cum_symbol_count[c];
+
+            // Compute list size for c.
+            m_cum_symbol_count[c] = total_symbol_count;
+            total_symbol_count += total_c_count;
+          }
+
+          // Set the sentinel count.
+          m_cum_symbol_count[k_sigma] =
+            total_symbol_count;
+        }
+
+        // Fill in lists.
+        {
+
+          // Allocate and  zero-initialize
+          // temporary symbol counts.
+          std::uint64_t *symbol_count =
+            utils::allocate_array<std::uint64_t>(k_sigma);
+          std::fill(symbol_count, symbol_count + k_sigma, 0);
+
+          // Compute lists.
+          for (std::uint64_t i = 0; i < text_length; ++i) {
+            std::uint8_t c = text[i];
+            ++symbol_count[c];
+
+            // Store the sample.
+            if (!(symbol_count[c] & k_sampling_rate_mask)) {
+              std::uint64_t list_beg =
+                (m_cum_symbol_count[c] >> k_sampling_rate_log);
+              std::uint64_t offset =
+                (symbol_count[c] >> k_sampling_rate_log) - 1;
+              m_lists[list_beg + offset] = i;
+            }
+          }
+
+          // Clean up.
+          utils::deallocate(symbol_count);
+        }
+
+#endif  // _OPENMP
       }
-
-      std::thread **threads = new std::thread*[n_threads];
-      for (long t = 0; t < n_threads; ++t) {
-        long block_beg = t * max_block_size;
-        long block_end = std::min(block_beg + max_block_size, length);
-
-        threads[t] = new std::thread(compute_symbol_count_aux,
-            text, block_beg, block_end, symbol_count[t]);
-      }
-
-      for (long t = 0; t < n_threads; ++t) threads[t]->join();
-      for (long t = 0; t < n_threads; ++t) delete threads[t];
-
-      // Compute (exclusive) partial sums over symbol counts.
-      m_count = new long[256];
-      std::fill(m_count, m_count + 256, 0L);
-      long *temp_count = new long[256];
-      for (long i = 0; i < n_threads; ++i) {
-        std::copy(symbol_count[i], symbol_count[i] + 256, temp_count);
-        std::copy(m_count, m_count + 256, symbol_count[i]);
-        for (long j = 0; j < 256; ++j)
-          m_count[j] += temp_count[j];
-      }
-      delete[] temp_count;
-
-      // Compute sizes and allocate occurrences lists.
-      m_list_size = new long[256];
-      m_list = new long*[256];
-      for (long i = 0; i < 256; ++i) {
-        m_list_size[i] = (m_count[i] + k_sampling_rate - 1) / k_sampling_rate;
-        if (m_list_size[i]) m_list[i] = new long[m_list_size[i]];
-        else m_list[i] = NULL;
-      }
-
-      for (long t = 0; t < n_threads; ++t) {
-        long block_beg = t * max_block_size;
-        long block_end = std::min(block_beg + max_block_size, length);
-
-        threads[t] = new std::thread(compute_occ_list_aux, text,
-            block_beg, block_end, symbol_count[t], m_list);
-      }
-
-      for (long t = 0; t < n_threads; ++t) threads[t]->join();
-      for (long t = 0; t < n_threads; ++t) delete threads[t];
-      delete[] threads;
-
-
-      // Clean up.
-      for (long j = 0; j < n_threads; ++j)
-        delete[] symbol_count[j];
-      delete[] symbol_count;
     }
 
-    inline long rank(long i, unsigned char c) const {
-      if (i <= 0 || (!m_list_size[c]) || m_list[c][0] >= i)
-        return 0L;
+    //=========================================================================
+    // Return a lower bound for the number of occurrences of c in
+    // text[0..i), i.e., a value x such that x <= rank(i, c). It is
+    // guaranteed to be a "good" lower bound, i.e., to satisfy
+    // rank(i, c) - x < k_sampling_rate.
+    //=========================================================================
+    inline std::uint64_t rank(
+        std::uint64_t i,
+        std::uint8_t c) const {
 
-      long left = 0, right = m_list_size[c];
+      // Compute the list size and pointer.
+      std::uint64_t list_beg =
+        (m_cum_symbol_count[c] >> k_sampling_rate_log);
+      std::uint64_t count_c =
+        m_cum_symbol_count[(std::uint64_t)c + 1] - m_cum_symbol_count[c];
+      std::uint64_t list_size = (count_c >> k_sampling_rate_log);
+      std::uint64_t *m_list = m_lists + list_beg;
+
+      // Handle special case.
+      if (list_size == 0 ||
+          m_list[0] >= i)
+        return 0;
+
+      // Find the number of items smaller than i.
+      std::uint64_t left = 0;
+      std::uint64_t right = list_size;
       while (left + 1 != right) {
 
-        // Invariant: the answer is in range [left..right).
-        long mid = (left + right) / 2;
-        if (m_list[c][mid] <= i) left = mid;
+        // Invariant: the answer is in range (left, right].
+        std::uint64_t mid = (left + right) / 2;
+        if (m_list[mid] < i) left = mid;
         else right = mid;
       }
-      return (left << k_sampling_rate_log);
+
+      // Return the answer.
+      return (right << k_sampling_rate_log);
     }
 
+    //=========================================================================
+    // Return the number of occurrences of c in text.
+    //=========================================================================
+    inline std::uint64_t count(std::uint8_t c) const {
+      return
+        m_cum_symbol_count[(std::uint64_t)c + 1] -
+        m_cum_symbol_count[c];
+    }
+
+    //=========================================================================
+    // Destructor
+    //=========================================================================
     ~approx_rank() {
-      delete[] m_count;
-      delete[] m_list_size;
-      for (long j = 0; j < 256; ++j) {
-        if (m_list[j])
-          delete[] m_list[j];
-      }
-      delete[] m_list;
+      utils::deallocate(m_mem);
     }
 };
 
-template<long k_sampling_rate_log>
-const long approx_rank<k_sampling_rate_log>::k_sampling_rate = (1L << k_sampling_rate_log);
+template<std::uint64_t k_sampling_rate_log>
+  const std::uint64_t approx_rank<k_sampling_rate_log>::
+  k_sampling_rate = ((std::uint64_t)1 << k_sampling_rate_log);
 
-template<long k_sampling_rate_log>
-const long approx_rank<k_sampling_rate_log>::k_sampling_rate_mask = (1L << k_sampling_rate_log) - 1;
+template<std::uint64_t k_sampling_rate_log>
+  const std::uint64_t approx_rank<k_sampling_rate_log>::
+  k_sampling_rate_mask = ((std::uint64_t)1 << k_sampling_rate_log) - 1;
 
 }  // namespace psascan_private
 

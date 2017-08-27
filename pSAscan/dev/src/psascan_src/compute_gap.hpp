@@ -91,14 +91,15 @@ void compute_gap(
   // 1
   //
   // Get symbol counts of a block and turn into exclusive partial sum.
-  std::uint64_t *count = new std::uint64_t[256];
-  for (std::uint64_t j = 0; j < 256; ++j)
+  static const std::uint64_t k_sigma = 256;
+  std::uint64_t *count = new std::uint64_t[k_sigma];
+  for (std::uint64_t j = 0; j < k_sigma; ++j)
     count[j] = rank->rank(block_size, (std::uint8_t)j);
   ++count[block_last_symbol];
   --count[0];
 
   // Exclusive partial sum over the count array.
-  for (std::uint64_t j = 0, sum = 0, temp = 0; j < 256; ++j) {
+  for (std::uint64_t j = 0, sum = 0, temp = 0; j < k_sigma; ++j) {
     temp = count[j];
     count[j] = sum;
     sum += temp;

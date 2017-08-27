@@ -38,12 +38,14 @@
 #include <algorithm>
 #include <omp.h>
 
+#include "utils.hpp"
+
 
 namespace psascan_private {
 
 /**
- * Data structure answering approximate rank queries. Based on the
- * LZ-ISA parsing algorithm described in
+ * Data structure answering approximate rank queries. based on the
+ * LZ-ISA algorithm computing Lempel-Ziv (LZ77) factorization described in
  *
  *   Dominik Kempa, Simon J. Puglisi:
  *   Lempel-Ziv Factorization: Simple, Fast, Practical.
@@ -58,7 +60,7 @@ class approx_rank {
 
     std::uint8_t *m_mem;
     std::uint64_t *m_lists;
-    std::uint64_t *m_list_beg;
+    std::uint64_t *m_cum_symbol_count;
 
   public:
 
@@ -80,9 +82,9 @@ class approx_rank {
         max_samples * sizeof(std::uint64_t);
       m_mem = utils::allocate_array<std::uint8_t>(toalloc);
 
-      // Assign memory for list pointers.
+      // Assign memory for symbol counts.
       std::uint8_t *mem_ptr = m_mem;
-      m_list_beg = (std::uint64_t *)mem_ptr;
+      m_cum_symbol_count = (std::uint64_t *)mem_ptr;
       mem_ptr += (k_sigma + 1) * sizeof(std::uint64_t);
 
       // Assign memory for lists.
@@ -125,13 +127,13 @@ class approx_rank {
             ++block_counts[text[i]];
         }
 
-        // Compute partial sum over blocks symbol
-        // counts. We also compute m_list_beg pointers.
+        // Compute global cumulative
+        // symbol counts.
         {
-          std::uint64_t total_list_size = 0;
+          std::uint64_t total_symbol_count = 0;
           for (std::uint64_t c = 0; c < k_sigma; ++c) {
 
-            // Partial sum for symbol c.
+            // Prefix sum for symbol c.
             std::uint64_t total_c_count = 0;
             for (std::uint64_t block_id = 0;
                 block_id < n_blocks; ++block_id) {
@@ -140,16 +142,15 @@ class approx_rank {
               total_c_count += temp;
             }
 
-            // Compute list size for c and
-            // update m_list_beg pointer.
-            std::uint64_t list_size =
-              (total_c_count >> k_sampling_rate_log);
-            m_list_beg[c] = total_list_size;
-            total_list_size += list_size;
+            // Update m_symbol_count and
+            // total_symbol_count.
+            m_cum_symbol_count[c] = total_symbol_count;
+            total_symbol_count += total_c_count;
           }
 
-          // Set the sentinel pointer.
-          m_list_beg[k_sigma] = total_list_size;
+          // Set the sentinel count.
+          m_cum_symbol_count[k_sigma] =
+            total_symbol_count;
         }
 
         // Fill in lists.
@@ -171,9 +172,11 @@ class approx_rank {
 
             // Store the sample.
             if (!(block_counts[c] & k_sampling_rate_mask)) {
+              std::uint64_t list_beg =
+                (m_cum_symbol_count[c] >> k_sampling_rate_log);
               std::uint64_t offset =
                 (block_counts[c] >> k_sampling_rate_log) - 1;
-              m_lists[m_list_beg[c] + offset] = i;
+              m_lists[list_beg + offset] = i;
             }
           }
         }
@@ -182,67 +185,80 @@ class approx_rank {
         utils::deallocate(blocks_counts);
 #else
 
-        // Allocate array for symbol counts.
-        std::uint64_t *symbol_count =
-          utils::allocate_array<std::uint64_t>(k_sigma);
-        std::fill(symbol_count, symbol_count + k_sigma, 0);
+        // Zero-initialize symbol counts.
+        std::fill(m_cum_symbol_count,
+            m_cum_symbol_count + k_sigma, 0);
 
         // Compute symbol counts.
         for (std::uint64_t i = 0; i < text_length; ++i)
-          ++symbol_count[text[i]];
+          ++m_cum_symbol_count[text[i]];
 
-        // Compute partial sum over symbol counts.
-        // We also compute m_list_beg pointers.
+        // Compute exclusive prefix
+        // sum over symbol counts.
         {
-          std::uint64_t total_list_size = 0;
+          std::uint64_t total_symbol_count = 0;
           for (std::uint64_t c = 0; c < k_sigma; ++c) {
-            std::uint64_t total_c_count = symbol_count[c];
+            std::uint64_t total_c_count = m_cum_symbol_count[c];
 
             // Compute list size for c.
-            std::uint64_t list_size =
-              (total_c_count >> k_sampling_rate_log);
-            m_list_beg[c] = total_list_size;
-            total_list_size += list_size;
+            m_cum_symbol_count[c] = total_symbol_count;
+            total_symbol_count += total_c_count;
           }
 
-          // Set the sentinel pointer.
-          m_list_beg[k_sigma] = total_list_size;
+          // Set the sentinel count.
+          m_cum_symbol_count[k_sigma] =
+            total_symbol_count;
         }
 
         // Fill in lists.
-        std::fill(symbol_count, symbol_count + k_sigma, 0);
-        for (std::uint64_t i = 0; i < text_length; ++i) {
-          std::uint8_t c = text[i];
-          ++symbol_count[c];
+        {
 
-          // Store the sample.
-          if (!(symbol_count[c] & k_sampling_rate_mask)) {
-            std::uint64_t offset =
-              (symbol_count[c] >> k_sampling_rate_log) - 1;
-            m_lists[m_list_beg[c] + offset] = i;
+          // Allocate and  zero-initialize
+          // temporary symbol counts.
+          std::uint64_t *symbol_count =
+            utils::allocate_array<std::uint64_t>(k_sigma);
+          std::fill(symbol_count, symbol_count + k_sigma, 0);
+
+          // Compute lists.
+          for (std::uint64_t i = 0; i < text_length; ++i) {
+            std::uint8_t c = text[i];
+            ++symbol_count[c];
+
+            // Store the sample.
+            if (!(symbol_count[c] & k_sampling_rate_mask)) {
+              std::uint64_t list_beg =
+                (m_cum_symbol_count[c] >> k_sampling_rate_log);
+              std::uint64_t offset =
+                (symbol_count[c] >> k_sampling_rate_log) - 1;
+              m_lists[list_beg + offset] = i;
+            }
           }
-        }
 
-        // Clean up.
-        utils::deallocate(symbol_count);
+          // Clean up.
+          utils::deallocate(symbol_count);
+        }
 
 #endif  // _OPENMP
       }
     }
 
     //=========================================================================
-    // Return a lower bound for the number
-    // of occurrence of c in text[0..i), i.e.
-    // a value x such that x <= rank(i, c).
+    // Return a lower bound for the number of occurrences of c in
+    // text[0..i), i.e., a value x such that x <= rank(i, c). It is
+    // guaranteed to be a "good" lower bound, i.e., to satisfy
+    // rank(i, c) - x < k_sampling_rate.
     //=========================================================================
-    inline std::uint64_t query(
+    inline std::uint64_t rank(
         std::uint64_t i,
         std::uint8_t c) const {
 
       // Compute the list size and pointer.
-      std::uint64_t list_size =
-        m_list_beg[(std::uint64_t)c + 1] - m_list_beg[c];
-      std::uint64_t *m_list = m_lists + m_list_beg[c];
+      std::uint64_t list_beg =
+        (m_cum_symbol_count[c] >> k_sampling_rate_log);
+      std::uint64_t count_c =
+        m_cum_symbol_count[(std::uint64_t)c + 1] - m_cum_symbol_count[c];
+      std::uint64_t list_size = (count_c >> k_sampling_rate_log);
+      std::uint64_t *m_list = m_lists + list_beg;
 
       // Handle special case.
       if (list_size == 0 ||
@@ -262,6 +278,15 @@ class approx_rank {
 
       // Return the answer.
       return (right << k_sampling_rate_log);
+    }
+
+    //=========================================================================
+    // Return the number of occurrences of c in text.
+    //=========================================================================
+    inline std::uint64_t count(std::uint8_t c) const {
+      return
+        m_cum_symbol_count[(std::uint64_t)c + 1] -
+        m_cum_symbol_count[c];
     }
 
     //=========================================================================

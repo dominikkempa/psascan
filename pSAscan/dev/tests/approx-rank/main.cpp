@@ -32,10 +32,13 @@ void test(
     std::uint8_t c = utils::random_int64(0, 255);
 
     std::uint64_t correct_answer = rank->rank(i, c);
-    std::uint64_t computed_answer = approx_rank->query(i, c);
+    std::uint64_t computed_answer = approx_rank->rank(i, c);
+    std::uint64_t correct_count = rank->rank(text_length, c);
+    std::uint64_t computed_count = approx_rank->count(c);
 
     if (computed_answer > correct_answer ||
-        computed_answer + k_sampling_rate <= correct_answer) {
+        computed_answer + k_sampling_rate <= correct_answer ||
+        correct_count != computed_count) {
 
       fprintf(stderr, "\n\033[22;31mFAILED\033[0m\n");
       if (text_length <= 1000) {
@@ -49,6 +52,8 @@ void test(
       fprintf(stderr, "  correct answer = %lu\n", correct_answer);
       fprintf(stderr, "  computed answer = %lu\n", computed_answer);
       fprintf(stderr, "  k_sampling_rate = %lu\n", k_sampling_rate);
+      fprintf(stderr, "  correct count = %lu\n", correct_count);
+      fprintf(stderr, "  computed count = %lu\n", computed_count);
       std::exit(EXIT_FAILURE);
     }
   }

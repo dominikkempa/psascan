@@ -644,7 +644,7 @@ class rank4n {
       utils::deallocate(freq_map);
     }
 
-    inline std::uint64_t rank(std::uint64_t i, std::uint8_t c) const {
+    inline std::uint64_t query(std::uint64_t i, std::uint8_t c) const {
       if (i == 0) return 0UL;
       else if (i >= m_length) return m_count[c];
 
@@ -796,7 +796,7 @@ class rank4n {
             // We found cblock where c occurrs, but it wasn't on the
             // sblock boundary. In the recursive call this will either
             // be case 1 or case 2.
-            return rank(cblock_id << k_cblock_size_log, c);
+            return query(cblock_id << k_cblock_size_log, c);
           }
         }
       }

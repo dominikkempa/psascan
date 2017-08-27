@@ -186,25 +186,25 @@ void test_random(std::uint64_t testcases, std::uint64_t max_length, std::uint64_
 int main() {
   std::srand(std::time(0) + getpid());
 
-  test_random(10000,  10,      5);
-  test_random(10000,  10,     20);
-  test_random(10000,  10,    256);
+  test_random(1000,  10,      5);
+  test_random(1000,  10,     20);
+  test_random(1000,  10,    256);
 
-  test_random(8000,  100,     5);
-  test_random(8000,  100,    20);
-  test_random(8000,  100,   256);
+  test_random(800,  100,     5);
+  test_random(800,  100,    20);
+  test_random(800,  100,   256);
 
-  test_random(3000,  300,     5);
-  test_random(3000,  300,    20);
-  test_random(3000,  300,   256);
+  test_random(300,  300,     5);
+  test_random(300,  300,    20);
+  test_random(300,  300,   256);
 
-  test_random(1000,  1000,    5);
-  test_random(1000,  1000,   20);
-  test_random(1000,  1000,  256);
+  test_random(100,  1000,    5);
+  test_random(100,  1000,   20);
+  test_random(100,  1000,  256);
 
-  test_random(300,  10000,    5);
-  test_random(300,  10000,   20);
-  test_random(300,  10000,  256);
+  test_random(30,  10000,    5);
+  test_random(30,  10000,   20);
+  test_random(30,  10000,  256);
 
   fprintf(stderr, "All tests passed.\n");
 }

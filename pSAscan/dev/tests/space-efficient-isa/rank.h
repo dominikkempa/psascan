@@ -4,8 +4,11 @@
 #include <algorithm>
 #include <vector>
 #include <thread>
+#include <omp.h>
 
-#include "utils.h"
+#include "utils.hpp"
+
+using namespace psascan_private;
 
 
 template<unsigned k_sblock_size_log = 24, unsigned k_cblock_size_log = 20, unsigned k_sigma_log = 8>
@@ -46,7 +49,9 @@ class rank4n {
     unsigned long *m_count; // symbol counts
 
   public:
-    rank4n(const unsigned char *text, unsigned long length, unsigned max_threads) {
+    rank4n(const std::uint8_t *text, std::uint64_t length) {
+
+      std::uint64_t max_threads = omp_get_max_threads();
       m_length = length;
       n_cblocks = (m_length + k_cblock_size - 1) / k_cblock_size;
       n_sblocks = (n_cblocks + k_cblocks_in_sblock - 1) / k_cblocks_in_sblock;
@@ -516,7 +521,7 @@ class rank4n {
       delete[] off;
     }
 
-    inline long rank(long i, unsigned char c) const {
+    inline long query(long i, unsigned char c) const {
       if (i <= 0) return 0L;
       else if ((unsigned long)i >= m_length) return m_count[c];
 
@@ -682,7 +687,7 @@ class rank4n {
             // We found cblock where c occurrs, but it wasn't on the
             // sblock boundary. In the recursive call this will either
             // be case 1 or case 2.
-            return rank(cblock_id << k_cblock_size_log, c);
+            return query(cblock_id << k_cblock_size_log, c);
           }
         }
       }
