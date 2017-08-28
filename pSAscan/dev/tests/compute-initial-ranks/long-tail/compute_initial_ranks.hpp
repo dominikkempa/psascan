@@ -402,7 +402,7 @@ void em_compute_initial_ranks(
 //   tail_beg <= pat_beg.
 // * only substrings text[pat_beg+lcp..pat_beg+pat_length)
 //   and text[block_suf_beg..block_end) are stored in RAM
-//   and can be accessed, respectively, viavariables
+//   and can be accessed, respectively, via variables
 //   text[block_suf_beg..block_end) and pat[lcp..pat_length).
 //   Any accesses to these variables outside the specified
 //   ranges are undefined.
@@ -420,7 +420,7 @@ void em_compute_initial_ranks(
 // of suffix text[block_suf_beg..text_length), but the opposite is
 // not true, i.e., the function could return != 0 even if the
 // substring is a prefix of text[block_suf_beg..text_length),
-// becaue the determination could be made on the information
+// because the determination could be made on the information
 // provided by the gt bitvector or the boundary conditions
 // (e.g., if pat_beg + pat_length = text_length).
 //
@@ -459,7 +459,7 @@ inline int lcp_compare(
   }
 
   // Either we reached the end of block (or possibly, due to large
-  // initial lcp value, we are already past the end fof block), or
+  // initial lcp value, we are already past the end of block), or
   // we reached the end of pattern. Consider the first case but only
   // if block_end < tail_begin because otherwise we can use gt to
   // decide.
@@ -548,7 +548,7 @@ void refine_range(
 #endif
 
   // Compute the lower bound of the new range.
-  // Invariant: the anwer is always in (low, high].
+  // Invariant: the answer is always in (low, high].
   std::int64_t low = (std::int64_t)left - 1;
   std::int64_t high = right;
   std::uint64_t llcp = range_lcp;
@@ -680,7 +680,7 @@ void compute_pattern_rank(
   // The computation is done with the binary search over the array
   // 'psa'. However, a comparison of the pattern with a single suffix
   // from psa could require accessing nearly whole pattern. We cannot
-  // affort to store it, so in the worst case we would have to stream
+  // afford to store it, so in the worst case we would have to stream
   // the whole pattern many times. To prevent this, we perform the
   // computation in chunks. Each time we read a small chunk of the
   // pattern into RAM, we refine the range of suffixes in the suffix
@@ -757,7 +757,7 @@ void compute_pattern_rank(
 // are equal, but the function does not take advantage of this fact. The
 // rank of each pattern is computed independently by a separate thread.
 //
-// To determine ties in case of very long commong prefixes between suffixes
+// To determine ties in case of very long common prefixes between suffixes
 // starting inside the block and the pattern, the function is provided
 // with a bitvector (called here "gt", for technical reason it is reversed)
 // that tells, for every position i in the range [tail_begin..text_length)
@@ -807,7 +807,7 @@ void compute_tail_ranks(
     #pragma omp parallel num_threads(n_patterns)
     {
 
-      // Compute pattern beginning and maximum lcp.
+      // Compute pattern id and starting position.
       std::uint64_t pattern_id = omp_get_thread_num();
       std::uint64_t pattern_beg = tail_begin +
         pattern_id * stream_max_block_size;
@@ -825,7 +825,7 @@ void compute_tail_ranks(
     for (std::uint64_t pattern_id = 0;
         pattern_id < n_patterns; ++pattern_id) {
 
-      // Compute pattern beginning and maximum lcp.
+      // Compute pattern starting position.
       std::uint64_t pattern_beg = tail_begin +
         pattern_id * stream_max_block_size;
 
