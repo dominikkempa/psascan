@@ -55,7 +55,7 @@
 #include "half_block_info.hpp"
 #include "bwt_merge.hpp"
 #include "compute_gap.hpp"
-#include "em_compute_initial_ranks.hpp"
+#include "compute_initial_ranks.hpp"
 #include "compute_right_gap.hpp"
 #include "compute_left_gap.hpp"
 #include "io/scatterfile_writer.hpp"
@@ -360,15 +360,18 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
 
   // 2.c
   //
-  // Compute the second terms of block initial ranks.
+  // Compute the second terms of block
+  // initial ranks. Note the space usage.
   long after_block_initial_rank = 0;
   if (!last_block) {
     fprintf(stderr, "    Compute initial tail ranks (part 2): ");
     long double initial_ranks_second_term_start = utils::wclock();
     std::vector<std::uint64_t> block_initial_ranks_second_term;
-    em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_beg,
-        left_block_end, text_length, text_filename, tail_gt_begin_rev, block_initial_ranks_second_term,
-        max_threads, block_tail_beg);  // Note the space usage!
+    compute_tail_ranks<block_offset_type>(
+        left_block, left_block_psa_ptr, tail_gt_begin_rev,
+        text_filename, left_block_beg, left_block_end,
+        text_length, block_tail_beg, max_threads,
+        block_initial_ranks_second_term);
 
     after_block_initial_rank = block_initial_ranks_second_term[0];
     std::uint64_t vec_size = block_initial_ranks_second_term.size();

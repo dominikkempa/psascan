@@ -8,7 +8,7 @@
 #include "divsufsort.h"
 #include "utils.hpp"
 #include "io/multifile.hpp"
-#include "em_compute_initial_ranks.hpp"
+#include "compute_initial_ranks.hpp"
 #include "io/io_streamer.hpp"
 #include "io/multifile_bit_stream_reader.hpp"
 

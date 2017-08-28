@@ -207,25 +207,28 @@ template<
   typename approx_rank_type,
   typename psa_offset_type,
   std::uint64_t k_sampling_rate_log>
-const std::uint64_t space_efficient_isa<approx_rank_type,
-      psa_offset_type, k_sampling_rate_log>
-  ::k_sampling_rate = ((std::uint64_t)1 << k_sampling_rate_log);
+const std::uint64_t space_efficient_isa<
+  approx_rank_type, psa_offset_type, k_sampling_rate_log>
+  ::k_sampling_rate =
+      ((std::uint64_t)1 << k_sampling_rate_log);
 
 template<
   typename approx_rank_type,
   typename psa_offset_type,
   std::uint64_t k_sampling_rate_log>
-const std::uint64_t space_efficient_isa<approx_rank_type,
-      psa_offset_type, k_sampling_rate_log>
-  ::k_sampling_rate_mask = ((std::uint64_t)1 << k_sampling_rate_log) - 1;
+const std::uint64_t space_efficient_isa<
+  approx_rank_type, psa_offset_type, k_sampling_rate_log>
+  ::k_sampling_rate_mask =
+      ((std::uint64_t)1 << k_sampling_rate_log) - 1;
 
 template<
   typename approx_rank_type,
   typename psa_offset_type,
   std::uint64_t k_sampling_rate_log>
-const std::uint64_t space_efficient_isa<approx_rank_type,
-      psa_offset_type, k_sampling_rate_log>
-  ::k_sigma = (std::uint64_t)256;
+const std::uint64_t space_efficient_isa<
+  approx_rank_type, psa_offset_type, k_sampling_rate_log>
+  ::k_sigma =
+      (std::uint64_t)256;
 
 }  // namespace psascan_private
 
