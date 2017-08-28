@@ -461,8 +461,7 @@ inline int lcp_compare(
   // Either we reached the end of block (or possibly, due to large
   // initial lcp value, we are already past the end of block), or
   // we reached the end of pattern. Consider the first case but only
-  // if block_end < tail_begin because otherwise we can use gt to
-  // decide.
+  // if block_end < tail_begin, otherwise we can use gt to decide.
   if (block_suf_beg + lcp >= block_end &&
       block_end < tail_begin && lcp < pat_length) {
 
@@ -472,7 +471,8 @@ inline int lcp_compare(
     mid_block_reader->wait(
         std::min(tail_begin, block_suf_beg + pat_length) - block_end);
 
-    // Now continue the comparison.
+    // Now continue the comparison using
+    // the symbols from the mid block.
     const std::uint8_t *text2 = mid_block_reader->m_data - block_end;
     while (block_suf_beg + lcp < tail_begin &&
         lcp < pat_length &&
@@ -486,25 +486,33 @@ inline int lcp_compare(
         lcp < pat_length) {
 
       // Invariant: pat[lcp] != text2[block_suf_beg + lcp].
-      if (pat[lcp] < text2[block_suf_beg + lcp]) return -1;
+      if (pat[lcp] < text2[block_suf_beg + lcp])
+        return -1;
       else return +1;
     }
   }
 
-  // No more information can be gained using symbol
-  // comparisons. 
+  // No more information can be gained
+  // using symbol comparisons.
   if (block_suf_beg + lcp >= tail_begin) {
 
     // Use gt to resolve comparison.
-    if (gt_reader.access(text_length -
-          (pat_beg + (tail_begin - block_suf_beg))))
-      return 1;
+    // Note that gt is stored reversed.
+    std::uint64_t gt_pos =
+      pat_beg + (tail_begin - block_suf_beg);
+    if (gt_reader.access(text_length - gt_pos))
+      return +1;
     else return -1;
 
   } else {
 
-    // lcp == pat_length
-    if (pat_beg + pat_length >= text_length) return -1;
+    // The only remaining option is that
+    // lcp == pat_length. In this case we
+    // can resolve the comparison only due
+    // to boundary case, i.e., if we have
+    // pat_beg + pat_length == text_length.
+    if (pat_beg + pat_length == text_length)
+      return -1;
     else return 0;
   }
 }
@@ -593,7 +601,11 @@ void refine_range(
   // of the new range.
   newleft = high;
 
-  // XXX add comment.
+  // rlcp < pat_length means no suffix in block_psa
+  // has pat[0..pat_length) as a prefix or the ones
+  // that do were already classified as larger. We
+  // only need to do second binary search if rlcp
+  // >= pat_length.
   if (rlcp >= pat_length) {
     high = right;
     rlcp = range_lcp;
