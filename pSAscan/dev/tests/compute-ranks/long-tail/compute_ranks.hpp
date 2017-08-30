@@ -65,19 +65,19 @@ namespace psascan_private {
 // than one case holds, any integer indicating one of the holding cases
 // is a correct return value. If the function returns 0, ret_lcp has to be
 // set to pattern_length. In other cases, the ret_lcp must be a true
-// lower bound for lcp(x, y) not smaller than init_lcp. No requirement is
-// placed ret_lcp in those cases.
+// lower bound for lcp(x, y) not smaller than init_lcp. No other requirement
+// is placed on ret_lcp in those cases.
 //
-// Note that the function is not provided with the full text, nor the
-// filename with the text. It is given the following information about
-// the text and the ordering of its suffixes:
+// The function is not provided with the full text, nor the filename with
+// the text. It is given the following information about the text and the
+// ordering of its suffixes:
 // * text[block_begin..block_end) and text[pattern_begin+init_lcp..
 //   pattern_begin+pattern_length) are the accessible substrings of text.
 //   They are available, respectively, via text[block_beg..block_end) and
 //   pat[init_lcp..pattern_length) variables. Any accesses to these
 //   variables outside the specified ranges are undefined.
-// * gt bitvector telling for every i in range (block_end..tail_end]
-//   whether the suffix text[i..text_length) is greater (then bit is 1)
+// * gt bitvector telling for every i in the range (block_end..tail_end]
+//   whether the suffix text[i..text_length) is greater (the bit is 1)
 //   than text[block_end..text_length).
 // The above information is sufficient to compute the answer.
 //
@@ -156,15 +156,15 @@ inline int lcp_compare(
 // * any suffix of text starting at position block_begin + block_psa[i]
 //   for left <= i < right has text[pattern_begin..pattern_begin +
 //   range_lcp) as a prefix.
-// Note that the range [left, right) is *not necessarily* the maximal
-// range satisfying the conditions above.
+// Note that we do not assume the range [left, right) to be the maximal
+// range satisfying the above conditions.
 //
 // The aim of this function is to compute integers newleft, newright
 // that satisfy left <= newleft <= newright <= right and that satisfy
 // all three conditions listed above (with left and right replaced with,
 // respectively, newleft and newright), except with range_lcp in the
 // third condition replaced by pattern_length. Note again that we do
-// *not* require the range [newleft, newright) to the be the maximal range
+// not require the range [newleft, newright) to the be the maximal range
 // satisfying the specified conditions, hence the result of this function
 // is not uniquely defined.
 //
@@ -245,8 +245,7 @@ void refine_range(
         (d + balancing_factor * logd);
     } else mid = (low + high) / 2;
 
-    // Compare the pivot to the pattern. See the
-    // lcp_compare for the exact explanation.
+    // Compare the pivot to the pattern.
     std::uint64_t new_lcp = 0;
     std::uint64_t init_lcp = std::min(llcp, rlcp);
     const std::uint64_t block_suf_begin =
@@ -297,8 +296,7 @@ void refine_range(
           (d + balancing_factor * logd);
       } else mid = (low + high) / 2;
 
-      // Compare the pivot to the pattern. See the
-      // lcp_compare for the exact explanation.
+      // Compare the pivot to the pattern.
       std::uint64_t new_lcp = 0;
       std::uint64_t init_lcp = std::min(llcp, rlcp);
       const std::uint64_t block_suf_begin =
@@ -328,7 +326,7 @@ void refine_range(
 // starting inside block (and extending beyond the end of the block).
 //
 // Assume block_end <= pattern_begin < tail_end, max_pat_length > 0, and
-// 0 <= pattern_length <= tail_end - max_pat_length. This function aims
+// 0 <= pattern_begin <= tail_end - max_pat_length. This function aims
 // to compute the integers left and right such that 0 <= left <= right
 // <= block_size satisfying the following conditions:
 // * any suffix of text starting at position block_begin + block_psa[i],
@@ -339,7 +337,7 @@ void refine_range(
 // * any suffix of text starting at position block_begin + block_psa[i]
 //   for left <= i < right has text[pattern_begin..pattern_begin +
 //   max_pat_length) as a prefix.
-// Note that we do *not* require the range [left, right) to be the maximal
+// Note that we do not require the range [left, right) to be the maximal
 // range satisfying the conditions above, thus the result of this function
 // is not uniquely defined.
 //
@@ -352,6 +350,11 @@ void refine_range(
 // * gt bitvector telling for every i in range (block_end..tail_end]
 //   whether the suffix text[i..text_length) is greater (then bit is
 //   1) than text[block_end..text_length).
+//
+// Note that gt bitvector is reversed (for technical reasons) and shifted
+// (to provide convenient indexing), i.e., the bit of gt corresponding
+// position i in (block_end..tail_end] (see definition above) is accessed
+// as gt[text_length - i].
 //=============================================================================
 template<typename block_offset_type>
 std::pair<std::uint64_t, std::uint64_t>
@@ -374,11 +377,7 @@ compute_range(
   const std::uint64_t block_size =
     block_end - block_begin;
 
-  // Create the reader of the gt bitvector. Note that gt bitvector
-  // is reversed (for technical reasons) and shifted (to provide
-  // convenient indexing), i.e., the bit of gt corresponding position
-  // i in (block_end..tail_end] (see definition above) is accessed
-  // as gt[text_length - i].
+  // Create the reader of the gt bitvector.
   multifile_bit_stream_reader *gt_reader =
     new multifile_bit_stream_reader(tail_gt_begin_reversed);
 
@@ -403,6 +402,8 @@ compute_range(
         pattern_begin, pattern_begin + max_pat_length,
         chunk_length);
 #else
+
+  // Use default chunk length.
   background_chunk_reader *chunk_reader =
     new background_chunk_reader(text_filename,
         pattern_begin, pattern_begin + max_pat_length);
@@ -411,8 +412,8 @@ compute_range(
   // Initialize the output range to [0, block_size).
   // At each step we refine the range until it
   // becomes empty or the common prefix between
-  // text[pattern_begin..text_length) all all
-  // suffixes in the range (range_lcp) is equal
+  // text[pattern_begin..text_length) and all
+  // suffixes in the range [left, right) is equal
   // to max_pat_length.
   std::uint64_t range_lcp = 0;
   std::uint64_t left = 0;
@@ -427,10 +428,9 @@ compute_range(
       range_lcp + this_chunk_length;
     chunk_reader->wait(pattern_begin + pattern_length);
 
-    // Refine the range using the next chunk.
-    // Invariant: all suffixes in psa[left..right)
-    // share a common prefix of length range_lcp
-    // with the pattern.
+    // Refine the range using the next chunk. Invariant:
+    // all suffixes in block_psa[left..right) share a
+    // common prefix of length range_lcp with the pattern.
     // Invariant:
     // chunk_reader->m_chunk[0..this_chunk_length) == text[
     // pattern_begin+range_lcp..pattern_begin+pattern_length).
@@ -487,6 +487,11 @@ compute_range(
 //   block_pbwt[i] = block[block_psa[i] - 1). If block_psa[i] == 0,
 //   then block_pbwt[i] = 0.
 // * i0 is the position such that block_psa[i0] = 0.
+//
+// Note that gt bitvector is reversed (for technical reasons) and shifted
+// (to provide convenient indexing), i.e., the bit of gt corresponding
+// position i in (block_end..tail_end] (see definition above) is accessed
+// as gt[text_length - i].
 //=============================================================================
 template<typename block_offset_type>
 void compute_ranks(
@@ -581,11 +586,7 @@ void compute_ranks(
   // that patterns are evenly spaced.
   if (nontrivial_range == true) {
 
-    // Create the reader of the gt bitvector. Note that gt bitvector
-    // is reversed (for technical reasons) and shifted (to provide
-    // convenient indexing), i.e., the bit of gt corresponding position
-    // i in (block_end..tail_end] (see definition above) is accessed
-    // as gt[text_length - i].
+    // Create the reader of the gt bitvector.
     multifile_bit_stream_reader * const gt_reader =
       new multifile_bit_stream_reader(tail_gt_begin_reversed);
 
@@ -623,16 +624,17 @@ void compute_ranks(
       const std::uint64_t pattern_prefix_length =
         pattern_prefix_end - pattern_begin;
 
-      // Binary search for the final rank of pattern i.
-      // Invariant: all suffixes of text starting at
-      // positions block_begin + block_psa[i] for
-      // i in [left, right) have a common prefix
-      // of length pattern_prefix_length with the
-      // suffix text[pattern_begin..text_length).
+      // Binary search for the final rank of the
+      // current pattern.
       std::uint64_t left = ranges[pattern_id].first;
       std::uint64_t right = ranges[pattern_id].second;
       while (left != right) {
 
+        // Invariant: all suffixes of text starting at
+        // positions block_begin + block_psa[i] for
+        // i in [left, right) have a common prefix
+        // of length pattern_prefix_length with the
+        // suffix text[pattern_begin..text_length).
         // Invariant: the answer (the final rank
         // of suffix text[pattern_begin..text_length)
         // is in range [left, right].
@@ -702,12 +704,12 @@ void compute_ranks(
 // than one case holds, any integer indicating one of the holding cases
 // is a correct return value. If the function returns 0, ret_lcp has to be
 // set to pattern_length. In other cases, the ret_lcp must be a true
-// lower bound for lcp(x, y) not smaller than init_lcp. No requirement is
-// placed on ret_lcp in those cases.
+// lower bound for lcp(x, y) not smaller than init_lcp. No other requirement
+// is placed on ret_lcp in those cases.
 //
-// Note that the function is not provided with the full text, nor the
-// filename with the text. It is given the following information about
-// the text and the ordering of its suffixes:
+// The function is not provided with the full text, nor the filename with
+// the text. It is given the following information about the text and the
+// ordering of its suffixes:
 // * text[block_begin..block_end) and text[pattern_begin+init_lcp..
 //   pattern_begin+pattern_length) are the accessible substrings of text.
 //   They are available, respectively, via text[block_beg..block_end) and
@@ -828,7 +830,57 @@ inline int lcp_compare(
 }
 
 //=============================================================================
-// XXX write description
+// Let 0 <= block_begin < block_end <= text_length and define block_size
+// = block_end - block_begin. Further, let block_psa[0..block_size) be
+// an array that contains a permutation of the set {0, .., block_size - 1}
+// that describes the ascending lexicographical order of suffixes of text
+// starting inside block (and extending beyond the end of the block).
+//
+// Assume that block_end <= tail_begin <= pattern_begin < text_length and
+// that 0 <= range_lcp <= pattern_length <= text_length - pattern_begin.
+// Further, assume that integers 0 <= left <= right <= block_size satisfy
+// the following conditions:
+// * any suffix of text starting at position block_begin + block_psa[i],
+//   for 0 <= i < left is smaller than text[pattern_begin..text_length).
+// * any suffix of text starting at position block_begin + block_psa[i],
+//   for right <= i < block_size is larger than text[pattern_begin..
+//   text_length).
+// * any suffix of text starting at position block_begin + block_psa[i]
+//   for left <= i < right has text[pattern_begin..pattern_begin +
+//   range_lcp) as a prefix.
+// Note that we do not assume the range [left, right) to be the maximal
+// range satisfying the above conditions.
+//
+// The aim of this function is to compute integers newleft, newright
+// that satisfy left <= newleft <= newright <= right and that satisfy
+// all three conditions listed above (with left and right replaced with,
+// respectively, newleft and newright), except with range_lcp in the
+// third condition replaced by pattern_length. Note again that we do
+// not require the range [newleft, newright) to the be the maximal range
+// satisfying the specified conditions, hence the result of this function
+// is not uniquely defined.
+//
+// Note that the function is not provided with the full text, nor the
+// filename with the text. It is given the following information about
+// the text and the ordering of its suffixes:
+// * text[block_begin..block_end) and text[pattern_begin+range_lcp..
+//   pattern_begin+pattern_length) are the accessible substrings of
+//   text. They are available, respectively, via block[0..block_size)
+//   and pat[range_lcp..pattern_length) variables. Any accesses to
+//   these variables outside the specified ranges are undefined.
+// * block_psa[0..block_size) as define above.
+// * gt bitvector telling for every i in range (tail_begin..text_length]
+//   whether the suffix text[i..text_length) is greater (then bit is 1)
+//   than text[tail_begin..text_length).
+// * mid_block_reader allows accessing (after first calling the wait
+//   method to check that enough text has been read into RAM) the
+//   substring text[block_end..tail_begin).
+// The above information is sufficient to compute the answer.
+//
+// Note that gt bitvector is reversed (for technical reasons) and shifted
+// (to provide convenient indexing), i.e., the bit of gt corresponding
+// position i in (block_end..tail_end] (see definition above) is accessed
+// as gt[text_length - i].
 //=============================================================================
 template<typename block_offset_type>
 void refine_range(
@@ -890,8 +942,7 @@ void refine_range(
         (d + balancing_factor * logd);
     } else mid = (low + high) / 2;
 
-    // Compare the pivot to the pattern. See the
-    // lcp_compare for the exact explanation.
+    // Compare the pivot to the pattern.
     std::uint64_t new_lcp = 0;
     std::uint64_t init_lcp = std::min(llcp, rlcp);
     const std::uint64_t block_suf_begin =
@@ -942,8 +993,7 @@ void refine_range(
           (d + balancing_factor * logd);
       } else mid = (low + high) / 2;
 
-      // Compare the pivot to the pattern. See the
-      // lcp_compare for the exact explanation.
+      // Compare the pivot to the pattern.
       std::uint64_t new_lcp = 0;
       std::uint64_t init_lcp = std::min(llcp, rlcp);
       const std::uint64_t block_suf_begin =
@@ -966,7 +1016,33 @@ void refine_range(
 }
 
 //=============================================================================
-// XXX write description
+// Let 0 <= block_begin < block_end <= tail_begin <= pattern_begin <
+// text_length. The aim of this function is to compute the rank (i.e.,
+// the number of smaller suffixes) of the suffix text[pattern_begin..
+// text_length) among the suffixes of text starting inside text[
+// block_begin..block_end) (and extending beyong the end of the block).
+//
+// The function is given the name of the file containing the text.
+// The text itself is in principle sufficient to compute the answer.
+// However, to perform the computation efficiently, the function receives
+// the following information about the text and ordering of its suffixes.
+// Let block_size = block_end - block_begin. The additional info is:
+// * block[0..block_size) = text[block_begin..block_end).
+// * block_psa[0..block_size) contains permutation of integer set
+//   {0, .., block_size-1} that describes the ascending lexicographical
+//   order of suffixes of text starting inside block (and extending
+//   beyond the end of the block).
+// * gt bitvector telling for every i in range (tail_begin..text_length]
+//   whether the suffix text[i..text_length) is greater (then bit is 1)
+//   than text[tail_begin..text_length).
+// * mid_block_reader allows accessing (after first calling the wait
+//   method to check that enough text has been read into RAM) the
+//   substring text[block_end..tail_begin).
+//
+// Note that gt bitvector is reversed (for technical reasons) and shifted
+// (to provide convenient indexing), i.e., the bit of gt corresponding
+// position i in (tail_begin..text_length] (see definition above) is
+// accessed as gt[text_length - i].
 //=============================================================================
 template<typename block_offset_type>
 std::uint64_t compute_rank(
@@ -990,11 +1066,7 @@ std::uint64_t compute_rank(
   const std::uint64_t max_pat_symbols_needed = std::min(
       text_length - pattern_begin, tail_begin - block_begin);
 
-  // Create the reader of the gt bitvector. Note that gt bitvector
-  // is reversed (for technical reasons) and shifted (to provide
-  // convenient indexing), i.e., the bit of gt corresponding position
-  // i in (tail_begin..text_length] (see definition above) is accessed
-  // as gt[text_length - i].
+  // Create the reader of the gt bitvector.
   multifile_bit_stream_reader *gt_reader
     = new multifile_bit_stream_reader(tail_gt_begin_reversed);
 
@@ -1022,11 +1094,9 @@ std::uint64_t compute_rank(
         pattern_begin + max_pat_symbols_needed);
 #endif
 
-  // Find the answer using binary search. Invariant:
-  // the answer (i.e., final rank) is always in the
-  // range [left, right]. Each step of the loop below
-  // processes a single chunk and refines the range
-  // until left == right.
+  // Find the answer using binary search. Each step
+  // of the loop below processes a single chunk and
+  // refines the range until left == right.
   std::uint64_t range_lcp = 0;
   std::uint64_t left = 0;
   std::uint64_t right = block_size;
@@ -1039,10 +1109,10 @@ std::uint64_t compute_rank(
     const std::uint64_t pattern_length = range_lcp + this_chunk_length;
     chunk_reader->wait(pattern_begin + pattern_length);
 
-    // Compute new range boundaries.
-    // Invariant: all suffixes in psa[left..right)
-    // share a common prefix of length range_lcp
-    // with the pattern.
+    // Compute new range boundaries. Invariant: the answer
+    // (i.e., final rank) is in in the range [left, right].
+    // Invariant: all suffixes in psa[left..right) share a
+    // common prefix of length range_lcp with the pattern.
     // Invariant:
     // chunk_reader->m_chunk[0..this_chunk_length) == text[
     // pattern_begin+range_lcp..pattern_begin+pattern_length).
@@ -1090,6 +1160,11 @@ std::uint64_t compute_rank(
 // * gt bitvector telling for every i in range (tail_begin..text_length]
 //   whether the suffix text[i..text_length) is greater (then bit is 1)
 //   than text[tail_begin..text_length).
+//
+// Note that gt bitvector is reversed (for technical reasons) and shifted
+// (to provide convenient indexing), i.e., the bit of gt corresponding
+// position i in (tail_begin..text_length] (see definition above) is
+// accessed as gt[text_length - i].
 //=============================================================================
 template<typename block_offset_type>
 void compute_ranks(
