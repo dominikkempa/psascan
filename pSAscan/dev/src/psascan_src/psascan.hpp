@@ -42,7 +42,7 @@
 #include <sys/resource.h>
 
 #include "partial_sufsort.hpp"
-#include "merge.hpp"
+#include "merge_psa.hpp"
 #include "utils.hpp"
 #include "../uint40.hpp"
 #include "half_block_info.hpp"

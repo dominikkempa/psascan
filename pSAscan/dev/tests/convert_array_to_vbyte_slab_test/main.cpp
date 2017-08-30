@@ -5,12 +5,18 @@
 #include <string>
 #include <unistd.h>
 
-#include "parallel_utils.h"
-#include "utils.h"
+#include "parallel_utils.hpp"
+#include "utils.hpp"
 
-void test(long *tab, long length, long max_threads) {
+
+using namespace psascan_private;
+
+void test(
+    std::uint64_t *tab,
+    long length) {
+
   unsigned char *slab = new unsigned char[sizeof(long) * length];
-  parallel_utils::convert_array_to_vbyte_slab(tab, length, slab, max_threads);
+  parallel_utils::convert_array_to_vbyte_slab(tab, length, slab);
 
   long *tab2 = new long[length];
   long ptr = 0;
@@ -43,15 +49,20 @@ void test(long *tab, long length, long max_threads) {
 }
 
 // Test many string chosen according to given paranters.
-void test_random(long testcases, long max_length, long max_value) {
-  fprintf(stderr, "TEST, testcases = %ld, max_n = %ld, max_value = %ld\r",
+void test_random(
+    long testcases,
+    long max_length,
+    long max_value) {
+
+  fprintf(stderr, "TEST, testcases = %ld, "
+      "max_n = %ld, max_value = %ld\r",
       testcases, max_length, max_value);
 
-  long *tab = new long[max_length];
+  std::uint64_t * const tab = new std::uint64_t[max_length];
 
   for (long tc = 0, dbg = 0; tc < testcases; ++tc, ++dbg) {
     // Print progress information.
-    if (dbg == 1000) {
+    if (dbg == 10) {
       fprintf(stderr, "TEST, testcases = %ld, max_n = %ld, max_value = %ld: "
           "%ld (%.0Lf%%)\r", testcases, max_length, max_value, tc,
           (tc * 100.L) / testcases);
@@ -59,13 +70,12 @@ void test_random(long testcases, long max_length, long max_value) {
     }
 
     // Generate string.
-    long length = utils::random_long(1L, max_length);
-    long max_threads = utils::random_long(1L, 50L);
+    long length = utils::random_int64(1L, max_length);
 
     for (long j = 0; j < length; ++j)
-      tab[j] = utils::random_long(0, max_value);
+      tab[j] = utils::random_int64(0, max_value);
 
-    test(tab, length, max_threads);
+    test(tab, length);
   }
 
   // Clean up.
@@ -79,22 +89,41 @@ int main(int, char **) {
   std::srand(std::time(0) + getpid());
   
   // Run tests
-  test_random(500000, 10,            1000);
-  test_random(500000, 10,         1000000);
-  test_random(500000, 10,      1000000000);
-  test_random(500000, 10,  1000000000000L);
-  test_random(50000, 100,            1000);
-  test_random(50000, 100,         1000000);
-  test_random(50000, 100,      1000000000);
-  test_random(50000, 100,  1000000000000L);
-  test_random(5000, 1000,            1000);
-  test_random(5000, 1000,         1000000);
-  test_random(5000, 1000,      1000000000);
-  test_random(5000, 1000,  1000000000000L);
-  test_random(500, 10000,            1000);
-  test_random(500, 10000,         1000000);
-  test_random(500, 10000,      1000000000);
-  test_random(500, 10000,  1000000000000L);
+#ifdef NDEBUG
+  test_random(100000, 10,            1000);
+  test_random(100000, 10,         1000000);
+  test_random(100000, 10,      1000000000);
+  test_random(100000, 10,  1000000000000L);
+  test_random(10000, 100,            1000);
+  test_random(10000, 100,         1000000);
+  test_random(10000, 100,      1000000000);
+  test_random(10000, 100,  1000000000000L);
+  test_random(3000, 1000,            1000);
+  test_random(3000, 1000,         1000000);
+  test_random(3000, 1000,      1000000000);
+  test_random(3000, 1000,  1000000000000L);
+  test_random(300, 10000,            1000);
+  test_random(300, 10000,         1000000);
+  test_random(300, 10000,      1000000000);
+  test_random(300, 10000,  1000000000000L);
+#else
+  test_random(2000, 10,            1000);
+  test_random(2000, 10,         1000000);
+  test_random(2000, 10,      1000000000);
+  test_random(2000, 10,  1000000000000L);
+  test_random(200, 100,            1000);
+  test_random(200, 100,         1000000);
+  test_random(200, 100,      1000000000);
+  test_random(200, 100,  1000000000000L);
+  test_random(70, 1000,            1000);
+  test_random(70, 1000,         1000000);
+  test_random(70, 1000,      1000000000);
+  test_random(70, 1000,  1000000000000L);
+  test_random(5, 10000,            1000);
+  test_random(5, 10000,         1000000);
+  test_random(5, 10000,      1000000000);
+  test_random(5, 10000,  1000000000000L);
+#endif
 
   fprintf(stderr, "All tests passed.\n");
 }

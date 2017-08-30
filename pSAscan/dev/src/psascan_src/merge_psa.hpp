@@ -1,5 +1,5 @@
 /*
- * @file    src/psascan_src/merge.hpp
+ * @file    src/psascan_src/merge_psa.hpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.2.0
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __SRC_PSASCAN_SRC_MERGE_HPP_INCLUDED
-#define __SRC_PSASCAN_SRC_MERGE_HPP_INCLUDED
+#ifndef __SRC_PSASCAN_SRC_MERGE_PSA_HPP_INCLUDED
+#define __SRC_PSASCAN_SRC_MERGE_PSA_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -203,4 +203,4 @@ void merge(std::string output_filename, std::uint64_t ram_use,
 
 }  // namespace psascan_private
 
-#endif  // __SRC_PSASCAN_SRC_MERGE_HPP_INCLUDED
+#endif  // __SRC_PSASCAN_SRC_MERGE_PSA_HPP_INCLUDED

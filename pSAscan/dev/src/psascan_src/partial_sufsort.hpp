@@ -53,7 +53,7 @@
 #include "gap_array.hpp"
 #include "bitvector.hpp"
 #include "half_block_info.hpp"
-#include "bwt_merge.hpp"
+#include "merge_bwt.hpp"
 #include "compute_gap.hpp"
 #include "compute_ranks.hpp"
 #include "compute_right_gap.hpp"
@@ -622,8 +622,11 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   // Merge BWTs of left and right half-block.
   fprintf(stderr, "    Merge BWTs of half-blocks: ");
   long double bwt_merge_start = utils::wclock();
-  block_i0 = merge_bwt(left_block_bwt, right_block_bwt, left_block_size, right_block_size,
-      left_block_i0, right_block_i0, left_block_last, block_pbwt, left_block_gap_bv, max_threads);
+  block_i0 =
+    merge_bwt(left_block_bwt, right_block_bwt, left_block_gap_bv,
+        left_block_size, right_block_size, left_block_i0,
+        right_block_i0, left_block_last, block_pbwt);
+
   long double bwt_merge_time = utils::wclock() - bwt_merge_start;
   long double bwt_merge_speed = (block_size / (1024.L * 1024)) / bwt_merge_time;
   fprintf(stderr, "%.2Lfs (%.2LfMiB/s)\n", bwt_merge_time, bwt_merge_speed);
