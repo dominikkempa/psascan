@@ -82,11 +82,11 @@ class space_efficient_isa {
     // Constructor.
     //=========================================================================
     space_efficient_isa(
-        const pagearray_type *bwtsa,
-        const std::uint8_t *text,
-        const rank_type *rank,
-        std::uint64_t text_length,
-        std::uint64_t i0) {
+        const pagearray_type * const bwtsa,
+        const std::uint8_t * const text,
+        const rank_type * const rank,
+        const std::uint64_t text_length,
+        const std::uint64_t i0) {
 
       // Initialize members.
       m_bwtsa = bwtsa;
@@ -96,15 +96,15 @@ class space_efficient_isa {
       m_i0 = i0;
 
       // Allocate all memory.
-      std::uint64_t sparse_isa_size =
+      const std::uint64_t sparse_isa_size =
         (m_text_length + k_sampling_rate - 1) >> k_sampling_rate_log;
-      std::uint64_t toalloc =
+      const std::uint64_t toalloc =
         k_sigma * sizeof(std::uint64_t) +
         sparse_isa_size * sizeof(std::uint64_t);
       m_mem = utils::allocate_array<std::uint8_t>(toalloc);
 
       // Assign memory for symbol counts.
-      std::uint8_t *mem_ptr = m_mem;
+      const std::uint8_t *mem_ptr = m_mem;
       m_count = (std::uint64_t *)mem_ptr;
       mem_ptr += k_sigma * sizeof(std::uint64_t);
 
@@ -118,7 +118,7 @@ class space_efficient_isa {
       // Parallel version.
       #pragma omp parallel for
       for (std::uint64_t i = 0; i < m_text_length; ++i) {
-        std::uint64_t sa_value = (*m_bwtsa)[i].m_sa;
+        const std::uint64_t sa_value = (*m_bwtsa)[i].m_sa;
         if (!(sa_value & k_sampling_rate_mask))
           m_sparse_isa[sa_value >> k_sampling_rate_log] = i;
         if (sa_value + 1 == m_text_length)
@@ -128,7 +128,7 @@ class space_efficient_isa {
 
       // Sequential version.
       for (std::uint64_t i = 0; i < m_text_length; ++i) {
-        std::uint64_t sa_value = (*m_bwtsa)[j].m_sa;
+        const std::uint64_t sa_value = (*m_bwtsa)[j].m_sa;
         if (!(sa_value & k_sampling_rate_mask))
           m_sparse_isa[sa_value >> k_sampling_rate_log] = i;
         if (sa_value + 1 == m_text_length)
@@ -149,7 +149,7 @@ class space_efficient_isa {
 
       // Exclusive partial sum over symbol counts.
       for (std::uint64_t i = 0, sum = 0; i < k_sigma; ++i) {
-        std::uint64_t temp = m_count[i];
+        const std::uint64_t temp = m_count[i];
         m_count[i] = sum;
         sum += temp;
       }
@@ -158,7 +158,7 @@ class space_efficient_isa {
     //=========================================================================
     // Return the position p such that m_psa[p] = j.
     //=========================================================================
-    inline std::uint64_t query(std::uint64_t j) const {
+    inline std::uint64_t query(const std::uint64_t j) const {
 
       // Obtain the initial approximation of
       // the final position from ISA samples.
@@ -179,8 +179,8 @@ class space_efficient_isa {
 
         // Compute ISA[i - 1] from ISA[i].
         // Invariants: i > j, isa_i = ISA[i].
-        std::uint8_t c = m_text[i - 1];
-        std::uint64_t delta =
+        const std::uint8_t c = m_text[i - 1];
+        const std::uint64_t delta =
           (isa_i > m_i0 && c == 0);
         isa_i = m_count[c] + m_rank->query(isa_i, c);
         if (isa_i > 0)

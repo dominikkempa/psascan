@@ -1,8 +1,8 @@
 SHELL = /bin/sh
 
 CC = g++
-#CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x -march=native
-CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x
+CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x -march=native
+#CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x
 AUX_PAR_FLAGS = -fopenmp
 
 all: test_parallel test_sequential

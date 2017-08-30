@@ -68,22 +68,22 @@ class approx_rank {
     // Constructor
     //=========================================================================
     approx_rank(
-        const std::uint8_t *text,
-        std::uint64_t text_length) {
+        const std::uint8_t * const text,
+        const std::uint64_t text_length) {
 
       // Set the alphabet size.
       static const std::uint64_t k_sigma = 256;
 
       // Allocate all memory.
-      std::uint64_t max_samples =
+      const std::uint64_t max_samples =
         (text_length >> k_sampling_rate_log);
-      std::uint64_t toalloc =
+      const std::uint64_t toalloc =
         (k_sigma + 1) * sizeof(std::uint64_t) +
         max_samples * sizeof(std::uint64_t);
       m_mem = utils::allocate_array<std::uint8_t>(toalloc);
 
       // Assign memory for symbol counts.
-      std::uint8_t *mem_ptr = m_mem;
+      const std::uint8_t *mem_ptr = m_mem;
       m_cum_symbol_count = (std::uint64_t *)mem_ptr;
       mem_ptr += (k_sigma + 1) * sizeof(std::uint64_t);
 
@@ -96,14 +96,14 @@ class approx_rank {
 #ifdef _OPENMP
 
         // Compute basic parameters.
-        std::uint64_t max_threads = omp_get_max_threads();
-        std::uint64_t max_block_size =
+        const std::uint64_t max_threads = omp_get_max_threads();
+        const std::uint64_t max_block_size =
           (text_length + max_threads - 1) / max_threads;
-        std::uint64_t n_blocks =
+        const std::uint64_t n_blocks =
           (text_length + max_block_size - 1) / max_block_size;
 
         // Allocate a set of counts for each block.
-        std::uint64_t *blocks_counts =
+        std::uint64_t * const blocks_counts =
           utils::allocate_array<std::uint64_t>(k_sigma * n_blocks);
 
         // Compute counts in each block.
@@ -112,11 +112,11 @@ class approx_rank {
 
           // Compute basic parameters
           // (block boundaries, etc).
-          std::uint64_t block_id = omp_get_thread_num();
-          std::uint64_t block_beg = block_id * max_block_size;
-          std::uint64_t block_end = std::min(text_length,
+          const std::uint64_t block_id = omp_get_thread_num();
+          const std::uint64_t block_beg = block_id * max_block_size;
+          const std::uint64_t block_end = std::min(text_length,
               block_beg + max_block_size);
-          std::uint64_t *block_counts =
+          std::uint64_t * const block_counts =
             blocks_counts + block_id * k_sigma;
 
           // Zero-initialize block counts.
@@ -137,7 +137,8 @@ class approx_rank {
             std::uint64_t total_c_count = 0;
             for (std::uint64_t block_id = 0;
                 block_id < n_blocks; ++block_id) {
-              std::uint64_t temp = blocks_counts[block_id * k_sigma + c];
+              const std::uint64_t temp =
+                blocks_counts[block_id * k_sigma + c];
               blocks_counts[block_id * k_sigma + c] = total_c_count;
               total_c_count += temp;
             }
@@ -158,23 +159,23 @@ class approx_rank {
         {
 
           // Compute basic parameters.
-          std::uint64_t block_id = omp_get_thread_num();
-          std::uint64_t block_beg = block_id * max_block_size;
-          std::uint64_t block_end = std::min(text_length,
+          const std::uint64_t block_id = omp_get_thread_num();
+          const std::uint64_t block_beg = block_id * max_block_size;
+          const std::uint64_t block_end = std::min(text_length,
               block_beg + max_block_size);
-          std::uint64_t *block_counts =
+          std::uint64_t * const block_counts =
             blocks_counts + block_id * k_sigma;
 
           // Fill in lists.
           for (std::uint64_t i = block_beg; i < block_end; ++i) {
-            std::uint8_t c = text[i];
+            const std::uint8_t c = text[i];
             ++block_counts[c];
 
             // Store the sample.
             if (!(block_counts[c] & k_sampling_rate_mask)) {
-              std::uint64_t list_beg =
+              const std::uint64_t list_beg =
                 (m_cum_symbol_count[c] >> k_sampling_rate_log);
-              std::uint64_t offset =
+              const std::uint64_t offset =
                 (block_counts[c] >> k_sampling_rate_log) - 1;
               m_lists[list_beg + offset] = i;
             }
@@ -198,7 +199,8 @@ class approx_rank {
         {
           std::uint64_t total_symbol_count = 0;
           for (std::uint64_t c = 0; c < k_sigma; ++c) {
-            std::uint64_t total_c_count = m_cum_symbol_count[c];
+            const std::uint64_t total_c_count =
+              m_cum_symbol_count[c];
 
             // Compute list size for c.
             m_cum_symbol_count[c] = total_symbol_count;
@@ -215,20 +217,20 @@ class approx_rank {
 
           // Allocate and  zero-initialize
           // temporary symbol counts.
-          std::uint64_t *symbol_count =
+          std::uint64_t * const symbol_count =
             utils::allocate_array<std::uint64_t>(k_sigma);
           std::fill(symbol_count, symbol_count + k_sigma, 0);
 
           // Compute lists.
           for (std::uint64_t i = 0; i < text_length; ++i) {
-            std::uint8_t c = text[i];
+            const std::uint8_t c = text[i];
             ++symbol_count[c];
 
             // Store the sample.
             if (!(symbol_count[c] & k_sampling_rate_mask)) {
-              std::uint64_t list_beg =
+              const std::uint64_t list_beg =
                 (m_cum_symbol_count[c] >> k_sampling_rate_log);
-              std::uint64_t offset =
+              const std::uint64_t offset =
                 (symbol_count[c] >> k_sampling_rate_log) - 1;
               m_lists[list_beg + offset] = i;
             }
@@ -249,16 +251,16 @@ class approx_rank {
     // rank(i, c) - x < k_sampling_rate.
     //=========================================================================
     inline std::uint64_t rank(
-        std::uint64_t i,
-        std::uint8_t c) const {
+        const std::uint64_t i,
+        const std::uint8_t c) const {
 
       // Compute the list size and pointer.
-      std::uint64_t list_beg =
+      const std::uint64_t list_beg =
         (m_cum_symbol_count[c] >> k_sampling_rate_log);
-      std::uint64_t count_c =
+      const std::uint64_t count_c =
         m_cum_symbol_count[(std::uint64_t)c + 1] - m_cum_symbol_count[c];
-      std::uint64_t list_size = (count_c >> k_sampling_rate_log);
-      std::uint64_t *m_list = m_lists + list_beg;
+      const std::uint64_t list_size = (count_c >> k_sampling_rate_log);
+      const std::uint64_t * const m_list = m_lists + list_beg;
 
       // Handle special case.
       if (list_size == 0 ||
@@ -271,7 +273,7 @@ class approx_rank {
       while (left + 1 != right) {
 
         // Invariant: the answer is in range (left, right].
-        std::uint64_t mid = (left + right) / 2;
+        const std::uint64_t mid = (left + right) / 2;
         if (m_list[mid] < i) left = mid;
         else right = mid;
       }
@@ -283,7 +285,7 @@ class approx_rank {
     //=========================================================================
     // Return the number of occurrences of c in text.
     //=========================================================================
-    inline std::uint64_t count(std::uint8_t c) const {
+    inline std::uint64_t count(const std::uint8_t c) const {
       return
         m_cum_symbol_count[(std::uint64_t)c + 1] -
         m_cum_symbol_count[c];
