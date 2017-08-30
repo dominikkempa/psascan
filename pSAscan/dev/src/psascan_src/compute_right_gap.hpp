@@ -55,14 +55,18 @@ namespace psascan_private {
 //==============================================================================
 // Compute the range_gap values corresponging to bv[part_beg..part_end).
 //==============================================================================
-void rblock_handle_bv_part(std::uint64_t part_beg, std::uint64_t part_end,
+template<typename ranksel_support_type>
+void rblock_handle_bv_part(
+    std::uint64_t part_beg,
+    std::uint64_t part_end,
     std::uint64_t range_beg,
     std::uint64_t *range_gap,
     const gap_array_2n *block_gap,
     const bitvector *bv,
-    const ranksel_support *bv_ranksel,
+    const ranksel_support_type *bv_ranksel,
     std::uint64_t &res_sum,
     std::uint64_t &res_rank) {
+
   std::uint64_t excess_ptr = std::lower_bound(block_gap->m_excess.begin(),
       block_gap->m_excess.end(), part_beg) - block_gap->m_excess.begin();
 
@@ -190,7 +194,9 @@ void compute_right_gap(std::uint64_t left_block_size, std::uint64_t right_block_
   // STEP 1: Preprocess left_block_gap_bv for rank and select queries,
   //         i.e., compute sparse_gap.
   //----------------------------------------------------------------------------
-  ranksel_support *bv_ranksel = new ranksel_support(bv, bv_size, max_threads);
+  typedef ranksel_support<> ranksel_support_type;
+  ranksel_support_type *bv_ranksel =
+    new ranksel_support_type(bv, bv_size);
 
 
   //----------------------------------------------------------------------------
@@ -264,10 +270,14 @@ void compute_right_gap(std::uint64_t left_block_size, std::uint64_t right_block_
     std::thread **threads = new std::thread*[n_parts];
     for (std::uint64_t t = 0; t < n_parts; ++t) {
       std::uint64_t part_beg = bv_section_beg + t * max_part_size;
-      std::uint64_t part_end = std::min(part_beg + max_part_size, bv_section_end);
+      std::uint64_t part_end =
+        std::min(part_beg + max_part_size, bv_section_end);
 
-      threads[t] = new std::thread(rblock_handle_bv_part, part_beg, part_end, range_beg,
-          range_gap, block_gap, bv, bv_ranksel, std::ref(res_sum[t]), std::ref(res_rank[t]));
+      threads[t] = new std::thread(
+          rblock_handle_bv_part<ranksel_support_type>,
+          part_beg, part_end, range_beg,
+          range_gap, block_gap, bv, bv_ranksel,
+          std::ref(res_sum[t]), std::ref(res_rank[t]));
     }
 
     for (std::uint64_t t = 0; t < n_parts; ++t) threads[t]->join();
@@ -283,7 +293,8 @@ void compute_right_gap(std::uint64_t left_block_size, std::uint64_t right_block_
     // 2.c
     //
     // Convert the range_gap to the slab of vbyte encoding.
-    active_vbyte_slab_length = parallel_utils::convert_array_to_vbyte_slab(
+    active_vbyte_slab_length =
+      parallel_utils::convert_array_to_vbyte_slab(
         range_gap, range_size, active_vbyte_slab);
 
     // 2.d

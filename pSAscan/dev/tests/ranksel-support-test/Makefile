@@ -1,16 +1,20 @@
 SHELL = /bin/sh
 
 CC = g++
-CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -pthread -std=c++0x -DNDEBUG -O3
-#CFLAGS = -Wall -Wextra -Wshadow -pedantic -g2 -std=c++0x -pthread
+CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -pthread -std=c++0x -march=native
+#CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -pthread -std=c++0x
+AUX_PAR_FLAGS = -fopenmp
 
-all: test
+all: test_parallel test_sequential
 
-test:
-	$(CC) $(CFLAGS) -o test test.cpp utils.cpp -fopenmp
+test_parallel:
+	$(CC) $(CFLAGS) -o test_parallel main.cpp utils.cpp $(AUX_PAR_FLAGS)
+
+test_sequential:
+	$(CC) $(CFLAGS) -o test_sequential main.cpp utils.cpp
 
 clean:
 	/bin/rm -f *.o
 
 nuclear:
-	/bin/rm -f test *.o
+	/bin/rm -f test_parallel test_sequential *.o

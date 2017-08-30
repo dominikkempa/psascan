@@ -55,7 +55,12 @@ void merge_bwt_aux(long beg, long end, long left_ptr, long right_ptr,
   }
 }
 
-void compute_initial_rank(long i, const ranksel_support *ranksel, long &result) {
+template<typename ranksel_support_type>
+void compute_initial_rank(
+    long i,
+    const ranksel_support_type *ranksel,
+    long &result) {
+
   result = ranksel->rank(i);
 }
 
@@ -72,7 +77,9 @@ long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
   // 1
   //
   // Initialize rank/select queries support for bv.
-  ranksel_support *bv_ranksel = new ranksel_support(bv, block_size, max_threads);
+  typedef ranksel_support<> ranksel_support_type;
+  ranksel_support_type *bv_ranksel =
+    new ranksel_support_type(bv, block_size);
 
   // 2
   //
@@ -90,7 +97,8 @@ long merge_bwt(const unsigned char *left_bwt, const unsigned char *right_bwt,
   std::thread **threads = new std::thread*[n_ranges];
   for (long t = 0; t < n_ranges; ++t) {
     long range_beg = t * max_range_size;
-    threads[t] = new std::thread(compute_initial_rank,
+    threads[t] = new std::thread(
+        compute_initial_rank<ranksel_support_type>,
         range_beg, bv_ranksel, std::ref(rank_at_range_beg[t]));
   }
 
