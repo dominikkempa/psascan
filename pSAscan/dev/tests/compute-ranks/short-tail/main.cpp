@@ -8,7 +8,7 @@
 #include "divsufsort.h"
 #include "utils.hpp"
 #include "io/multifile.hpp"
-#include "compute_initial_ranks.hpp"
+#include "compute_ranks.hpp"
 #include "io/io_streamer.hpp"
 #include "io/multifile_bit_stream_reader.hpp"
 
@@ -83,10 +83,10 @@ void test(
   std::uint64_t n_threads =
     (tail_length + stream_max_block_size - 1) / stream_max_block_size;
   std::vector<std::uint64_t> result;
-  compute_tail_ranks(block, block_psa,
+  compute_ranks(block, block_psa,
       &gt_begin_rev_multifile, text_filename,
       block_beg, block_end, text_length,
-      tail_beg, n_threads, result);
+      tail_beg, stream_max_block_size, result);
 
   // Compare computed answers to correct answers.
   for (std::uint64_t t = 0; t < n_threads; ++t) {

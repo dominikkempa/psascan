@@ -55,7 +55,7 @@
 #include "half_block_info.hpp"
 #include "bwt_merge.hpp"
 #include "compute_gap.hpp"
-#include "compute_initial_ranks.hpp"
+#include "compute_ranks.hpp"
 #include "compute_right_gap.hpp"
 #include "compute_left_gap.hpp"
 #include "io/scatterfile_writer.hpp"
@@ -228,12 +228,17 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     // 1.c
     //
     // Compute the first term of initial ranks for the block.
+    // Note the space usage.
     if (!last_block) {
       fprintf(stderr, "    Compute initial tail ranks (part 1): ");
       long double initial_ranks_first_term_start = utils::wclock();
-      em_compute_initial_ranks<block_offset_type>(right_block, right_block_psa_ptr, right_block_bwt,
-          right_block_i0, right_block_beg, right_block_end, text_length, text_filename,
-          tail_gt_begin_rev, block_initial_ranks, max_threads, block_tail_end, 0);  // Note the space usage!
+      std::uint64_t stream_block_size =
+        ((block_tail_end - right_block_end) + max_threads - 1) / max_threads;
+      compute_ranks<block_offset_type>(
+          right_block, right_block_bwt, right_block_psa_ptr,
+          tail_gt_begin_rev, text_filename, right_block_i0,
+          right_block_beg, right_block_end, text_length,
+          stream_block_size, block_tail_end, 0, block_initial_ranks);
 
       std::uint64_t vec_size = block_initial_ranks.size();
       for (std::uint64_t j = 0; j + 1 < vec_size; ++j)
@@ -367,10 +372,12 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     fprintf(stderr, "    Compute initial tail ranks (part 2): ");
     long double initial_ranks_second_term_start = utils::wclock();
     std::vector<std::uint64_t> block_initial_ranks_second_term;
-    compute_tail_ranks<block_offset_type>(
+    std::uint64_t stream_block_size =
+      ((text_length - block_tail_beg) + max_threads - 1) / max_threads;
+    compute_ranks<block_offset_type>(
         left_block, left_block_psa_ptr, tail_gt_begin_rev,
         text_filename, left_block_beg, left_block_end,
-        text_length, block_tail_beg, max_threads,
+        text_length, block_tail_beg, stream_block_size,
         block_initial_ranks_second_term);
 
     after_block_initial_rank = block_initial_ranks_second_term[0];
@@ -464,12 +471,18 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   // 3.a
   //
   // Compute initial ranks for streaming of the right half-block.
+  // Note the space usage.
   fprintf(stderr, "    Compute initial ranks: ");
   long double initial_ranks_right_half_block_start = utils::wclock();
   std::vector<std::uint64_t> initial_ranks2;
-  em_compute_initial_ranks<block_offset_type>(left_block, left_block_psa_ptr, left_block_bwt,
-       left_block_i0, left_block_beg, left_block_end, text_length, text_filename, right_block_gt_begin_rev,
-       initial_ranks2, max_threads, right_block_end, after_block_initial_rank);  // Note the space usage!
+  std::uint64_t stream_block_size =
+    (right_block_size + max_threads - 1) / max_threads;
+  compute_ranks<block_offset_type>(
+      left_block, left_block_bwt, left_block_psa_ptr,
+      right_block_gt_begin_rev, text_filename,
+      left_block_i0, left_block_beg, left_block_end,
+      text_length, stream_block_size, right_block_end,
+      after_block_initial_rank, initial_ranks2);
 
   std::uint64_t vec_size = initial_ranks2.size();
   for (std::uint64_t j = 0; j + 1 < vec_size; ++j)

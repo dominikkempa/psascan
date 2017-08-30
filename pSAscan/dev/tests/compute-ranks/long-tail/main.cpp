@@ -8,7 +8,7 @@
 #include "divsufsort.h"
 #include "utils.hpp"
 #include "io/multifile.hpp"
-#include "compute_initial_ranks.hpp"
+#include "compute_ranks.hpp"
 #include "io/io_streamer.hpp"
 #include "io/multifile_bit_stream_reader.hpp"
 
@@ -99,10 +99,12 @@ void test(
   std::uint64_t n_threads =
     (tail_length + stream_max_block_size - 1) / stream_max_block_size;
   std::vector<std::uint64_t> result;
-  em_compute_initial_ranks(block, block_psa, block_pbwt, i0,
-      block_beg, block_end, text_length, text_filename,
-      &gt_begin_rev_multifile, result, n_threads, tail_end,
-      srank_after_tail);
+  compute_ranks(
+      block, block_pbwt, block_psa,
+      &gt_begin_rev_multifile, text_filename,
+      i0, block_beg, block_end, text_length,
+      stream_max_block_size, tail_end,
+      srank_after_tail, result);
 
   // Compare computed answers to correct answers.
   for (std::uint64_t t = 0; t < n_threads; ++t) {
@@ -186,6 +188,7 @@ void test_random(std::uint64_t testcases, std::uint64_t max_length, std::uint64_
 int main() {
   std::srand(std::time(0) + getpid());
 
+#ifdef NDEBUG
   test_random(1000,  10,      5);
   test_random(1000,  10,     20);
   test_random(1000,  10,    256);
@@ -205,6 +208,27 @@ int main() {
   test_random(30,  10000,    5);
   test_random(30,  10000,   20);
   test_random(30,  10000,  256);
+#else
+  test_random(100,  10,      5);
+  test_random(100,  10,     20);
+  test_random(100,  10,    256);
+
+  test_random(80,  100,     5);
+  test_random(80,  100,    20);
+  test_random(80,  100,   256);
+
+  test_random(30,  300,     5);
+  test_random(30,  300,    20);
+  test_random(30,  300,   256);
+
+  test_random(10,  1000,    5);
+  test_random(10,  1000,   20);
+  test_random(10,  1000,  256);
+
+  test_random(5,  10000,    5);
+  test_random(5,  10000,   20);
+  test_random(5,  10000,  256);
+#endif
 
   fprintf(stderr, "All tests passed.\n");
 }
