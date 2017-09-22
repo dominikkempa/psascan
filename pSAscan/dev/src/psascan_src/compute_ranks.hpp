@@ -247,7 +247,7 @@ void refine_range(
 
     // Compare the pivot to the pattern.
     std::uint64_t new_lcp = 0;
-    std::uint64_t init_lcp = std::min(llcp, rlcp);
+    const std::uint64_t init_lcp = std::min(llcp, rlcp);
     const std::uint64_t block_suf_begin =
       block_begin + (std::uint64_t)block_psa[mid];
     if (lcp_compare(text, pat, gt_reader, text_length,
@@ -298,7 +298,7 @@ void refine_range(
 
       // Compare the pivot to the pattern.
       std::uint64_t new_lcp = 0;
-      std::uint64_t init_lcp = std::min(llcp, rlcp);
+      const std::uint64_t init_lcp = std::min(llcp, rlcp);
       const std::uint64_t block_suf_begin =
         block_begin + (std::uint64_t)block_psa[mid];
       if (lcp_compare(text, pat, gt_reader, text_length,
@@ -397,14 +397,14 @@ compute_range(
 #ifdef EM_STARTING_POS_MODULE_DEBUG_MODE
   std::uint64_t chunk_length =
     utils::random_int64(1, 10);
-  background_chunk_reader *chunk_reader =
+  background_chunk_reader * const chunk_reader =
     new background_chunk_reader(text_filename,
         pattern_begin, pattern_begin + max_pat_length,
         chunk_length);
 #else
 
   // Use default chunk length.
-  background_chunk_reader *chunk_reader =
+  background_chunk_reader * const chunk_reader =
     new background_chunk_reader(text_filename,
         pattern_begin, pattern_begin + max_pat_length);
 #endif
@@ -540,9 +540,9 @@ void compute_ranks(
 
       // Compute the range.
       ranges[pattern_id] = compute_range<block_offset_type>(
-        block, block_psa, tail_gt_begin_reversed, text_filename,
-        block_begin, block_end, pattern_begin, text_length,
-        pattern_prefix_length);
+          block, block_psa, tail_gt_begin_reversed, text_filename,
+          block_begin, block_end, pattern_begin, text_length,
+          pattern_prefix_length);
     }
 
 #else
@@ -561,9 +561,9 @@ void compute_ranks(
 
       // Compute the range.
       ranges[pattern_id] = compute_range<block_offset_type>(
-        block, block_psa, tail_gt_begin_reversed, text_filename,
-        block_begin, block_end, pattern_begin, text_length,
-        pattern_prefix_length);
+          block, block_psa, tail_gt_begin_reversed, text_filename,
+          block_begin, block_end, pattern_begin, text_length,
+          pattern_prefix_length);
     }
 
 #endif  // _OPENMP
@@ -774,7 +774,7 @@ inline int lcp_compare(
     // To continue the comparison, we need to access symbols in the
     // range text[block_end..tail_begin). Wait until enough symbols
     // are available.
-    std::uint64_t mid_block_needed = std::min(tail_begin,
+    const std::uint64_t mid_block_needed = std::min(tail_begin,
         block_suf_begin + pattern_length) - block_end;
     mid_block_reader->wait(mid_block_needed);
 
@@ -944,7 +944,7 @@ void refine_range(
 
     // Compare the pivot to the pattern.
     std::uint64_t new_lcp = 0;
-    std::uint64_t init_lcp = std::min(llcp, rlcp);
+    const std::uint64_t init_lcp = std::min(llcp, rlcp);
     const std::uint64_t block_suf_begin =
       block_begin + (std::uint64_t)block_psa[mid];
     if (lcp_compare(text, pat, mid_block_reader, gt_reader,
@@ -995,7 +995,7 @@ void refine_range(
 
       // Compare the pivot to the pattern.
       std::uint64_t new_lcp = 0;
-      std::uint64_t init_lcp = std::min(llcp, rlcp);
+      const std::uint64_t init_lcp = std::min(llcp, rlcp);
       const std::uint64_t block_suf_begin =
         block_begin + (std::uint64_t)block_psa[mid];
       if (lcp_compare(text, pat, mid_block_reader, gt_reader,
@@ -1067,7 +1067,7 @@ std::uint64_t compute_rank(
       text_length - pattern_begin, tail_begin - block_begin);
 
   // Create the reader of the gt bitvector.
-  multifile_bit_stream_reader *gt_reader
+  multifile_bit_stream_reader * const gt_reader
     = new multifile_bit_stream_reader(tail_gt_begin_reversed);
 
   // The computation is done with the binary search over the block_psa
