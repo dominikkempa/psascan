@@ -86,16 +86,17 @@ namespace psascan_private {
 // position i in (block_end..tail_end] (see definition above) is accessed
 // as gt[text_length - i].
 //=============================================================================
-inline int lcp_compare(
-    const std::uint8_t * const text,
-    const std::uint8_t * const pat,
-    multifile_bit_stream_reader * const gt_reader,
+template<typename char_type>
+inline std::int32_t lcp_compare(
     const std::uint64_t text_length,
     const std::uint64_t block_end,
     const std::uint64_t block_suf_begin,
     const std::uint64_t pattern_begin,
     const std::uint64_t pattern_length,
     const std::uint64_t init_lcp,
+    const char_type * const text,
+    const char_type * const pat,
+    multifile_bit_stream_reader * const gt_reader,
     std::uint64_t * const ret_lcp) {
 
   // Continue matching until we reach the
@@ -187,12 +188,10 @@ inline int lcp_compare(
 // position i in (block_end..tail_end] (see definition above) is accessed
 // as gt[text_length - i].
 //=============================================================================
-template<typename block_offset_type>
+template<
+  typename char_type,
+  typename block_offset_type>
 void refine_range(
-    const std::uint8_t * const block,
-    const std::uint8_t * const pat,
-    const block_offset_type * const block_psa,
-    multifile_bit_stream_reader * const gt_reader,
     const std::uint64_t block_begin,
     const std::uint64_t block_end,
     const std::uint64_t pattern_begin,
@@ -201,13 +200,17 @@ void refine_range(
     const std::uint64_t left,
     const std::uint64_t right,
     const std::uint64_t range_lcp,
+    const char_type * const block,
+    const char_type * const pat,
+    const block_offset_type * const block_psa,
+    multifile_bit_stream_reader * const gt_reader,
     std::uint64_t * const newleft,
     std::uint64_t * const newright) {
 
   // Initialize the pointer to text. Due to the
   // construction of this function we will never
   // access symbols in text which are not in RAM.
-  const std::uint8_t * const text = block - block_begin;
+  const char_type * const text = block - block_begin;
 
   // Compute the tuning parameters
   // for string binary search.
@@ -250,9 +253,9 @@ void refine_range(
     const std::uint64_t init_lcp = std::min(llcp, rlcp);
     const std::uint64_t block_suf_begin =
       block_begin + (std::uint64_t)block_psa[mid];
-    if (lcp_compare(text, pat, gt_reader, text_length,
-          block_end, block_suf_begin, pattern_begin,
-          pattern_length, init_lcp, &new_lcp) <= 0) {
+    if (lcp_compare(text_length, block_end,
+          block_suf_begin, pattern_begin, pattern_length,
+          init_lcp, text, pat, gt_reader, &new_lcp) <= 0) {
       high = mid;
       rlcp = new_lcp;
     } else {
@@ -301,9 +304,9 @@ void refine_range(
       const std::uint64_t init_lcp = std::min(llcp, rlcp);
       const std::uint64_t block_suf_begin =
         block_begin + (std::uint64_t)block_psa[mid];
-      if (lcp_compare(text, pat, gt_reader, text_length,
-            block_end, block_suf_begin, pattern_begin,
-            pattern_length, init_lcp, &new_lcp) < 0) {
+      if (lcp_compare(text_length, block_end,
+            block_suf_begin, pattern_begin, pattern_length,
+            init_lcp, text, pat, gt_reader, &new_lcp) < 0) {
         high = mid;
         rlcp = new_lcp;
       } else {
@@ -356,18 +359,20 @@ void refine_range(
 // position i in (block_end..tail_end] (see definition above) is accessed
 // as gt[text_length - i].
 //=============================================================================
-template<typename block_offset_type>
+template<
+  typename char_type,
+  typename block_offset_type>
 std::pair<std::uint64_t, std::uint64_t>
 compute_range(
-    const std::uint8_t * const block,
-    const block_offset_type * const block_psa,
-    const multifile * const tail_gt_begin_reversed,
-    const std::string text_filename,
     const std::uint64_t block_begin,
     const std::uint64_t block_end,
     const std::uint64_t pattern_begin,
     const std::uint64_t text_length,
-    const std::uint64_t max_pat_length) {
+    const std::uint64_t max_pat_length,
+    const char_type * const block,
+    const block_offset_type * const block_psa,
+    const multifile * const tail_gt_begin_reversed,
+    const std::string text_filename) {
 
   // Handle special case.
   if (pattern_begin == text_length)
@@ -436,9 +441,10 @@ compute_range(
     // pattern_begin+range_lcp..pattern_begin+pattern_length).
     std::uint64_t newleft = 0;
     std::uint64_t newright = 0;
-    refine_range(block, chunk_reader->m_chunk - range_lcp, block_psa,
-        gt_reader, block_begin, block_end, pattern_begin, pattern_length,
-        text_length, left, right, range_lcp, &newleft, &newright);
+    refine_range(block_begin, block_end, pattern_begin,
+        pattern_length, text_length, left, right, range_lcp,
+        block, chunk_reader->m_chunk - range_lcp, block_psa,
+        gt_reader, &newleft, &newright);
 
     // Update range boundaries.
     left = newleft;
@@ -493,20 +499,22 @@ compute_range(
 // position i in (block_end..tail_end] (see definition above) is accessed
 // as gt[text_length - i].
 //=============================================================================
-template<typename block_offset_type>
+template<
+  typename char_type,
+  typename block_offset_type>
 void compute_ranks(
-    const std::uint8_t * const block,
-    const std::uint8_t * const block_pbwt,
-    const block_offset_type * const block_psa,
-    const multifile * const tail_gt_begin_reversed,
-    const std::string text_filename,
-    const std::uint64_t i0,
     const std::uint64_t block_begin,
     const std::uint64_t block_end,
     const std::uint64_t text_length,
     const std::uint64_t patterns_dist,
     const std::uint64_t tail_end,
     const std::uint64_t rank_tail_end,
+    const std::uint64_t i0,
+    const char_type * const block,
+    const char_type * const block_pbwt,
+    const block_offset_type * const block_psa,
+    const multifile * const tail_gt_begin_reversed,
+    const std::string text_filename,
     std::vector<std::uint64_t> &result) {
 
   // Compute the number of patterns.
@@ -539,10 +547,10 @@ void compute_ranks(
         pattern_prefix_end - pattern_begin;
 
       // Compute the range.
-      ranges[pattern_id] = compute_range<block_offset_type>(
-          block, block_psa, tail_gt_begin_reversed, text_filename,
+      ranges[pattern_id] = compute_range(
           block_begin, block_end, pattern_begin, text_length,
-          pattern_prefix_length);
+          pattern_prefix_length, block, block_psa,
+          tail_gt_begin_reversed, text_filename);
     }
 
 #else
@@ -560,10 +568,10 @@ void compute_ranks(
         pattern_prefix_end - pattern_begin;
 
       // Compute the range.
-      ranges[pattern_id] = compute_range<block_offset_type>(
-          block, block_psa, tail_gt_begin_reversed, text_filename,
+      ranges[pattern_id] = compute_range(
           block_begin, block_end, pattern_begin, text_length,
-          pattern_prefix_length);
+          pattern_prefix_length, block, block_psa,
+          tail_gt_begin_reversed, text_filename);
     }
 
 #endif  // _OPENMP
@@ -728,11 +736,8 @@ void compute_ranks(
 // position i in (tail_begin..text_length] (see definition above) is
 // accessed as gt[text_length - i].
 //=============================================================================
-inline int lcp_compare(
-    const std::uint8_t * const text,
-    const std::uint8_t * const pat,
-    background_block_reader * const mid_block_reader,
-    multifile_bit_stream_reader * const gt_reader,
+template<typename char_type>
+inline std::int32_t lcp_compare(
     const std::uint64_t text_length,
     const std::uint64_t block_end,
     const std::uint64_t block_suf_begin,
@@ -740,6 +745,10 @@ inline int lcp_compare(
     const std::uint64_t pattern_length,
     const std::uint64_t tail_begin,
     const std::uint64_t init_lcp,
+    const char_type * const text,
+    const char_type * const pat,
+    background_block_reader * const mid_block_reader,
+    multifile_bit_stream_reader * const gt_reader,
     std::uint64_t * const ret_lcp) {
 
   // Continue the comparison using the
@@ -781,7 +790,7 @@ inline int lcp_compare(
     // Now continue the comparison using the symbols from the mid block.
     // Invariant: mid_block_reader->m_data[0..mid_block_needed) ==
     // text[block_end..block_end+mid_block_needed).
-    const std::uint8_t * const text2 =
+    const char_type * const text2 =
       mid_block_reader->m_data - block_end;
     while (block_suf_begin + new_lcp < tail_begin &&
         new_lcp < pattern_length &&
@@ -882,13 +891,10 @@ inline int lcp_compare(
 // position i in (block_end..tail_end] (see definition above) is accessed
 // as gt[text_length - i].
 //=============================================================================
-template<typename block_offset_type>
+template<
+  typename char_type,
+  typename block_offset_type>
 void refine_range(
-    const std::uint8_t * const block,
-    const std::uint8_t * const pat,
-    const block_offset_type * const block_psa,
-    background_block_reader * const mid_block_reader,
-    multifile_bit_stream_reader * const gt_reader,
     const std::uint64_t block_begin,
     const std::uint64_t block_end,
     const std::uint64_t pattern_begin,
@@ -898,13 +904,18 @@ void refine_range(
     const std::uint64_t left,
     const std::uint64_t right,
     const std::uint64_t range_lcp,
+    const char_type * const block,
+    const char_type * const pat,
+    const block_offset_type * const block_psa,
+    background_block_reader * const mid_block_reader,
+    multifile_bit_stream_reader * const gt_reader,
     std::uint64_t * const newleft,
     std::uint64_t * const newright) {
 
   // Initialize the pointer to text. Due to the
   // construction of this function we will never
   // access symbols in text which are not in RAM.
-  const std::uint8_t * const text = block - block_begin;
+  const char_type * const text = block - block_begin;
 
   // Compute the tuning parameters
   // for string binary search.
@@ -947,9 +958,9 @@ void refine_range(
     const std::uint64_t init_lcp = std::min(llcp, rlcp);
     const std::uint64_t block_suf_begin =
       block_begin + (std::uint64_t)block_psa[mid];
-    if (lcp_compare(text, pat, mid_block_reader, gt_reader,
-          text_length, block_end, block_suf_begin, pattern_begin,
-          pattern_length, tail_begin, init_lcp, &new_lcp) <= 0) {
+    if (lcp_compare(text_length, block_end, block_suf_begin,
+          pattern_begin, pattern_length, tail_begin, init_lcp,
+          text, pat, mid_block_reader, gt_reader, &new_lcp) <= 0) {
       high = mid;
       rlcp = new_lcp;
     } else {
@@ -998,9 +1009,9 @@ void refine_range(
       const std::uint64_t init_lcp = std::min(llcp, rlcp);
       const std::uint64_t block_suf_begin =
         block_begin + (std::uint64_t)block_psa[mid];
-      if (lcp_compare(text, pat, mid_block_reader, gt_reader,
-            text_length, block_end, block_suf_begin, pattern_begin,
-            pattern_length, tail_begin, init_lcp, &new_lcp) < 0) {
+      if (lcp_compare(text_length, block_end, block_suf_begin,
+            pattern_begin, pattern_length, tail_begin, init_lcp,
+            text, pat, mid_block_reader, gt_reader, &new_lcp) < 0) {
         high = mid;
         rlcp = new_lcp;
       } else {
@@ -1044,18 +1055,20 @@ void refine_range(
 // position i in (tail_begin..text_length] (see definition above) is
 // accessed as gt[text_length - i].
 //=============================================================================
-template<typename block_offset_type>
+template<
+  typename char_type,
+  typename block_offset_type>
 std::uint64_t compute_rank(
-    const std::uint8_t * const block,
-    const block_offset_type * const block_psa,
-    const multifile * const tail_gt_begin_reversed,
-    background_block_reader * const mid_block_reader,
-    const std::string text_filename,
     const std::uint64_t block_begin,
     const std::uint64_t block_end,
     const std::uint64_t pattern_begin,
     const std::uint64_t text_length,
-    const std::uint64_t tail_begin) {
+    const std::uint64_t tail_begin,
+    const char_type * const block,
+    const block_offset_type * const block_psa,
+    const multifile * const tail_gt_begin_reversed,
+    background_block_reader * const mid_block_reader,
+    const std::string text_filename) {
 
   // Handle special case.
   if (pattern_begin == text_length)
@@ -1118,10 +1131,10 @@ std::uint64_t compute_rank(
     // pattern_begin+range_lcp..pattern_begin+pattern_length).
     std::uint64_t newleft = 0;
     std::uint64_t newright = 0;
-    refine_range(block, chunk_reader->m_chunk - range_lcp,
-        block_psa, mid_block_reader, gt_reader, block_begin, block_end,
-        pattern_begin, pattern_length, tail_begin, text_length, left,
-        right, range_lcp, &newleft, &newright);
+    refine_range(block_begin, block_end, pattern_begin,
+        pattern_length, tail_begin, text_length, left, right,
+        range_lcp, block, chunk_reader->m_chunk - range_lcp,
+        block_psa, mid_block_reader, gt_reader, &newleft, &newright);
 
     // Update range boundaries.
     left = newleft;
@@ -1166,17 +1179,19 @@ std::uint64_t compute_rank(
 // position i in (tail_begin..text_length] (see definition above) is
 // accessed as gt[text_length - i].
 //=============================================================================
-template<typename block_offset_type>
+template<
+  typename char_type,
+  typename block_offset_type>
 void compute_ranks(
-    const std::uint8_t * const block,
-    const block_offset_type * const block_psa,
-    const multifile * const tail_gt_begin_reversed,
-    const std::string text_filename,
     const std::uint64_t block_begin,
     const std::uint64_t block_end,
     const std::uint64_t text_length,
     const std::uint64_t tail_begin,
     const std::uint64_t patterns_dist,
+    const char_type * const block,
+    const block_offset_type * const block_psa,
+    const multifile * const tail_gt_begin_reversed,
+    const std::string text_filename,
     std::vector<std::uint64_t> &result) {
 
   // Compute the number of patterns.
@@ -1211,10 +1226,10 @@ void compute_ranks(
         pattern_id * patterns_dist;
 
       // Compute the rank.
-      res[pattern_id] = compute_rank<block_offset_type>(
-          block, block_psa, tail_gt_begin_reversed,
-          mid_block_reader, text_filename, block_begin,
-          block_end, pattern_begin, text_length, tail_begin);
+      res[pattern_id] = compute_rank(
+          block_begin, block_end, pattern_begin, text_length,
+          tail_begin, block, block_psa, tail_gt_begin_reversed,
+          mid_block_reader, text_filename);
     }
 #else
 
@@ -1227,10 +1242,10 @@ void compute_ranks(
         pattern_id * patterns_dist;
 
       // Compute the rank.
-      res[pattern_id] = compute_rank<block_offset_type>(
-          block, block_psa, tail_gt_begin_reversed,
-          mid_block_reader, text_filename, block_begin,
-          block_end, pattern_begin, text_length, tail_begin);
+      res[pattern_id] = compute_rank(
+          block_begin, block_end, pattern_begin, text_length,
+          tail_begin, block, block_psa, tail_gt_begin_reversed,
+          mid_block_reader, text_filename);
     }
 
 #endif  // _OPENMP

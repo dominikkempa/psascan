@@ -103,6 +103,9 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     std::string output_filename, std::string gap_filename,
     multifile *newtail_gt_begin_rev, const multifile *tail_gt_begin_rev,
     std::vector<half_block_info<block_offset_type> > &hblock_info, bool verbose) {
+
+  typedef std::uint8_t char_type;
+
   std::uint64_t block_size = block_end - block_beg;
 
   if (block_end != text_length && block_size <= 1) {
@@ -234,11 +237,11 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
       long double initial_ranks_first_term_start = utils::wclock();
       std::uint64_t stream_block_size =
         ((block_tail_end - right_block_end) + max_threads - 1) / max_threads;
-      compute_ranks<block_offset_type>(
-          right_block, right_block_bwt, right_block_psa_ptr,
-          tail_gt_begin_rev, text_filename, right_block_i0,
+      compute_ranks<char_type, block_offset_type>(
           right_block_beg, right_block_end, text_length,
-          stream_block_size, block_tail_end, 0, block_initial_ranks);
+          stream_block_size, block_tail_end, 0, right_block_i0,
+          right_block, right_block_bwt, right_block_psa_ptr,
+          tail_gt_begin_rev, text_filename, block_initial_ranks);
 
       std::uint64_t vec_size = block_initial_ranks.size();
       for (std::uint64_t j = 0; j + 1 < vec_size; ++j)
@@ -374,11 +377,11 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
     std::vector<std::uint64_t> block_initial_ranks_second_term;
     std::uint64_t stream_block_size =
       ((text_length - block_tail_beg) + max_threads - 1) / max_threads;
-    compute_ranks<block_offset_type>(
-        left_block, left_block_psa_ptr, tail_gt_begin_rev,
-        text_filename, left_block_beg, left_block_end,
-        text_length, block_tail_beg, stream_block_size,
-        block_initial_ranks_second_term);
+    compute_ranks<char_type, block_offset_type>(
+        left_block_beg, left_block_end, text_length,
+        block_tail_beg, stream_block_size, left_block,
+        left_block_psa_ptr, tail_gt_begin_rev,
+        text_filename, block_initial_ranks_second_term);
 
     after_block_initial_rank = block_initial_ranks_second_term[0];
     std::uint64_t vec_size = block_initial_ranks_second_term.size();
@@ -477,12 +480,13 @@ void process_block(long block_beg, long block_end, long text_length, std::uint64
   std::vector<std::uint64_t> initial_ranks2;
   std::uint64_t stream_block_size =
     (right_block_size + max_threads - 1) / max_threads;
-  compute_ranks<block_offset_type>(
+  compute_ranks<char_type, block_offset_type>(
+      left_block_beg, left_block_end, text_length,
+      stream_block_size, right_block_end,
+      after_block_initial_rank, left_block_i0,
       left_block, left_block_bwt, left_block_psa_ptr,
       right_block_gt_begin_rev, text_filename,
-      left_block_i0, left_block_beg, left_block_end,
-      text_length, stream_block_size, right_block_end,
-      after_block_initial_rank, initial_ranks2);
+      initial_ranks2);
 
   std::uint64_t vec_size = initial_ranks2.size();
   for (std::uint64_t j = 0; j + 1 < vec_size; ++j)

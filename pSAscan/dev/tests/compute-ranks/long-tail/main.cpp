@@ -100,11 +100,11 @@ void test(
     (tail_length + stream_max_block_size - 1) / stream_max_block_size;
   std::vector<std::uint64_t> result;
   compute_ranks(
-      block, block_pbwt, block_psa,
-      &gt_begin_rev_multifile, text_filename,
-      i0, block_beg, block_end, text_length,
+      block_beg, block_end, text_length,
       stream_max_block_size, tail_end,
-      srank_after_tail, result);
+      srank_after_tail, i0, block, block_pbwt,
+      block_psa, &gt_begin_rev_multifile,
+      text_filename, result);
 
   // Compare computed answers to correct answers.
   for (std::uint64_t t = 0; t < n_threads; ++t) {

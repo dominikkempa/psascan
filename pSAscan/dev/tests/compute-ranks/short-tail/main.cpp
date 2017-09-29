@@ -83,10 +83,11 @@ void test(
   std::uint64_t n_threads =
     (tail_length + stream_max_block_size - 1) / stream_max_block_size;
   std::vector<std::uint64_t> result;
-  compute_ranks(block, block_psa,
-      &gt_begin_rev_multifile, text_filename,
+  compute_ranks(
       block_beg, block_end, text_length,
-      tail_beg, stream_max_block_size, result);
+      tail_beg, stream_max_block_size, block,
+      block_psa, &gt_begin_rev_multifile,
+      text_filename, result);
 
   // Compare computed answers to correct answers.
   for (std::uint64_t t = 0; t < n_threads; ++t) {
