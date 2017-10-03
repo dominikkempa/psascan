@@ -284,7 +284,7 @@ void compute_left_gap(
 #else
     for (std::uint64_t i = 0; i < range_size; ++i)
       range_gap[i] = 0;
-#endif
+#endif  // _OPENMP
 
     // Allocate arrays used to store the answers for part boundaries.
     std::uint64_t * const res_sum = new std::uint64_t[n_parts];

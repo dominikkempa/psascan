@@ -58,53 +58,65 @@ namespace psascan_private {
 
 std::mutex stdout_mutex;
 
-template<typename block_offset_type, typename rank_type>
+template<
+  typename block_offset_type,
+  typename rank_type>
 void parallel_stream(
-    gap_buffer_poll<block_offset_type> *full_gap_buffers,
-    gap_buffer_poll<block_offset_type> *empty_gap_buffers,
-    std::uint64_t stream_block_beg,
-    std::uint64_t stream_block_end,
-    std::uint64_t initial_rank,
-    const std::uint64_t *count,
-    std::uint64_t longest_suffix_rank,
-    const rank_type *rank,
-    std::uint8_t last,
-    std::string text_filename,
-    std::uint64_t length,
-    stream_info *info,
-    std::uint64_t thread_id,
-    std::uint64_t gap_range_size,
-    std::uint64_t gap_buf_size,
-    const multifile *tail_gt_begin,
-    std::uint64_t n_increasers,
-    async_multifile_bit_writer *gt_bit_writer) {
+    const std::uint64_t stream_block_beg,
+    const std::uint64_t stream_block_end,
+    const std::uint64_t initial_rank,
+    const std::uint64_t thread_id,
+    const std::uint64_t gap_range_size,
+    const std::uint64_t gap_buf_size,
+    const std::uint64_t n_increasers,
+    const std::uint64_t text_length,
+    const std::uint64_t longest_block_suffix_rank,
+    const std::uint8_t block_last_symbol,
+    const std::string text_filename,
+    const std::uint64_t * const block_symbol_count,
+    const rank_type * const block_bwt_rank,
+    const multifile * const tail_gt_begin,
+    stream_info * const info,
+    gap_buffer_poll<block_offset_type> * const full_gap_buffers,
+    gap_buffer_poll<block_offset_type> * const empty_gap_buffers,
+    async_multifile_bit_writer * const gt_bit_writer) {
 
   static const std::uint64_t max_buckets = 4096;
-  int *block_id_to_sblock_id = new int[max_buckets];
+  std::uint32_t * const block_id_to_sblock_id = new std::uint32_t[max_buckets];
 
   std::uint64_t bucket_size = 1;
   std::uint64_t bucket_size_bits = 0;
-  while ((gap_range_size + bucket_size - 1) / bucket_size > max_buckets)
-    bucket_size <<= 1, ++bucket_size_bits;
-  std::uint64_t n_buckets = (gap_range_size + bucket_size - 1) / bucket_size;
-  int *block_count = new int[n_buckets];
+  while ((gap_range_size + bucket_size - 1) / bucket_size > max_buckets) {
+    bucket_size <<= 1;
+    ++bucket_size_bits;
+  }
 
-  std::uint64_t max_buffer_elems = gap_buf_size / sizeof(block_offset_type);
-  block_offset_type *temp = new block_offset_type[max_buffer_elems];
-  int *oracle = new int[max_buffer_elems];
+  // Add description XXX.
+  const std::uint64_t n_buckets =
+    (gap_range_size + bucket_size - 1) / bucket_size;
+  std::uint32_t * const block_count = new std::uint32_t[n_buckets];
+
+  const std::uint64_t max_buffer_elems =
+    gap_buf_size / sizeof(block_offset_type);
+  block_offset_type * const temp =
+    new block_offset_type[max_buffer_elems];
+  std::uint32_t * const oracle =
+    new std::uint32_t[max_buffer_elems];
 
   static const std::uint64_t buffer_sample_size = 512;
   std::vector<block_offset_type> samples(buffer_sample_size);
-  std::uint64_t *ptr = new std::uint64_t[n_increasers];
-  block_offset_type *bucket_lbound = new block_offset_type[n_increasers + 1];
+  std::uint64_t * const ptr =
+    new std::uint64_t[n_increasers];
+  block_offset_type * const bucket_lbound =
+    new block_offset_type[n_increasers + 1];
 
   typedef async_scatterfile_bit_reader bit_stream_reader_type;
   typedef async_backward_skip_stream_reader<std::uint8_t> text_reader_type;
 
-  text_reader_type *text_streamer =
-    new text_reader_type(text_filename, length - stream_block_end, 4L << 20);
-  bit_stream_reader_type gt_in(
-      tail_gt_begin, length - stream_block_end, 1L << 20);
+  text_reader_type *text_streamer = new text_reader_type(
+      text_filename, text_length - stream_block_end, 4 << 20);
+  bit_stream_reader_type gt_in(tail_gt_begin,
+      text_length - stream_block_end, 1 << 20);
 
   std::uint64_t current_rank = initial_rank;
   std::uint64_t j = stream_block_end;
@@ -143,32 +155,32 @@ void parallel_stream(
     while (!empty_gap_buffers->available())
       empty_gap_buffers->m_cv.wait(lk);
 
-    gap_buffer<block_offset_type> *b = empty_gap_buffers->get();
+    gap_buffer<block_offset_type> * const b = empty_gap_buffers->get();
     lk.unlock();
     empty_gap_buffers->m_cv.notify_one(); // let others know they should re-check
 
     // Process buffer -- fill with gap values.
-    std::uint64_t left = j - stream_block_beg;
+    const std::uint64_t left = j - stream_block_beg;
     b->m_filled = std::min(left, b->m_size);
     dbg += b->m_filled;
-    std::fill(block_count, block_count + n_buckets, (int)0);
+    std::fill(block_count, block_count + n_buckets, (std::uint32_t)0);
 
-    for (std::uint64_t t = 0L; t < b->m_filled; ++t, --j) {
-      std::uint8_t c = text_streamer->read();
-      std::uint8_t gt_bit = (current_rank > longest_suffix_rank);
+    for (std::uint64_t t = 0; t < b->m_filled; ++t, --j) {
+      const std::uint8_t c = text_streamer->read();
+      const std::uint8_t gt_bit =
+        (current_rank > longest_block_suffix_rank);
 
       gt_bit_writer->write_to_ith_file(thread_id, gt_bit);
-      bool next_gt = gt_in.read();
+      const bool next_gt = gt_in.read();
 
-      std::uint8_t delta =
-        (c == 0 &&
-         current_rank > longest_suffix_rank);
+      const std::uint8_t delta = (c == 0 &&
+          current_rank > longest_block_suffix_rank);
 
       current_rank =
-        count[c] +
-        rank->rank(current_rank, c);
+        block_symbol_count[c] +
+        block_bwt_rank->rank(current_rank, c);
 
-      if (c == last && next_gt)
+      if (c == block_last_symbol && next_gt)
         ++current_rank;
       current_rank -= delta;
 
@@ -182,9 +194,9 @@ void parallel_stream(
     std::uint64_t max_sbucket_size = 0;
     std::uint64_t bucket_id_beg = 0;
     for (std::uint64_t t = 0; t < n_increasers; ++t) {
+
       std::uint64_t bucket_id_end = bucket_id_beg;
       std::uint64_t size = 0;
-
       while (bucket_id_end < n_buckets && size < ideal_sblock_size)
         size += block_count[bucket_id_end++];
 
@@ -196,20 +208,20 @@ void parallel_stream(
       bucket_id_beg = bucket_id_end;
     }
 
-    if (max_sbucket_size < 4L * ideal_sblock_size) {
+    if (max_sbucket_size < 4 * ideal_sblock_size) {
       for (std::uint64_t t = 0, curbeg = 0; t < n_increasers;
           curbeg += b->sblock_size[t++])
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       // Permute the elements of the buffer.
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        std::uint64_t id = ((std::uint64_t)temp[t] >> bucket_size_bits);
-        std::uint64_t sblock_id = block_id_to_sblock_id[id];
+        const std::uint64_t id = ((std::uint64_t)temp[t] >> bucket_size_bits);
+        const std::uint64_t sblock_id = block_id_to_sblock_id[id];
         oracle[t] = ptr[sblock_id]++;
       }
 
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        std::uint64_t addr = oracle[t];
+        const std::uint64_t addr = oracle[t];
         b->m_content[addr] = temp[t];
       }
     } else {
@@ -220,7 +232,7 @@ void parallel_stream(
 
       // Compute random sample of elements in the buffer.
       for (std::uint64_t t = 0; t < buffer_sample_size; ++t)
-        samples[t] = temp[utils::random_int64(0L, b->m_filled - 1)];
+        samples[t] = temp[utils::random_int64(0, b->m_filled - 1)];
       std::sort(samples.begin(), samples.end());
       samples.erase(std::unique(samples.begin(),
             samples.end()), samples.end());
@@ -238,9 +250,9 @@ void parallel_stream(
       // Compute bucket sizes and sblock id into oracle array.
       std::fill(b->sblock_size, b->sblock_size + n_increasers, 0L);
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        std::uint64_t x = temp[t];
-        std::uint64_t id = n_increasers;
+        const std::uint64_t x = temp[t];
 
+        std::uint64_t id = n_increasers;
         while ((std::uint64_t)bucket_lbound[id] > x)
           --id;
 
@@ -254,12 +266,12 @@ void parallel_stream(
         b->sblock_beg[t] = ptr[t] = curbeg;
 
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        std::uint64_t sblock_id = oracle[t];
+        const std::uint64_t sblock_id = oracle[t];
         oracle[t] = ptr[sblock_id]++;
       }
 
       for (std::uint64_t t = 0; t < b->m_filled; ++t) {
-        std::uint64_t addr = oracle[t];
+        const std::uint64_t addr = oracle[t];
         b->m_content[addr] = temp[t];
       }
     }

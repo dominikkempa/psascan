@@ -431,19 +431,19 @@ compute_range(
         chunk_reader->get_chunk_size());
     const std::uint64_t pattern_length =
       range_lcp + this_chunk_length;
-    chunk_reader->wait(pattern_begin + pattern_length);
+    chunk_reader->read_next_chunk();
 
     // Refine the range using the next chunk. Invariant:
     // all suffixes in block_psa[left..right) share a
     // common prefix of length range_lcp with the pattern.
     // Invariant:
-    // chunk_reader->m_chunk[0..this_chunk_length) == text[
+    // chunk_reader->get_chunk_ptr()[0..this_chunk_length) == text[
     // pattern_begin+range_lcp..pattern_begin+pattern_length).
     std::uint64_t newleft = 0;
     std::uint64_t newright = 0;
     refine_range(block_begin, block_end, pattern_begin,
         pattern_length, text_length, left, right, range_lcp,
-        block, chunk_reader->m_chunk - range_lcp, block_psa,
+        block, chunk_reader->get_chunk_ptr() - range_lcp, block_psa,
         gt_reader, &newleft, &newright);
 
     // Update range boundaries.
@@ -1119,21 +1119,22 @@ std::uint64_t compute_rank(
     const std::uint64_t this_chunk_length = std::min(
         max_pat_symbols_needed - range_lcp,
         chunk_reader->get_chunk_size());
-    const std::uint64_t pattern_length = range_lcp + this_chunk_length;
-    chunk_reader->wait(pattern_begin + pattern_length);
+    const std::uint64_t pattern_length =
+      range_lcp + this_chunk_length;
+    chunk_reader->read_next_chunk();
 
     // Compute new range boundaries. Invariant: the answer
     // (i.e., final rank) is in in the range [left, right].
     // Invariant: all suffixes in psa[left..right) share a
     // common prefix of length range_lcp with the pattern.
     // Invariant:
-    // chunk_reader->m_chunk[0..this_chunk_length) == text[
+    // chunk_reader->get_chunk_ptr()[0..this_chunk_length) == text[
     // pattern_begin+range_lcp..pattern_begin+pattern_length).
     std::uint64_t newleft = 0;
     std::uint64_t newright = 0;
     refine_range(block_begin, block_end, pattern_begin,
         pattern_length, tail_begin, text_length, left, right,
-        range_lcp, block, chunk_reader->m_chunk - range_lcp,
+        range_lcp, block, chunk_reader->get_chunk_ptr() - range_lcp,
         block_psa, mid_block_reader, gt_reader, &newleft, &newright);
 
     // Update range boundaries.

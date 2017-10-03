@@ -60,71 +60,64 @@ namespace psascan_private {
 // Compute the gap for an arbitrary range of suffixes of tail. This version is
 // more general, and can be used also when processing half-blocks.
 //==============================================================================
-template<typename block_offset_type,
-         typename rank_type>
+template<
+  typename block_offset_type,
+  typename rank_type>
 void compute_gap(
-    const rank_type *rank,
-    std::uint64_t block_size,
-    buffered_gap_array *gap,
-    std::uint64_t tail_begin,
-    std::uint64_t tail_end,
-    std::uint64_t text_length,
-    std::uint64_t max_threads,
-    std::uint64_t block_isa0,
-    std::uint64_t gap_buf_size,
-    std::uint8_t block_last_symbol,
-    std::vector<std::uint64_t> initial_ranks,
-    std::string text_filename,
-    std::string output_filename,
-    const multifile *tail_gt_begin_rev,
-    multifile *newtail_gt_begin_rev) {
+    const rank_type * const block_bwt_rank,
+    const std::uint64_t block_size,
+    buffered_gap_array * const gap,
+    const std::uint64_t tail_begin,
+    const std::uint64_t tail_end,
+    const std::uint64_t text_length,
+    const std::uint64_t max_threads,
+    const std::uint64_t block_isa0,
+    const std::uint64_t gap_buf_size,
+    const std::uint8_t block_last_symbol,
+    const std::vector<std::uint64_t> initial_ranks,
+    const std::string text_filename,
+    const std::string output_filename,
+    const multifile * const tail_gt_begin_rev,
+    multifile * const newtail_gt_begin_rev) {
 
-  std::uint64_t tail_length = tail_end - tail_begin;
-  std::uint64_t stream_max_block_size =
+  const std::uint64_t tail_length = tail_end - tail_begin;
+  const std::uint64_t stream_max_block_size =
     (tail_length + max_threads - 1) / max_threads;
-  std::uint64_t n_threads =
+  const std::uint64_t n_threads =
     (tail_length + stream_max_block_size - 1) / stream_max_block_size;
 
   fprintf(stderr, "    Stream:");
-  long double stream_start = utils::wclock();
+  const long double stream_start = utils::wclock();
 
-  // 1
-  //
   // Get symbol counts of a block and turn into exclusive partial sum.
   static const std::uint64_t k_sigma = 256;
-  std::uint64_t *count = new std::uint64_t[k_sigma];
+  std::uint64_t * const block_symbol_count = new std::uint64_t[k_sigma];
   for (std::uint64_t j = 0; j < k_sigma; ++j)
-    count[j] = rank->rank(block_size, (std::uint8_t)j);
-  ++count[block_last_symbol];
-  --count[0];
+    block_symbol_count[j] = block_bwt_rank->rank(block_size, j);
+  ++block_symbol_count[block_last_symbol];
+  --block_symbol_count[0];
 
   // Exclusive partial sum over the count array.
   for (std::uint64_t j = 0, sum = 0, temp = 0; j < k_sigma; ++j) {
-    temp = count[j];
-    count[j] = sum;
+    temp = block_symbol_count[j];
+    block_symbol_count[j] = sum;
     sum += temp;
   }
 
-  // 2
-  //
   // Allocate gap buffers.
-  std::uint64_t n_gap_buffers = 2 * max_threads;
+  const std::uint64_t n_gap_buffers = 2 * max_threads;
   gap_buffer<block_offset_type> **gap_buffers =
     new gap_buffer<block_offset_type>*[n_gap_buffers];
   for (std::uint64_t i = 0; i < n_gap_buffers; ++i)
     gap_buffers[i] =
       new gap_buffer<block_offset_type>(gap_buf_size, max_threads);
 
-  // 3
-  //
   // Create poll of empty and full buffers.
-  gap_buffer_poll<block_offset_type> *empty_gap_buffers =
+  gap_buffer_poll<block_offset_type> * const empty_gap_buffers =
     new gap_buffer_poll<block_offset_type>();
-  gap_buffer_poll<block_offset_type> *full_gap_buffers =
+  gap_buffer_poll<block_offset_type> * const full_gap_buffers =
     new gap_buffer_poll<block_offset_type>(n_threads);
 
-  // 4
-  //
   // Add all buffers to the poll of empty buffers.
   for (std::uint64_t i = 0; i < n_gap_buffers; ++i)
     empty_gap_buffers->add(gap_buffers[i]);
@@ -132,12 +125,13 @@ void compute_gap(
   // Create the async multifile bit writer.
   typedef async_multifile_bit_writer gt_writer_type;
   gt_writer_type *gt_bit_writer = new gt_writer_type();
-  for (std::uint64_t t = 0; t < n_threads; ++t) {
-    std::uint64_t stream_block_beg = tail_begin + t * stream_max_block_size;
-    std::uint64_t stream_block_end = std::min(tail_end,
-        stream_block_beg + stream_max_block_size);
+  for (std::uint64_t thread_id = 0; thread_id < n_threads; ++thread_id) {
+    std::uint64_t const stream_block_beg =
+      tail_begin + thread_id * stream_max_block_size;
+    const std::uint64_t stream_block_end = std::min(
+        tail_end, stream_block_beg + stream_max_block_size);
 
-    std::string filename = output_filename +
+    const std::string filename = output_filename +
       ".gt_tail." + utils::random_string_hash();
     newtail_gt_begin_rev->add_file(
         text_length - stream_block_end,
@@ -145,57 +139,52 @@ void compute_gap(
     gt_bit_writer->add_file(filename);
   }
 
-  // 5
-  //
   // Start threads doing the backward search.
   stream_info info(n_threads, tail_length);
   std::thread **streamers = new std::thread*[n_threads];
 
-  for (std::uint64_t t = 0; t < n_threads; ++t) {
-    std::uint64_t stream_block_beg = tail_begin + t * stream_max_block_size;
-    std::uint64_t stream_block_end = std::min(tail_end,
+  for (std::uint64_t thread_id = 0; thread_id < n_threads; ++thread_id) {
+
+    // Count stream block boundaries.
+    const std::uint64_t stream_block_beg =
+      tail_begin + thread_id * stream_max_block_size;
+    const std::uint64_t stream_block_end = std::min(tail_end,
       stream_block_beg + stream_max_block_size);
 
-    streamers[t] = new std::thread(
+    streamers[thread_id] = new std::thread(
         parallel_stream<block_offset_type, rank_type>,
-        full_gap_buffers, empty_gap_buffers, stream_block_beg,
-        stream_block_end, initial_ranks[t], count, block_isa0,
-        rank, block_last_symbol, text_filename, text_length,
-        &info, t, gap->m_length, gap_buf_size, tail_gt_begin_rev,
-        max_threads, gt_bit_writer);
+        stream_block_beg, stream_block_end, initial_ranks[thread_id],
+        thread_id, gap->m_length, gap_buf_size, max_threads,
+        text_length, block_isa0, block_last_symbol, text_filename,
+        block_symbol_count, block_bwt_rank, tail_gt_begin_rev, &info, 
+        full_gap_buffers, empty_gap_buffers, gt_bit_writer);
   }
 
-  // 6
-  //
   // Start threads doing the gap array updates.
-  std::thread *updater = new std::thread(gap_updater<block_offset_type>,
+  std::thread * const updater = new std::thread(gap_updater<block_offset_type>,
         full_gap_buffers, empty_gap_buffers, gap, max_threads);
 
-  // 7
-  //
   // Wait for all threads to finish.
   for (std::uint64_t i = 0; i < n_threads; ++i)
     streamers[i]->join();
   updater->join();
 
-  // 8
-  //
   // Clean up.
-  for (std::uint64_t i = 0; i < n_threads; ++i) delete streamers[i];
-  for (std::uint64_t i = 0; i < n_gap_buffers; ++i) delete gap_buffers[i];
+  for (std::uint64_t i = 0; i < n_threads; ++i)
+    delete streamers[i];
+  for (std::uint64_t i = 0; i < n_gap_buffers; ++i)
+    delete gap_buffers[i];
   delete updater;
   delete[] streamers;
   delete[] gap_buffers;
   delete empty_gap_buffers;
   delete full_gap_buffers;
-  delete[] count;
+  delete[] block_symbol_count;
   delete gt_bit_writer;
 
-  // 9
-  //
   // Print summary and exit.
-  long double stream_time = utils::wclock() - stream_start;
-  long double speed = (tail_length / (1024.L * 1024)) / stream_time;
+  const long double stream_time = utils::wclock() - stream_start;
+  const long double speed = (tail_length / (1024.L * 1024)) / stream_time;
   fprintf(stderr,"\r    Stream: 100.0%%. Time: %.2Lfs. Speed: %.2LfMiB/s\n",
       stream_time, speed);
 }
