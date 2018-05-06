@@ -5,7 +5,7 @@
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2017
+ * Copyright (C) 2014-2018
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -253,13 +253,17 @@ std::string intToStr(const int_type x) {
 }
 
 template<typename int_type>
-int_type gcd(const int_type a, const int_type b) {
+int_type gcd(
+    const int_type a,
+    const int_type b) {
   if (b == (int_type)0) return a;
   else return gcd(b, a % b);
 }
 
 template<typename int_type>
-int_type lcm(const int_type a, const int_type b) {
+int_type lcm(
+    const int_type a,
+    const int_type b) {
   return (a / gcd(a, b)) * b;
 }
 

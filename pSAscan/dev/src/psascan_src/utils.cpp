@@ -5,7 +5,7 @@
  * This file is part of pSAscan v0.2.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2014-2017
+ * Copyright (C) 2014-2018
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
@@ -98,9 +98,9 @@ void deallocate(const void * const tab) {
   free(ptr);
 }
 
-void aligned_deallocate(void *tab) {
-  std::uint8_t *ptr = (std::uint8_t *)tab;
-  std::uint64_t *ptr64 = (std::uint64_t *)(ptr - 8);
+void aligned_deallocate(const void * const tab) {
+  const std::uint8_t * const ptr = (std::uint8_t *)tab;
+  const std::uint64_t * const ptr64 = (std::uint64_t *)(ptr - 8);
   deallocate((void *)(*ptr64));
 }
 
@@ -234,11 +234,13 @@ void empty_page_cache(const std::string filename) {
 }
 
 std::string get_timestamp() {
-  std::time_t result = std::time(NULL);
+  const std::time_t result = std::time(NULL);
   return std::string(std::ctime(&result));
 }
 
-std::int32_t random_int32(std::int32_t p, std::int32_t r) {
+std::int32_t random_int32(
+    const std::int32_t p,
+    const std::int32_t r) {
   return p + rand() % (r - p + 1);
 }
 
@@ -270,7 +272,8 @@ void fill_random_letters(
 }
 
 std::string random_string_hash() {
-  const uint64_t hash = (uint64_t)rand() * RAND_MAX + rand();
+  const uint64_t hash =
+    (uint64_t)rand() * RAND_MAX + rand();
   std::stringstream ss;
   ss << hash;
   return ss.str();
