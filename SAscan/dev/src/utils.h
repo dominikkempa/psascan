@@ -13,12 +13,15 @@ namespace utils {
 
 /******************************* SYSTEM CALLS *********************************/
 void execute(std::string cmd);
+void unsafe_execute(std::string cmd);
+void drop_cache();
 
 /****************************** MEASURING TIME ********************************/
 long double wclock();
 
 /**************************** FILE MANIPULATION *******************************/
 // Basic routines.
+std::string absolute_path(std::string fname);
 FILE *open_file(std::string fname, std::string mode);
 long file_size(std::string fname);
 bool file_exists(std::string fname);
@@ -55,7 +58,6 @@ void add_objects_to_file(T *tab, long length, std::string fname) {
 }
 
 void read_block(std::string fname, long beg, long length, unsigned char *b);
-void read_block(std::FILE *f, long beg, long length, unsigned char *b);
 
 template<typename T>
 void read_objects_from_file(T* tab, long length, std::FILE *f) {

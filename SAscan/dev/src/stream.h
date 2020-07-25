@@ -1,4 +1,3 @@
-// Various types of streamers.
 #ifndef __STREAM_H_INCLUDED
 #define __STREAM_H_INCLUDED
 
@@ -9,14 +8,17 @@
 
 #include "utils.h"
 
-/********************************* usage ***************************************
-stream_reader<int> *sr = new stream_reader<int>("input.txt", 1 << 22);
-while (!sr->empty()) {
-  int next = sr->read();
-  fprintf("%d\n", next);
-}
-delete sr;
-*******************************************************************************/
+
+//==============================================================================
+// Usage:
+//
+// stream_reader<int> *sr = new stream_reader<int>("input.txt", 1 << 22);
+// while (!sr->empty()) {
+//   int next = sr->read();
+//   fprintf("%d\n", next);
+// }
+// delete sr;
+//==============================================================================
 template<typename T>
 struct stream_reader {
   stream_reader(std::string fname, long buf_bytes = (4L << 20))
@@ -57,6 +59,7 @@ private:
   std::FILE *m_file;
 };
 
+
 template<typename T>
 struct backward_stream_reader {
   backward_stream_reader(std::string fname, long buf_bytes = (4L << 20))
@@ -95,12 +98,15 @@ private:
   std::FILE *m_file;
 };
 
-/********************************* usage ***************************************
-stream_writer<int> *sw = new stream_writer<int>("output.txt", 1 << 22);
-for (int i = 0; i < n; ++i)
-  sw->write(SA[i]);
-delete sw;
-*******************************************************************************/
+
+//==============================================================================
+// Usage:
+//
+// stream_writer<int> *sw = new stream_writer<int>("output.txt", 1 << 22);
+// for (int i = 0; i < n; ++i)
+//   sw->write(SA[i]);
+// delete sw;
+//==============================================================================
 template<typename T>
 struct stream_writer {
   stream_writer(std::string fname, long bufsize = (4 << 20))
@@ -137,6 +143,7 @@ private:
   std::FILE *m_file;
 };
 
+
 struct bit_stream_reader {
   bit_stream_reader(std::string filename) {
     m_file = utils::open_file(filename.c_str(), "r");
@@ -168,13 +175,14 @@ private:
     m_pos_byte = m_pos_bit = 0;
   }
 
-  static const int k_bufsize = (2 << 20); // 2MB
+  static const int k_bufsize = (2 << 20);
 
   std::FILE *m_file;
 
   unsigned char *m_buf;
   int m_filled, m_pos_byte, m_pos_bit;
 };
+
 
 struct bit_stream_writer {
   bit_stream_writer(std::string filename) {
@@ -208,18 +216,19 @@ struct bit_stream_writer {
   
   ~bit_stream_writer() {
     flush();
-    std::fclose(f);
+    fclose(f);
     delete[] buf;
   }
 
 private:
-  static const int bufsize = (2 << 20); // 2MB
+  static const int bufsize = (2 << 20);
   
   unsigned char *buf;
   int filled, pos_bit;
 
   std::FILE *f;
 };
+
 
 struct vbyte_stream_reader {
   vbyte_stream_reader(std::string fname, long bufsize)
@@ -260,28 +269,5 @@ private:
   
   std::FILE *m_file;
 };
-
-namespace stream {
-
-template<typename T, typename U>
-void write_objects_to_file(T *tab, long length, std::string fname) {
-  if (utils::is_same_type<T, U>::value) { // same type, just write
-    std::FILE *f = utils::open_file(fname, "w");
-    size_t fwrite_ret = std::fwrite(tab, sizeof(T), length, f);
-    if ((long)fwrite_ret != length) {
-      fprintf(stderr, "Error: fwrite in line %s of %s returned %ld\n",
-          STR(__LINE__), STR(__FILE__), fwrite_ret);
-      std::exit(EXIT_FAILURE);
-    }
-    std::fclose(f);
-  } else { // requires casting
-    stream_writer<U> *writer = new stream_writer<U>(fname);
-    for (long i = 0; i < length; ++i)
-      writer->write((T)tab[i]);
-    delete writer;
-  }
-}
-
-} // namespace stream
 
 #endif // __STREAM_H_INCLUDED

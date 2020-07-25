@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
+#include <errno.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/time.h>
@@ -13,6 +15,26 @@
 
 namespace utils {
 
+std::string absolute_path(std::string fname) {
+  char path[1 << 18];
+  bool created = false;
+
+  if (!file_exists(fname)) {
+    // We need to create the file, since realpath fails on non-existing files.
+    std::fclose(open_file(fname, "w"));
+    created = true;
+  }
+  if (!realpath(fname.c_str(), path)) {
+    fprintf(stderr, "Error: realpath failed for %s\n", fname.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (created)
+    file_delete(fname);
+
+  return std::string(path);
+}
+
 /******************************* SYSTEM CALLS *********************************/
 void execute(std::string cmd) {
   int system_ret = system(cmd.c_str());
@@ -21,6 +43,25 @@ void execute(std::string cmd) {
         cmd.c_str(), system_ret);
     std::exit(EXIT_FAILURE);
   }
+}
+
+void unsafe_execute(std::string cmd) {
+  int system_ret = system(cmd.c_str());
+  if (system_ret) {
+    fprintf(stderr, "\nError: executing command [%s] returned %d.\n",
+        cmd.c_str(), system_ret);
+  }
+}
+
+void drop_cache() {
+  long double start = utils::wclock();
+  fprintf(stderr, "  Clearing cache: ");
+  fprintf(stderr, "Before:\n");
+  utils::unsafe_execute("free -m");
+  utils::unsafe_execute("echo 3 | tee /proc/sys/vm/drop_caches");
+  fprintf(stderr, "After:\n");
+  utils::unsafe_execute("free -m");
+  fprintf(stderr, "Clearing time: %.2Lf\n", utils::wclock() - start);
 }
 
 /****************************** MEASURING TIME ********************************/
@@ -62,21 +103,18 @@ bool file_exists(std::string fname) {
 }
 
 void file_delete(std::string fname) {
-  execute("rm " + fname);
-  if (file_exists(fname)) {
-    fprintf(stderr, "Error: Cannot delete %s.\n", fname.c_str());
+  int res = std::remove(fname.c_str());
+  if (res) {
+    fprintf(stderr, "Failed to delete %s: %s\n",
+        fname.c_str(), strerror(errno));
     std::exit(EXIT_FAILURE);
   }
 }
 
-void read_block(std::FILE *f, long beg, long length, unsigned char *b) {
-  std::fseek(f, beg, SEEK_SET);
-  read_objects_from_file<unsigned char>(b, length, f);
-}
-
 void read_block(std::string fname, long beg, long length, unsigned char *b) {
   std::FILE *f = open_file(fname.c_str(), "r");
-  read_block(f, beg, length, b);
+  std::fseek(f, beg, SEEK_SET);
+  read_objects_from_file<unsigned char>(b, length, f);
   std::fclose(f);
 }
 
