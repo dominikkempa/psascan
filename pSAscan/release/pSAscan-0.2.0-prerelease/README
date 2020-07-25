@@ -27,9 +27,10 @@ The latest version of SAscan/pSAscan is available at:
 Compilation and usage
 ---------------------
 
-1. Download http://libdivsufsort.googlecode.com/files/libdivsufsort-2.0.1.tar.gz
+1. Download https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
    and install. Make sure to compile libdivsufsort to static 64-bit libraries,
-   i.e. set options in the main CMakeLists.txt to
+   i.e., change the values of the following options in the main CMakeLists.txt
+   from default values to
 
    option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
    option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
@@ -133,25 +134,26 @@ Troubleshooting
    is too small (...)".
 
 Solution: The error is caused by the operating system imposing a limit
-on the maximum number of files opened by a program. The limit (in Linux
-referred to as the soft limit) can be increased with the "ulimit -n newlimit"
-command. However, in Linux the soft limit cannot be increased beyond the
-so-called "hard limit", which is usually only few times larger than the
-soft limit. Furthermore, this is a temporary solution that needs to repeated
-every time a new session is started. To increase the limits permanently,
-edit (as a root) the file /etc/security/limits.conf and add the following
-lines at the end (including the asterisks):
+on the maximum number of files opened by a program. The soft limit
+can be increased with the 'ulimit -n newlimit' command. Keep in mind,
+that the soft limit cannot be increased beyond the hard limit, which is
+usually only few times larger than the soft limit. Furthermore, this
+is a temporary solution that needs to repeated every time a new session
+is started. To increase the limits permanently, edit (as a root) the
+file /etc/security/limits.conf and add the following lines at the
+end (including the asterisks):
 
 * soft nofile 128000
 * hard nofile 128000
 
-This increases the limit to 128000 (use larger values if necessary). The
-new limits apply (check with ulimit -n) after starting a new session.
+This increases the limit to 128000 (use larger values if necessary).
+The new limits apply (check by running 'ulimit -n') after starting a
+new session.
 
 2. Program stops without any error message.
 
 Solution: Most likely the problem occurred during internal-memory sorting.
-Re-running the program with -v flag should show the error message.
+Re-running the program with the -v flag should show the error message.
 
 
 

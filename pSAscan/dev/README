@@ -27,7 +27,7 @@ The latest version of SAscan/pSAscan is available at:
 Compilation and usage
 ---------------------
 
-1. Download http://libdivsufsort.googlecode.com/files/libdivsufsort-2.0.1.tar.gz
+1. Download https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
    and install. Make sure to compile libdivsufsort to static 64-bit libraries,
    i.e., change the values of the following options in the main CMakeLists.txt
    from default values to
