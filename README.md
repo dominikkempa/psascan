@@ -28,14 +28,26 @@ Compilation and usage
 ---------------------
 
 1. Download https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
-   and install. Make sure to compile libdivsufsort to static 64-bit
-   libraries, i.e., change the values of the following options in the
-   main `CMakeLists.txt` from default values to
+and install. Make sure to compile libdivsufsort to static 64-bit
+libraries, i.e., change the values of the following options in the
+main `CMakeLists.txt` from default values to
 
     ```
     option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
     option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
     ```
+
+When installing libdivsufsort, pay attention to install them so that
+they are visible during compilation of pSAscan. We recommend installing
+libdivsufsort in the home directory, and adding
+
+    ```
+    export CPLUS_INCLUDE_PATH=$CPLUS_INLUDE_PATH:~/include
+    export LIBRARY_PATH=$LIBRARY_PATH:~/lib
+    ```
+
+to the .bashrc file (remember to `source .bashrc` to apply the update)
+in the home directory.
 
 2. The package contains a single Makefile in the main directory.
 Type `make` to build the executable. For usage instructions, run the
