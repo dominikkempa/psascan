@@ -37,28 +37,24 @@ Compilation and usage
     option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
     ```
 
-2. Compile pSAscan using the provided Makefile
-
-    $ cd src
-    $ make
-
-This will produce the executable `psascan` that allows computing the
-suffix array of a given file. For usage, run the `psascan` program
-without any arguments.
+2. The package contains a single Makefile in the main directory.
+Type `make` to build the executable. For usage instructions, run the
+program without any arguments.
 
 ### Example
 
-To compute the suffix array of `file in.txt` located in `/data01/`
-using 8GiB of RAM run:
+The simplest usage of pSAscan is as follows. Suppose the text is located
+in `/data/input.txt`. Then, to compute the suffix array of `input.txt`
+using 8GiB of RAM, type:
 
-    $ ./psascan /data01/in.txt -m 8192
+    $ ./psascan /data/input.txt -m 8192
 
 By default, the resulting suffix array is written to a file matching
 the filename of the input text with the .sa5 extension
-(`/data01/in.txt.sa5` in this case). To write the suffix array to a
+(`/data/input.txt.sa5` in this case). To write the suffix array to a
 different file, use the -o flag, e.g.,
 
-    $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf
+    $ ./psascan /data/input.txt -m 8192 -o /data2/sa.out
 
 The current implementation encodes the output suffix array using
 unsigned 40-bit integers. For further processing of the suffix array,
@@ -98,10 +94,10 @@ the -g flag.
 
 Assume the location of input/output files and RAM usage as in the
 example from the previous section. To additionally specify the
-location of the gap array as `/data03/in.txt.gap` run the `psascan`
+location of the gap array as `/data3/tmp` run the `psascan`
 command as:
 
-    $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf -g /data03/in.txt.gap
+    $ ./psascan /data/input.txt -m 8192 -o /data2/sa.out -g /data3/tmp
 
 
 
@@ -115,7 +111,7 @@ the time complexity (without logarithmic factors) of the algorithm is
 O(n^2 / M), where M is the amount of RAM used in the computation,
 using more RAM decreases the runtime.  Thus, the best performance is
 achieved when nearly all unused RAM available in the system (as shown
-by the Linux 'free' command) is used for the computation. Leaving
+by the Linux `free` command) is used for the computation. Leaving
 about 5% (but not more than 2GiB) of RAM free is advised to prevent
 thrashing.
 
