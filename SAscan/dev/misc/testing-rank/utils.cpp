@@ -15,27 +15,7 @@
 
 namespace utils {
 
-std::string absolute_path(std::string fname) {
-  char path[1 << 18];
-  bool created = false;
 
-  if (!file_exists(fname)) {
-    // We need to create the file, since realpath fails on non-existing files.
-    std::fclose(open_file(fname, "w"));
-    created = true;
-  }
-  if (!realpath(fname.c_str(), path)) {
-    fprintf(stderr, "Error: realpath failed for %s\n", fname.c_str());
-    std::exit(EXIT_FAILURE);
-  }
-
-  if (created)
-    file_delete(fname);
-
-  return std::string(path);
-}
-
-/******************************* SYSTEM CALLS *********************************/
 void execute(std::string cmd) {
   int system_ret = system(cmd.c_str());
   if (system_ret) {
@@ -43,25 +23,6 @@ void execute(std::string cmd) {
         cmd.c_str(), system_ret);
     std::exit(EXIT_FAILURE);
   }
-}
-
-void unsafe_execute(std::string cmd) {
-  int system_ret = system(cmd.c_str());
-  if (system_ret) {
-    fprintf(stderr, "\nError: executing command [%s] returned %d.\n",
-        cmd.c_str(), system_ret);
-  }
-}
-
-void drop_cache() {
-  long double start = utils::wclock();
-  fprintf(stderr, "  Clearing cache: ");
-  fprintf(stderr, "Before:\n");
-  utils::unsafe_execute("free -m");
-  utils::unsafe_execute("echo 3 | tee /proc/sys/vm/drop_caches");
-  fprintf(stderr, "After:\n");
-  utils::unsafe_execute("free -m");
-  fprintf(stderr, "Clearing time: %.2Lf\n", utils::wclock() - start);
 }
 
 /****************************** MEASURING TIME ********************************/
@@ -111,14 +72,10 @@ void file_delete(std::string fname) {
   }
 }
 
-void read_block(std::FILE *f, long beg, long length, unsigned char *b) {
-  std::fseek(f, beg, SEEK_SET);
-  read_objects_from_file<unsigned char>(b, length, f);
-}
-
 void read_block(std::string fname, long beg, long length, unsigned char *b) {
   std::FILE *f = open_file(fname.c_str(), "r");
-  read_block(f, beg, length, b);
+  std::fseek(f, beg, SEEK_SET);
+  read_objects_from_file<unsigned char>(b, length, f);
   std::fclose(f);
 }
 
@@ -141,7 +98,8 @@ void fill_random_string(unsigned char* &s, long length, int sigma) {
 
 void fill_random_letters(unsigned char* &s, long n, int sigma) {
   fill_random_string(s, n, sigma);
-  for (long i = 0; i < n; ++i) s[i] += 'a';
+  for (long i = 0; i < n; ++i)
+    s[i] += 'a';
 }
 
 std::string random_string_hash() {
@@ -151,10 +109,17 @@ std::string random_string_hash() {
   return ss.str();
 }
 
-/********************************* MATH ***************************************/
+//================================= MATH =====================================//
+
 long log2ceil(long x) {
-  long pow2 = 1, w = 0;
-  while (pow2 < x) { pow2 <<= 1; ++w; }
+  long pow2 = 1;
+  long w = 0;
+
+  while (pow2 < x) {
+    pow2 <<= 1;
+    ++w;
+  }
+
   return w;
 }
 

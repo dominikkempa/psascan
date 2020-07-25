@@ -1,234 +1,16 @@
-<<<<<<< HEAD:pSAscan/dev/tests/parallel-rank/idea-1/rank.h
-// Data structure answering general rank queries over byte alphabet based
-// on the rank data structure from the 'bwtdisk' implementation of
-// algorithm (http://people.unipmn.it/manzini/bwtdisk/) from
-//
-//     Paolo Ferragina, Travis Gagie, Giovanni Manzini:
-//     Lightweight Data Indexing and Compression in External Memory.
-//     Algorithmica 63(3): 707-730 (2012)
-//
-// Our key modification is applying two new techniques:
-//
-//   * alphabet partitioning
-//
-//     Jaramy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
-//     Alphabet Partitioning for Compressed Rank/Select and Applications.
-//     Proc. ISAAC 2010.
-//
-//  * fixed block boosting
-//
-//    Juha Karkkainen, Simon J. Puglisi:
-//    Fixed Block Compression Boosting in FM-Indexes.
-//    Proc. SPIRE 2011.
-
-#ifndef __RANK_H_INCLUDED
-#define __RANK_H_INCLUDED
-=======
-/**
- * @file    src/psascan_src/rank.h
- * @author  Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
- *          Dominik Kempa <dominik.kempa (at) gmail.com>
- *
- * @section DESCRIPTION
- *
- * This file contains implementation of a data structure that answers
- * general rank queries, i.e., queries of the form "how many occurrences
- * of symbol c are in text[0..i)". The data structure needs about 4.2n
- * bytes of RAM for text of length n bytes. Currently it supports only
- * sequences over byte alphabet. The basic idea of the encoding is from
- * the rank data structure used in the external-memory algorithm for
- * constructing the Burrows-Wheeler transform called bwtdisk (available
- * at: http://people.unipmn.it/manzini/bwtdisk/) described in [1]. We
- * extended the data structure by applying the fixed block boosting [2]
- * and alphabet partitioning [3] techniques. The resulting data structure
- * was described in [4]. This file extends the implementation used in [4]
- * by introducting an alternative encoding (called type-I in the code).
- * Type-I encoding is a novel encoding due to present authors. This code
- * is a simplified version of the rank data structure used in pSAscan,
- * the parallel external-memory suffix array construction algorithm
- * described in [5]. The original implementation from [5] additionally
- * parallelizes the construction.
- *
- * References:
- * [1] Paolo Ferragina, Travis Gagie, Giovanni Manzini:
- *     Lightweight Data Indexing and Compression in External Memory.
- *     Algorithmica 63(3), p. 707-730 (2012).
- * [2] Juha Karkkainen, Simon J. Puglisi:
- *     Fixed Block Compression Boosting in FM-Indexes.
- *     In Proc. SPIRE 2011, p. 174-184.
- * [3] Jeremy Barbay, Travis Gagie, Gonzalo Navarro, Yakov Nekrich:
- *     Alphabet Partitioning for Compressed Rank/Select and Applications.
- *     In Proc. ISAAC 2010, p. 315-326.
- * [4] Juha Karkkainen, Dominik Kempa:
- *     Engineering a Lightweight External Memory Suffix Array Construction
- *     Algorithm.
- *     In Proc. ICABD 2014, p. 53-60.
- * [5] Juha KarkkÃ¤inen, Dominik Kempa, Simon J. Puglisi:
- *     Parallel External Memory Suffix Sorting.
- *     In Proc. CPM 2015, p. 329-342.
- *
- * @section LICENCE
- *
- * This file contains customized code used in pSAscan v0.1.0
- * See: http://www.cs.helsinki.fi/group/pads/
- *
- * Copyright (C) 2014-2015
- *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
- *   Dominik Kempa <dominik.kempa (at) gmail.com>
- *
- * Permission is hereby granted, free of charge, to any person
- * obtaining a copy of this software and associated documentation
- * files (the "Software"), to deal in the Software without
- * restriction, including without limitation the rights to use,
- * copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following
- * conditions:
- *
- * The above copyright notice and this permission notice shall be
- * included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
- * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
- * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
- * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- **/
-
 #ifndef __RANK4N_H_INCLUDED
 #define __RANK4N_H_INCLUDED
->>>>>>> master:SAscan/dev/src/rank.h
 
 #include <algorithm>
 #include <vector>
 
-<<<<<<< HEAD:pSAscan/dev/tests/parallel-rank/idea-1/rank.h
 #include "utils.h"
 
-#define FREQUENT_CHAR 0
-#define RARE_CHAR 1
-#define NOT_OCCURRING 2
 
-struct context_rank_4n {
-  static const int k_sb_size_bits = 13;    // log_2(super block size), 1MiB
-  static const int k_block_size_bits = 9;  // log 2(block size), 64KiB
-                                           // anything 16-20 is a pretty good value.
-
-  context_rank_4n(unsigned char *text, long length)
-      : m_length(length),
-        n_block((length + k_block_size - 1) / k_block_size),
-        n_sblock((n_block + k_blocks_in_sb - 1) / k_blocks_in_sb) {
-
-    c_rank       = new long[256];
-    block_header = new long[n_block];
-    sb_rank      = new long[256 * n_sblock];
-
-    m_mapping    = new unsigned char[2 * 256 * n_block];
-    freq_trunk   = new unsigned[n_block * k_block_size];
-
-    // debug ///////
-    // fprintf(stderr, "  m_mapping takes %.2Lf MiB\n", (long double)(512 * n_block) / (1 << 20));
-    // fprintf(stderr, "  k_sb_size_bits = %d, k_block_size_bits = %d\n", k_sb_size_bits, k_block_size_bits);
-    // freq_cnt_total = rare_cnt_total = 0;
-    ////////////////
-
-    // Compute rare trunk size.
-    long rare_trunk_size = 0;
-    for (long start = 0; start < n_block * k_block_size; start += k_block_size) {
-      long end = start + k_block_size; // text[start..end) is current block
-
-      // 1. Sort symbols in the current block by frequency.
-      unsigned count[256] = {0};
-      for (long i = start; i < end; ++i) ++count[(i < length ? text[i] : 0)];
-      std::vector<std::pair<unsigned, unsigned> > sorted_chars;
-      for (int i = 0; i < 256; ++i) if (count[i])
-        sorted_chars.push_back(std::make_pair(count[i], i));
-      std::sort(sorted_chars.begin(), sorted_chars.end());
-
-      // 2. Separate (at most, due to rounding of freq_cnt) ~3% of rarest symbols.
-      long rare_cnt = 0, rare_sum = 0;
-      while (rare_cnt < (int)sorted_chars.size() && 16 * (rare_sum + sorted_chars[rare_cnt].first) <= k_block_size)
-        rare_sum += sorted_chars[rare_cnt++].first;
-      long freq_cnt = (int)sorted_chars.size() - rare_cnt; // Compute freq_cnt. Then round up freq_cnt + 1 (+1 is
-      long freq_cnt_bits = utils::log2ceil(freq_cnt + 1);  // for rare char marker) to the smallest power of two.
-      freq_cnt = (1 << freq_cnt_bits);                     // NOTE: this does not work when freq_cnt == 256.
-      rare_cnt = std::max(0L, (long)sorted_chars.size() - freq_cnt + 1); // Recompute rare_cnt (note the +1)
-      std::vector<unsigned char> freq_chars, rare_chars;
-      for (int i = 0; i < rare_cnt; ++i) {
-        rare_chars.push_back(sorted_chars[i].second);
-        rare_cnt_total += sorted_chars[i].first;
-      }
-      for (int i = rare_cnt; i < (int)sorted_chars.size(); ++i) {
-        freq_chars.push_back(sorted_chars[i].second);
-        freq_cnt_total += sorted_chars[i].first;
-      }
-      long rare_cnt_bits = 0;
-      if (rare_cnt) {                              // If there are rare symbols,
-        rare_cnt_bits = utils::log2ceil(rare_cnt); // round up rare_cnt to the
-        rare_cnt = (1 << rare_cnt_bits);           // smallest power of two.
-      }
-
-      // 3. Compute and store symbols mapping.
-      bool is_freq[256] = {false};
-      for (unsigned i = 0; i < freq_chars.size(); ++i) {
-        unsigned char c = freq_chars[i];
-        is_freq[c] = true;
-      }
-
-      for (long i = start, nofreq_cnt = 0; i < end; ++i) {
-        unsigned char c = (i < length ? text[i] : 0);
-        if (!is_freq[c]) {
-          if (nofreq_cnt % rare_cnt == 0)
-            rare_trunk_size += rare_cnt;
-          ++nofreq_cnt;
-        }
-      }
-      rare_trunk_size += rare_cnt;
-    }
-    
-    rare_trunk.reserve(rare_trunk_size);
-
-    std::fill(c_rank, c_rank + 256, 0);
-    for (long start = 0, sb_ptr = 0; start < n_block * k_block_size; start += k_block_size) {
-      long end = start + k_block_size; // text[start..end) is current block
-      long block_id = start / k_block_size;
-
-      // 1. Sort symbols in the current block by frequency.
-      unsigned count[256] = {0};
-      for (long i = start; i < end; ++i) ++count[(i < length ? text[i] : 0)];
-      std::vector<std::pair<unsigned, unsigned> > sorted_chars;
-      for (int i = 0; i < 256; ++i) if (count[i])
-        sorted_chars.push_back(std::make_pair(count[i], i));
-      std::sort(sorted_chars.begin(), sorted_chars.end());
-
-      // 2. Separate (at most, due to rounding of freq_cnt) ~3% of rarest symbols.
-      long rare_cnt = 0, rare_sum = 0;
-      while (rare_cnt < (int)sorted_chars.size() && 16 * (rare_sum + sorted_chars[rare_cnt].first) <= k_block_size)
-        rare_sum += sorted_chars[rare_cnt++].first;
-      long freq_cnt = (int)sorted_chars.size() - rare_cnt; // Compute freq_cnt. Then round up freq_cnt + 1 (+1 is
-      long freq_cnt_bits = utils::log2ceil(freq_cnt + 1);  // for rare char marker) to the smallest power of two.
-      freq_cnt = (1 << freq_cnt_bits);                     // NOTE: this does not work when freq_cnt == 256.
-      rare_cnt = std::max(0L, (long)sorted_chars.size() - freq_cnt + 1); // Recompute rare_cnt (note the +1)
-      std::vector<unsigned char> freq_chars, rare_chars;
-      for (int i = 0; i < rare_cnt; ++i) {
-        rare_chars.push_back(sorted_chars[i].second);
-        rare_cnt_total += sorted_chars[i].first;
-      }
-      for (int i = rare_cnt; i < (int)sorted_chars.size(); ++i) {
-        freq_chars.push_back(sorted_chars[i].second);
-        freq_cnt_total += sorted_chars[i].first;
-      }
-      long rare_cnt_bits = 0;
-      if (rare_cnt) {                              // If there are rare symbols,
-        rare_cnt_bits = utils::log2ceil(rare_cnt); // round up rare_cnt to the
-        rare_cnt = (1 << rare_cnt_bits);           // smallest power of two.
-      }
-=======
->>>>>>> master:SAscan/dev/src/rank.h
-
+//=============================================================================
+// Data structure answering rank queries over byte alphabet.
+// For an input sequence of length n the data structure occupies ~4.1n bytes.
+//=============================================================================
 template<unsigned k_sblock_size_log = 24,
   unsigned k_cblock_size_log = 20,
   unsigned k_sigma_log = 8>
@@ -265,7 +47,8 @@ class rank4n {
     unsigned *m_freq_trunk;
     unsigned *m_rare_trunk;
 
-    unsigned long *m_count;  // symbol counts
+  public:
+    unsigned long *m_count; // symbol counts
 
   public:
     rank4n(const unsigned char *text, unsigned long length) {
@@ -289,13 +72,6 @@ class rank4n {
       encode_type_II(text);
 
       m_count[0] -= n_cblocks * k_cblock_size - m_length;  // remove extra zeros
-    }
-
-  private:
-    inline static long log2ceil(long x) {
-      long pow2 = 1, ret = 0;
-      while (pow2 < x) { pow2 <<= 1; ++ret; }
-      return ret;
     }
 
     void encode_type_I(const unsigned char *text) {
@@ -372,7 +148,7 @@ class rank4n {
         // marker) to the smallest power of two. Note: rare_cnt > 0, so after
         // rounding freq_cnt <= 256.
         unsigned freq_cnt = sorted_chars.size() - rare_cnt;
-        unsigned freq_cnt_log = log2ceil(freq_cnt + 1);
+        unsigned freq_cnt_log = utils::log2ceil(freq_cnt + 1);
         freq_cnt = (1 << freq_cnt_log);
 
         // Recompute rare_cnt (note the +1).
@@ -392,7 +168,7 @@ class rank4n {
         // of two.
         unsigned rare_cnt_log = 0;
         if (rare_cnt) {
-          rare_cnt_log = log2ceil(rare_cnt);
+          rare_cnt_log = utils::log2ceil(rare_cnt);
           rare_cnt = (1 << rare_cnt_log);
         }
 
@@ -434,7 +210,7 @@ class rank4n {
 
           // Precompute helper arrays and and store lookup bits into the header.
           for (unsigned c = 0; c < k_sigma; ++c) {
-            lookup_bits_precomputed[c] = log2ceil(cblock_count[c] + 2);
+            lookup_bits_precomputed[c] = utils::log2ceil(cblock_count[c] + 2);
             m_cblock_header2[(cblock_id << 8) + c] |= lookup_bits_precomputed[c];
             if (cblock_count[c])
               min_block_size_precomputed[c] = k_cblock_size / cblock_count[c];
@@ -637,56 +413,7 @@ class rank4n {
       delete[] israre;
       delete[] off;
     }
-<<<<<<< HEAD:pSAscan/dev/tests/parallel-rank/idea-1/rank.h
-    c_rank[0] -= n_block * k_block_size - length;
 
-    if (rare_trunk_size != (long)rare_trunk.size() ||
-        rare_trunk_size != (long)rare_trunk.capacity()) {
-      fprintf(stderr, "\n\nError during rank initialization:\n");
-      fprintf(stderr, "\trare_trunk_size = %ld\n", rare_trunk_size);
-      fprintf(stderr, "\trare_trunk.size() = %ld\n", (long)rare_trunk.size());
-      fprintf(stderr, "\trare_trunk.capacity() = %ld\n", (long)rare_trunk.capacity());
-      std::exit(EXIT_FAILURE);
-    }
-
-    // debug //
-    // fprintf(stderr, "  rare_trunk.size() = %lu (%.2Lf millions)\n",
-    //     rare_trunk.size(), (long double)rare_trunk.size() / 1000000.L);
-    // fprintf(stderr, "  freq_cnt_total = %ld, rare_cnt_total = %ld\n",
-    //     freq_cnt_total, rare_cnt_total);
-    ///////////
-  }
-
-  inline long rank(long i, unsigned char c) {
-    if (i <= 0) return 0L;
-    else if (i >= m_length) return c_rank[c];
-
-    long block_id = (i >> k_block_size_bits), sb_id = (i >> k_sb_size_bits);
-    long sb_count = sb_rank[(sb_id << 8) + c];
-    unsigned char type = m_mapping[2 * (c * n_block + block_id)];
-    unsigned char c_map = m_mapping[2 * (c * n_block + block_id) + 1];
-
-    long freq_cnt_bits = (block_header[block_id] & 255L);
-    long rare_cnt_bits = ((block_header[block_id] >> 8) & 255L);
-    long micro_block_id = (i >> freq_cnt_bits);
-
-    if (type == FREQUENT_CHAR) {
-      long b_count = freq_trunk[(micro_block_id << freq_cnt_bits) + c_map] >> 8;
-      long extra = 0;
-      for (long j = (micro_block_id << freq_cnt_bits); j < i; ++j)
-        if ((freq_trunk[j] & 255) == c_map) ++extra;
-
-      return sb_count + b_count + extra;
-    } else if (type == RARE_CHAR) {
-      // Compute new_i.
-      long rare_trunk_ptr = (block_header[block_id] >> 16);
-      long new_i = freq_trunk[((micro_block_id + 1) << freq_cnt_bits) - 1] >> 8;
-
-      for (long j = (micro_block_id << freq_cnt_bits); j < i; ++j)
-        if ((freq_trunk[j] & 255) + 1 == (1U << freq_cnt_bits)) ++new_i;
-=======
-
-  public:
     inline long rank(long i, unsigned char c) const {
       if (i <= 0) return 0L;
       else if ((unsigned long)i >= m_length) return m_count[c];
@@ -695,7 +422,6 @@ class rank4n {
       if (m_cblock_type[cblock_id >> 3] & (1 << (cblock_id & 7))) {  // type-I cblock
         long cblock_beg = (i & k_cblock_size_mask_neg);
         long cblock_i = (i & k_cblock_size_mask);  // offset in cblock
->>>>>>> master:SAscan/dev/src/rank.h
       
         // Extract the rank up to the start of cblock.
         long rank_up_to_cblock = (m_cblock_header2[(cblock_id << k_sigma_log) + c] >> (k_cblock_size_log + 6));

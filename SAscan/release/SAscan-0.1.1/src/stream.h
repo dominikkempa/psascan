@@ -109,7 +109,7 @@ private:
 //==============================================================================
 template<typename T>
 struct stream_writer {
-  stream_writer(std::string fname, long bufsize = (4 << 20))
+  stream_writer(std::string fname, long bufsize)
       : m_bufelems((bufsize + sizeof(T) - 1) / sizeof(T)) {
     m_file = utils::open_file(fname.c_str(), "w");
     m_buffer = new T[m_bufelems];
@@ -216,7 +216,7 @@ struct bit_stream_writer {
   
   ~bit_stream_writer() {
     flush();
-    std::fclose(f);
+    fclose(f);
     delete[] buf;
   }
 

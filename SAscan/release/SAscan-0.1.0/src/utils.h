@@ -13,15 +13,12 @@ namespace utils {
 
 /******************************* SYSTEM CALLS *********************************/
 void execute(std::string cmd);
-void unsafe_execute(std::string cmd);
-void drop_cache();
 
 /****************************** MEASURING TIME ********************************/
 long double wclock();
 
 /**************************** FILE MANIPULATION *******************************/
 // Basic routines.
-std::string absolute_path(std::string fname);
 FILE *open_file(std::string fname, std::string mode);
 long file_size(std::string fname);
 bool file_exists(std::string fname);
@@ -50,18 +47,10 @@ void add_objects_to_file(T *tab, long length, std::FILE *f) {
   }
 }
 
-template<typename T>
-void add_objects_to_file(T *tab, long length, std::string fname) {
-  std::FILE *f = utils::open_file(fname.c_str(), "a");
-  add_objects_to_file<T>(tab, length, f);
-  std::fclose(f);
-}
-
 void read_block(std::string fname, long beg, long length, unsigned char *b);
-void read_block(std::FILE *f, long beg, long length, unsigned char *b);
 
 template<typename T>
-void read_objects_from_file(T* tab, long length, std::FILE *f) {
+void read_objects_from_file(T* &tab, long length, std::FILE *f) {
   size_t fread_ret = fread(tab, sizeof(T), length, f);
   if ((long)fread_ret != length) {
     fprintf(stderr, "Error: fread in line %s of %s returned %ld\n",
@@ -84,9 +73,12 @@ void read_objects_from_file(T* &tab, long &length, std::string fname) {
 }
 
 template<typename T>
-void read_n_objects_from_file(T* tab, long length, std::string fname) {
+void read_n_objects_from_file(T* &tab, long length, std::string fname) {
+  tab = new T[length + 5];
   std::FILE *f = open_file(fname, "r");
+  
   read_objects_from_file<T>(tab, length, f);
+
   std::fclose(f);
 }
 
@@ -107,16 +99,6 @@ std::string intToStr(int_type x) {
   ss << x;
   return ss.str();
 }
-
-template<class T, class U>
-struct is_same_type {
-  enum { value = 0 };
-};
-
-template<class T>
-struct is_same_type<T, T> {
-  enum { value = 1 };
-};
 
 } // namespace utils
 
