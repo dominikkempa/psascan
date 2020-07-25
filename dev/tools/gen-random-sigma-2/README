@@ -1,3 +1,0 @@
-This is a separate tool to generate random text over small sigma
-because the generic tool quickly hits a cycle and the resulting
-file is highly repetitive.
