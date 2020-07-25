@@ -1,5 +1,5 @@
-pSAscan - parallel external memory suffix array construction algorithm.
-=======================================================================
+pSAscan - Parallel external memory suffix array construction algorithm
+======================================================================
 
 
 Description
@@ -8,19 +8,19 @@ Description
 This package contains implementation of the parallel external-memory
 suffix array construction algorithm called pSAscan described in the paper
 
-  Juha Karkkainen, Dominik Kempa, and Simon J. Puglisi,
-  Parallel External Memory Suffix Sorting.
-  In Proc. 26th Annual Symposium on Combinatorial Pattern Matching (CPM) 2015.
+    @inproceedings{kkp15cpm,
+      author =    {Juha K{\"{a}}rkk{\"{a}}inen and Dominik Kempa
+                   and Simon J. Puglisi},
+      title =     {Parallel External Memory Suffix Sorting},
+      booktitle = {26th Annual Symposium on Combinatorial Pattern Matching
+                   (CPM 2015)},
+      pages     = {329--342},
+      year      = {2015},
+      doi       = {10.1007/978-3-319-19929-0\_28},
+    }
 
-The algorithm is based on the sequential external-memory suffix array
-construction algorithm called SAscan described in
-
-  Juha Karkkainen and Dominik Kempa,
-  Engineering a Lightweight External Memory Suffix Array Construction Algorithm.
-  In Proc. 2nd International Conference on Algorithms for Big Data (ICABD) 2014.
-
-The latest version of SAscan/pSAscan is available at:
-  http://www.cs.helsinki.fi/group/pads/
+The latest version of pSAscan is available from
+https://github.com/dkempa/psascan.
 
 
 
@@ -32,32 +32,35 @@ Compilation and usage
    i.e., change the values of the following options in the main CMakeLists.txt
    from default values to
 
-   option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
-   option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
+    option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
+    option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
+
 
 2. Compile pSAscan using the provided Makefile
 
-   $ cd src
-   $ make
+    $ cd src
+    $ make
+
 
 This will produce the executable 'psascan' that allows computing the suffix
 array of a given file. For usage, run the 'psascan' program without any
 arguments.
 
-Example
-~~~~~~~
+### Example
 
 To compute the suffix array of a file in.txt located in /data01/ using 8GiB
 of RAM run the 'psascan' command (assuming you are in the src/ directory) as:
 
-   $ ./psascan /data01/in.txt -m 8192
+    $ ./psascan /data01/in.txt -m 8192
+
 
 By default, the resulting suffix array is written to a file matching the
 filename of the input text with the .sa5 extension (/data01/in.txt.sa5
 in this case). To write the suffix array to a different file, use the
 -o flag, e.g.,
 
-   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf
+    $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf
+
 
 The current implementation encodes the output suffix array using unsigned
 40-bit integers. For further processing of the suffix array, one should use
@@ -93,14 +96,14 @@ is only 5.5n bytes of disk space in the location specified as the destination
 of the suffix array. The remaining n bytes can be allocated in other location
 specified with the -g flag.
 
-Example
-~~~~~~~
+### Example
 
 Assume the location of input/output files and RAM usage as in the example
 from the previous section. To additionally specify the location of the gap
 array as /data03/in.txt.gap run the 'psascan' command as:
 
-   $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf -g /data03/in.txt.gap
+    $ ./psascan /data01/in.txt -m 8192 -o /data02/in.txt.suf -g /data03/in.txt.gap
+
 
 
 
@@ -117,8 +120,7 @@ in the system (as shown by the Linux 'free' command) is used for the
 computation. Leaving about 5% (but not more than 2GiB) of RAM free is
 advised to prevent thrashing.
 
-Example
-~~~~~~~
+### Example
 
 On a machine with 12 physical cores and Hyper-Threading (and thus capable
 of simultaneously running 24 threads) it takes about a week to compute a
@@ -143,8 +145,9 @@ is started. To increase the limits permanently, edit (as a root) the
 file /etc/security/limits.conf and add the following lines at the
 end (including the asterisks):
 
-* soft nofile 128000
-* hard nofile 128000
+    * soft nofile 128000
+    * hard nofile 128000
+
 
 This increases the limit to 128000 (use larger values if necessary).
 The new limits apply (check by running 'ulimit -n') after starting a
