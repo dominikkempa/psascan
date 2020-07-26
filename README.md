@@ -28,45 +28,28 @@ Compilation and usage
 ---------------------
 
 1. Download https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
-and install. Make sure to compile libdivsufsort to static 64-bit
-libraries, i.e., change the values of the following options in the
-main `CMakeLists.txt` from default values to
+and install. Make sure to compile it to static 64-bit libraries. More
+detailed instructions on the installation can be found in the
+aux/divsufsort-install-guide.txt file in this package.
 
-```
-option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
-option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
-```
-
-When installing libdivsufsort, pay attention to install them so that
-they are visible during compilation of pSAscan. We recommend installing
-libdivsufsort in the home directory, and adding
-
-```
-export CPLUS_INCLUDE_PATH=$CPLUS_INLUDE_PATH:~/include
-export LIBRARY_PATH=$LIBRARY_PATH:~/lib
-```
-
-to the .bashrc file (remember to `source .bashrc` to apply the update)
-in the home directory.
-
-2. The package contains a single Makefile in the main directory.
-Type `make` to build the executable. For usage instructions, run the
-program without any arguments.
+2. This package contains a single Makefile in the main directory.
+Type `make` to build the pSascan executable called `construct_sa`.
+For usage instructions, run the program without any arguments.
 
 ### Example
 
-The simplest usage of pSAscan is as follows. Suppose the text is located
-in `/data/input.txt`. Then, to compute the suffix array of `input.txt`
-using 8GiB of RAM, type:
+The simplest usage of pSAscan is as follows. Suppose the text is
+located in `/data/input.txt`. Then, to compute the suffix array of
+`input.txt` using 8GiB of RAM, type:
 
-    $ ./psascan /data/input.txt -m 8192
+    $ ./construct_sa /data/input.txt -m 8192
 
 By default, the resulting suffix array is written to a file matching
 the filename of the input text with the .sa5 extension
 (`/data/input.txt.sa5` in this case). To write the suffix array to a
 different file, use the -o flag, e.g.,
 
-    $ ./psascan /data/input.txt -m 8192 -o /data2/sa.out
+    $ ./construct_sa /data/input.txt -m 8192 -o /data2/sa.out
 
 The current implementation encodes the output suffix array using
 unsigned 40-bit integers. For further processing of the suffix array,
@@ -90,26 +73,25 @@ output.
 The above disk space requirement may in some cases prohibit the use of
 algorithm, e.g., if there is enough space (5n) on one physical disk to
 hold the suffix array, but not enough (6.5n) to run the algorithm. To
-still allow the computation in such cases, the `psascan` program
-implements the -g flag. With this flag, one can force pSAscan to use
-disk space from two physically different locations (e.g., on two
-disks). More precisely, out of 6.5n bytes of disk space used by
-pSAscan, about n bytes is used to store the so-called "gap array". By
-default, the gap array is stored along with the suffix array. The -g
-flag allows explicitly specifying the location of the gap array. This
-way, it suffices that there is only 5.5n bytes of disk space in the
-location specified as the destination of the suffix array. The
-remaining n bytes can be allocated in other location specified with
-the -g flag.
+still allow the computation in such cases, pSAscan implements the -g
+flag. With this flag, one can force pSAscan to use disk space from two
+physically different locations (e.g., on two disks). More precisely,
+out of 6.5n bytes of disk space used by pSAscan, about n bytes is used
+to store the so-called "gap array". By default, the gap array is
+stored along with the suffix array. The -g flag allows explicitly
+specifying the location of the gap array. This way, it suffices that
+there is only 5.5n bytes of disk space in the location specified as
+the destination of the suffix array. The remaining n bytes can be
+allocated in other location specified with the -g flag.
 
 ### Example
 
 Assume the location of input/output files and RAM usage as in the
 example from the previous section. To additionally specify the
-location of the gap array as `/data3/tmp` run the `psascan`
+location of the gap array as `/data3/tmp` run the `construct_sa`
 command as:
 
-    $ ./psascan /data/input.txt -m 8192 -o /data2/sa.out -g /data3/tmp
+    $ ./construct_sa /data/input.txt -m 8192 -o /data2/sa.out -g /data3/tmp
 
 
 
@@ -173,8 +155,8 @@ Limitations
 2. The current implementation supports only inputs over byte alphabet.
 3. Only texts not containing bytes with value 255 are handled
    correctly.  The 255-bytes can be removed from the input text using
-   the tool located in the directory tools/delete-bytes-255/ of this
-   package.
+   the tool located in the directory aux/delete-sentinel-bytes/ of
+   this package.
 4. The current internal-memory suffix sorting algorithm used
    internally in pSAscan works only if the input text is split into
    segments of size at most 2GiB each. Therefore, pSAscan will fail,
