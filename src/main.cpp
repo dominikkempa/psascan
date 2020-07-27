@@ -1,15 +1,13 @@
 /**
  * @file    src/main.cpp
- * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
- *
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0
- * See: http://www.cs.helsinki.fi/group/pads/
+ * See: https://github.com/dkempa/psascan
  *
- * Copyright (C) 2014-2015
- *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ * Copyright (C) 2014-2020
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -35,40 +33,101 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <ctime>
 #include <string>
 #include <getopt.h>
 #include <unistd.h>
 #include <omp.h>
 
-#include "psascan_src/psascan.h"
+#include "psascan_src/psascan.hpp"
 
 
 char *program_name;
 
 void usage(int status) {
   printf(
+
 "Usage: %s [OPTION]... FILE\n"
-"Construct the suffix array for text stored in FILE.\n"
+"Construct the suffix array of text stored in FILE.\n"
 "\n"
 "Mandatory arguments to long options are mandatory for short options too.\n"
-"  -g, --gap=GAPFILE       specify the file holding the gap array (default:\n"
-"                          FILE.sa5.gap)\n"
 "  -h, --help              display this help and exit\n"
-"  -m, --mem=LIMIT         limit RAM usage to LIMIT MiB (default: 3072)\n"
-"  -o, --output=OUTFILE    specify the output file (default: FILE.sa5)\n"
+"  -g, --gap=GAPFILE       specify the file holding the gap array. Default:\n"
+"                          OUTFILE.gap, see the -o flag.\n"
+"  -m, --mem=MEM           use MEM bytes of RAM for computation. Metric and IEC\n"
+"                          suffixes are recognized, e.g., -l 10k, -l 1Mi, -l 3G\n"
+"                          gives MEM = 10^4, 2^20, 3*10^6. Default: 3584Mi\n"
+"  -o, --output=OUTFILE    specify output filename. Default: FILE.sa5\n"
 "  -v, --verbose           print detailed information during internal sufsort\n",
     program_name);
 
   std::exit(status);
 }
 
-bool file_exists(std::string fname) {
-  std::FILE *f = std::fopen(fname.c_str(), "r");
+bool file_exists(std::string filename) {
+  std::FILE *f = std::fopen(filename.c_str(), "r");
   bool ret = (f != NULL);
   if (f != NULL) std::fclose(f);
 
   return ret;
+}
+
+template<typename int_type>
+bool parse_number(char *str, int_type *ret) {
+  *ret = 0;
+  std::uint64_t n_digits = 0;
+  std::uint64_t str_len = std::strlen(str);
+  while (n_digits < str_len && std::isdigit(str[n_digits])) {
+    std::uint64_t digit = str[n_digits] - '0';
+    *ret = (*ret) * 10 + digit;
+    ++n_digits;
+  }
+
+  if (n_digits == 0)
+    return false;
+
+  std::uint64_t suffix_length = str_len - n_digits;
+  if (suffix_length > 0) {
+    if (suffix_length > 2)
+      return false;
+
+    for (std::uint64_t j = 0; j < suffix_length; ++j)
+      str[n_digits + j] = std::tolower(str[n_digits + j]);
+    if (suffix_length == 2 && str[n_digits + 1] != 'i')
+      return false;
+
+    switch(str[n_digits]) {
+      case 'k':
+        if (suffix_length == 1)
+          *ret *= 1000;
+        else
+          *ret <<= 10;
+        break;
+      case 'm':
+        if (suffix_length == 1)
+          *ret *= 1000000;
+        else
+          *ret <<= 20;
+        break;
+      case 'g':
+        if (suffix_length == 1)
+          *ret *= 1000000000;
+        else
+          *ret <<= 30;
+        break;
+      case 't':
+        if (suffix_length == 1)
+          *ret *= 1000000000000;
+        else
+          *ret <<= 40;
+        break;
+      default:
+        return false;
+    }
+  }
+
+  return true;
 }
 
 int main(int argc, char **argv) {
@@ -77,40 +136,49 @@ int main(int argc, char **argv) {
   bool verbose = false;
 
   static struct option long_options[] = {
-    {"help",    no_argument,       NULL, 'h'},
-    {"verbose", no_argument,       NULL, 'v'},
-    {"mem",     required_argument, NULL, 'm'},
-    {"output",  required_argument, NULL, 'o'},
-    {"gap",     required_argument, NULL, 'g'},
-    {NULL, 0, NULL, 0}
+    {"help",     no_argument,       NULL, 'h'},
+    {"gap",      required_argument, NULL, 'g'},
+    {"mem",      required_argument, NULL, 'm'},
+    {"output",   required_argument, NULL, 'o'},
+    {"verbose",  no_argument,       NULL, 'v'},
+    {NULL,       0,                 NULL,  0}
   };
 
-  long ram_use = 3072L << 20;
-  std::string out_fname("");
-  std::string gap_fname("");
+  std::uint64_t ram_use = ((std::uint64_t)3584 << 20);
+  std::string output_filename("");
+  std::string gap_filename("");
 
   // Parse command-line options.
   int c;
-  while ((c = getopt_long(argc, argv, "hvm:o:g:", long_options, NULL)) != -1) {
+  while ((c = getopt_long(argc, argv, "g:hm:o:v",
+          long_options, NULL)) != -1) {
     switch(c) {
-      case 'm':
-        ram_use = std::atol(optarg) << 20;
-        if (ram_use <= 0L) {
-          fprintf(stderr, "Error: invalid RAM limit (%ld)\n\n", ram_use);
-          usage(EXIT_FAILURE);
-        }
-        break;
-      case 'o':
-        out_fname = std::string(optarg);
-        break;
       case 'g':
-        gap_fname = std::string(optarg);
+        gap_filename = std::string(optarg);
+        break;
+      case 'h':
+        usage(EXIT_FAILURE);
+        break;
+      case 'm':
+        {
+          bool ok = parse_number(optarg, &ram_use);
+          if (!ok) {
+            fprintf(stderr, "Error: parsing RAM limit"
+                "limit (%s) failed\n\n", optarg);
+            usage(EXIT_FAILURE);
+          }
+          if (ram_use == 0) {
+            fprintf(stderr, "Error: invalid RAM limit (%lu)\n\n", ram_use);
+            usage(EXIT_FAILURE);
+          }
+          break;
+        }
+      case 'o':
+        output_filename = std::string(optarg);
         break;
       case 'v':
         verbose = true;
         break;
-      case 'h':
-        usage(EXIT_FAILURE);
         break;
       default:
         usage(EXIT_FAILURE);
@@ -124,38 +192,40 @@ int main(int argc, char **argv) {
   }
 
   // Parse the text filename.
-  std::string text_fname = std::string(argv[optind++]);
+  std::string text_filename = std::string(argv[optind++]);
   if (optind < argc) {
     fprintf(stderr, "Warning: multiple input files provided. "
     "Only the first will be processed.\n");
   }
 
   // Set default output filename (if not provided).
-  if (out_fname.empty())
-    out_fname = text_fname + ".sa5";
+  if (output_filename.empty())
+    output_filename = text_filename + ".sa5";
 
   // Set default gap filename (if not provided).
-  if (gap_fname.empty())
-    gap_fname = out_fname;
+  if (gap_filename.empty())
+    gap_filename = output_filename;
 
-  // Check if input exists.
-  if (!file_exists(text_fname)) {
+  // Check for the existence of text.
+  if (!file_exists(text_filename)) {
     fprintf(stderr, "Error: input file (%s) does not exist\n\n",
-        text_fname.c_str());
+        text_filename.c_str());
     usage(EXIT_FAILURE);
   }
 
-  if (file_exists(out_fname)) {
+  if (file_exists(output_filename)) {
+
     // Output file exists, should we proceed?
     char *line = NULL;
-    size_t buflen = 0;
-    long len = 0L;
+    std::uint64_t buflen = 0;
+    std::int64_t len = 0L;
 
     do {
       printf("Output file (%s) exists. Overwrite? [y/n]: ",
-          out_fname.c_str());
+          output_filename.c_str());
       if ((len = getline(&line, &buflen, stdin)) == -1) {
-        fprintf(stderr, "\nError: failed to read answer\n\n");
+        printf("\nError: failed to read answer\n\n");
+        std::fflush(stdout);
         usage(EXIT_FAILURE);
       }
     } while (len != 2 || (line[0] != 'y' && line[0] != 'n'));
@@ -171,6 +241,6 @@ int main(int argc, char **argv) {
   long max_threads = (long)omp_get_max_threads();
 
   // Run pSAscan.
-  pSAscan(text_fname, out_fname, gap_fname,
+  pSAscan(text_filename, output_filename, gap_filename,
       ram_use, max_threads, verbose);
 }

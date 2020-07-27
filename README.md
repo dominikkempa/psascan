@@ -29,33 +29,51 @@ Compilation and usage
 
 1. Download https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
 and install. Make sure to compile it to static 64-bit libraries. More
-detailed instructions on the installation can be found in the
-aux/divsufsort-install-guide.txt file in this package.
+detailed instructions on the (recommended) installation can be found
+in the aux/divsufsort-install-guide.txt file of this package.
 
-2. This package contains a single Makefile in the main directory.
-Type `make` to build the pSascan executable called `construct_sa`.
-For usage instructions, run the program without any arguments.
+2. After installing libdivsufsort, pSAscan is compiled by simply
+typing `make` in the directory containing this README. This will build
+the pSAscan executable called `construct_sa`. For usage instructions,
+run the program without any arguments.
 
 ### Example
 
 The simplest usage of pSAscan is as follows. Suppose the text is
 located in `/data/input.txt`. Then, to compute the suffix array of
-`input.txt` using 8GiB of RAM, type:
+`input.txt`, type:
 
-    $ ./construct_sa /data/input.txt -m 8192
+    $ ./construct_sa /data/input.txt
 
-By default, the resulting suffix array is written to a file matching
-the filename of the input text with the .sa5 extension
-(`/data/input.txt.sa5` in this case). To write the suffix array to a
-different file, use the -o flag, e.g.,
+This will write the output suffix array to `/data/input.txt.sa5`. By
+default, pSAscan uses 3.5GiB of RAM. The current implementation
+encodes the output suffix array using unsigned 40-bit integers. For
+further processing of the suffix array, one should use the same or
+compatible encoding. The class implementing the unsigned 40-bit
+integers is located in the `src/psascan_src/uint40.h` file. A more
+advanced usage of pSAscan is demonstrated below.
 
-    $ ./construct_sa /data/input.txt -m 8192 -o /data2/sa.out
+    $ ./construct_sa /data/input.txt -m 8gi -o ~/out/sa.out
 
-The current implementation encodes the output suffix array using
-unsigned 40-bit integers. For further processing of the suffix array,
-one should use the same or compatible encoding. The class implementing
-the unsigned 40-bit integers is located in the
-`src/psascan_src/uint40.h` file.
+Explanation:
+- The -o flag allows specifying the location and filename of the
+  output suffix array. The default location and filename is the same
+  as input text, with the appended ".sa5" suffix.
+- The -m flag allows specifying the amount of RAM used during the
+  computation (in bytes). In this example, the RAM limit is set to 8gi
+  = 8 * 2^30 bytes (see the explanation below).
+
+Notes:
+- The argument of the -m flag (RAM used during the computation) can be
+  specified either explicitly or using common suffixes such as K, M,
+  G, T, Ki, Mi, Gi, Ti, which respectively correspond to multipliers:
+  10^3, 10^6, 10^9, 10^12, 2^10, 2^20, 2^30, 2^40.  Suffix names are
+  not case-sensitive, e.g., Ti = ti, k = K.
+- The flags specifying RAM usage, output filename, etc. can be given
+  in any order.
+- Filenames passed as command-line arguments can be given as relative
+  paths, e.g., `../input.txt` and `~/out/sa.out` are valid paths, see
+  also example above.
 
 
 
@@ -91,7 +109,7 @@ example from the previous section. To additionally specify the
 location of the gap array as `/data3/tmp` run the `construct_sa`
 command as:
 
-    $ ./construct_sa /data/input.txt -m 8192 -o /data2/sa.out -g /data3/tmp
+    $ ./construct_sa /data/input.txt -m 8gi -o /data2/sa.out -g /data3/tmp
 
 
 
