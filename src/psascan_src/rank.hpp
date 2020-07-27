@@ -31,7 +31,7 @@
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0
- * See: https://github.com/dkempa/psascan
+ * See: https://github.com/dominikkempa/psascan
  *
  * Copyright (C) 2014-2020
  *   Dominik Kempa <dominik.kempa (at) gmail.com>

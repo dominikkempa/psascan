@@ -20,7 +20,7 @@ array construction algorithm. The algorithm was described in the paper
     }
 
 The latest version of pSAscan is available from
-https://github.com/dkempa/psascan.
+https://github.com/dominikkempa/psascan.
 
 
 
@@ -172,9 +172,9 @@ Limitations
 1. The maximum size of input text is 1TiB (2^40 bytes).
 2. The current implementation supports only inputs over byte alphabet.
 3. Only texts not containing bytes with value 255 are handled
-   correctly.  The 255-bytes can be removed from the input text using
-   the tool located in the directory aux/delete-sentinel-bytes/ of
-   this package.
+   correctly.  The bytes with value 255 can be removed from the input
+   using the tool located in the directory aux/delete-sentinel-bytes/
+   of this package.
 4. The current internal-memory suffix sorting algorithm used
    internally in pSAscan works only if the input text is split into
    segments of size at most 2GiB each. Therefore, pSAscan will fail,

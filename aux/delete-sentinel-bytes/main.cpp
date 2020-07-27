@@ -1,15 +1,13 @@
 /**
- * @file    tools/delete-bytes-255/main.cpp
- * @author  Dominik Kempa <dominik.kempa (at) gmail.com>
- *
+ * @file    aux/delete-sentinel-bytes/main.cpp
  * @section LICENCE
  *
  * This file is part of pSAscan v0.1.0
- * See: http://www.cs.helsinki.fi/group/pads/
+ * See: https://github.com/dominikkempa/psascan
  *
- * Copyright (C) 2014-2015
- *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ * Copyright (C) 2014-2020
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation

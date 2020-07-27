@@ -1,11 +1,15 @@
 SHELL = /bin/sh
+
 CC = g++
 CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=native
 
-all: delete255
+all: delete_sentinel_bytes
 
-delete255:
-	$(CC) $(CFLAGS) -o delete255 main.cpp
+delete_sentinel_bytes:
+	$(CC) $(CFLAGS) -o delete_sentinel_bytes main.cpp
 
 clean:
-	/bin/rm -f delete255 *.o
+	/bin/rm -f *.o
+
+nuclear:
+	/bin/rm -f delete_sentinel_bytes *.o
