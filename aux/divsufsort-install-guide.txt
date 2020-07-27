@@ -8,17 +8,20 @@ A guide to installing divsufsort (the recommended way)
     $ wget https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
     $ tar -xvf ./2.0.1.tar.gz
 
-2.  Change settings so that the library compiles to static 64-bit
-    version. For this, edit `./libdivsufsort-2.0.1/CMakeLists.txt`
-    and change the values of the following options from default
-    values to
+2. Change settings so that the library compiles to static 64-bit
+   version. For this, edit `./libdivsufsort-2.0.1/CMakeLists.txt` and
+   change the values of the following options from default values to
 
 option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
 option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
 
-3. Compile and install libdivsufsort in your home directory. If the
-   `cmake` command does not work, if means cmake is not installed.
-   Type `sudo apt-get install cmake` to install it.
+3. Check if `cmake` is installed in the system. For this, just type
+   `cmake --version`. If cmake is not installed, you will see the
+   "command not found" error. In this case, install cmake by typing:
+
+    $ sudo apt-get install cmake
+
+4. Compile and install libdivsufsort in your home directory.
 
     $ cd ~/libdivsufsort-2.0.1/
     $ mkdir build
@@ -27,20 +30,20 @@ option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
     $ make
     $ make install
 
-4. The library is now installed. We can clean up its source.
+5. The library is now installed. We can clean up its source.
 
     $ cd
     $ rm 2.0.1.tar.gz
     $ rm -rf ./libdivsufsort-2.0.1/
 
-5. It remains to modify the environment variables so that g++ knows
-   where to look for header and lib files. For this, simply add 
-   the following lines at the end of `~/.bashrc` file.
+6. It remains to modify the environment variables so that g++ knows
+   where to look for header and lib files. For this, add the following
+   lines at the end of `~/.bashrc` file.
 
 export CPLUS_INCLUDE_PATH=$CPLUS_INLUDE_PATH:~/include
 export LIBRARY_PATH=$LIBRARY_PATH:~/lib
 
-6. To apply the new .bashrc settings, type
+7. To apply the new .bashrc settings, type
 
     $ source ~/.bashrc
 
