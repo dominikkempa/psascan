@@ -50,8 +50,8 @@ default, pSAscan uses 3.5GiB of RAM. The current implementation
 encodes the output suffix array using unsigned 40-bit integers. For
 further processing of the suffix array, one should use the same or
 compatible encoding. The class implementing the unsigned 40-bit
-integers is located in the `src/psascan_src/uint40.h` file. A more
-advanced usage of pSAscan is demonstrated below.
+integers is located in the `src/psascan_src/types/uint40.hpp` file.
+A more advanced usage of pSAscan is demonstrated below.
 
     $ ./construct_sa /data/input.txt -m 8gi -o ~/out/sa.out
 
