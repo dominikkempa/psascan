@@ -16,7 +16,9 @@ A guide to installing divsufsort (the recommended way)
 option(BUILD_SHARED_LIBS "Set to OFF to build static libraries" OFF)
 option(BUILD_DIVSUFSORT64 "Build libdivsufsort64" ON)
 
-3. Compile and install libdivsufsort in your home directory.
+3. Compile and install libdivsufsort in your home directory. If the
+   `cmake` command does not work, if means cmake is not installed.
+   Type `sudo apt-get install cmake` to install it.
 
     $ cd ~/libdivsufsort-2.0.1/
     $ mkdir build
