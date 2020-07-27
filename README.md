@@ -10,17 +10,19 @@ external-memory suffix array construction algorithm. The basic idea of
 the algorithm is to first construct the suffix arrays for blocks of
 text and then merge them into the full suffix array.
 
-The algorithm is able to handle inputs much larger than considered in
-the literature so far. In the experiments, computing the suffix array
-of a 1TiB file with the new algorithm on a machine equipped with
-120GiB of RAM took a little over a week and required only 7.2TiB of
-disk space (including input text and output suffix array), whereas on
-the same machine the previously best algorithm would require 3.5 times
-as much disk space and take about four times longer.  The algorithm is
-able to fully utilize the available RAM, for example, computing the
-suffix array of a 200GiB file using 3.5GiB of RAM takes around
-170h. With 120GiB of RAM, the computation time is reduced to less than
-12h.
+The key features of pSAscan are:
+- The algorithm is able to handle inputs much larger than considered
+  in the literature so far. In the experiments, computing the suffix
+  array of a 1TiB file with the new algorithm on a machine equipped
+  with 120GiB of RAM took a little over a week and required only
+  7.2TiB of disk space (including input text and output suffix array),
+  whereas on the same machine the previously best algorithm would
+  require 3.5 times as much disk space and take about four times
+  longer.
+- The algorithm is able to fully utilize the available RAM, for
+  example, computing the suffix array of a 200GiB file using 3.5GiB of
+  RAM takes around 170h. With 120GiB of RAM, the computation time is
+  reduced to less than 12h.
 
 For more detailed description of the algorithm and reports of
 experimental evaluation, refer to the following paper.
