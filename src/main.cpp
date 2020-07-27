@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
         {
           bool ok = parse_number(optarg, &ram_use);
           if (!ok) {
-            fprintf(stderr, "Error: parsing RAM limit"
+            fprintf(stderr, "Error: parsing RAM "
                 "limit (%s) failed\n\n", optarg);
             usage(EXIT_FAILURE);
           }
