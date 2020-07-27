@@ -5,8 +5,25 @@ pSAscan - Parallel external memory suffix array construction
 Description
 -----------
 
-pSAscan is an implementation of a parallel external-memory suffix
-array construction algorithm. The algorithm was described in the paper
+This repository contains the implementation of pSAscan, a parallel
+external-memory suffix array construction algorithm. The basic idea of
+the algorithm is to first construct the suffix arrays for blocks of
+text and then merge them into the full suffix array.
+
+The algorithm is able to handle inputs much larger than considered in
+the literature so far. In the experiments, computing the suffix array
+of a 1TiB file with the new algorithm on a machine equipped with
+120GiB of RAM took a little over a week and required only 7.2TiB of
+disk space (including input text and output suffix array), whereas on
+the same machine the previously best algorithm would require 3.5 times
+as much disk space and take about four times longer.  The algorithm is
+able to fully utilize the available RAM, for example, computing the
+suffix array of a 200GiB file using 3.5GiB of RAM takes around
+170h. With 120GiB of RAM, the computation time is reduced to less than
+12h.
+
+For more detailed description of the algorithm and reports of
+experimental evaluation, refer to the following paper.
 
     @inproceedings{kkp15cpm,
       author =    {Juha K{\"{a}}rkk{\"{a}}inen and Dominik Kempa
@@ -82,7 +99,7 @@ Disk space requirements
 
 To compute the suffix array of an n-byte input text, pSAscan needs
 about 7.5n bytes of disk space. This includes the input (n bytes) and
-output (5n bytes). In the default mode, the pSAscan assumes, that
+output (5n bytes). In the default mode, pSAscan assumes, that
 there is 6.5n bytes of free disk space available in the location used
 as the destination for the suffix array. This space is used for
 auxiliary files created during the computation and to accommodate the
@@ -194,7 +211,7 @@ most likely overcome these limitations.
 Third-party code
 ----------------
 
-The pSAscan implementation makes use of some third-party code:
+This implementation makes use of some third-party code:
 - The internal suffix-sorting routine is divsufsort 2.0.1.
   See: https://github.com/y-256/libdivsufsort
 
