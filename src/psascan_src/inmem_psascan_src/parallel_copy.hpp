@@ -2,7 +2,7 @@
  * @file    src/psascan_src/inmem_psascan_src/parallel_copy.hpp
  * @section LICENCE
  *
- * This file is part of pSAscan v0.1.0
+ * This file is part of pSAscan v0.1.1
  * See: https://github.com/dominikkempa/psascan
  *
  * Copyright (C) 2014-2020
