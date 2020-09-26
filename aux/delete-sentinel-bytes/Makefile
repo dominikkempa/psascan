@@ -1,7 +1,7 @@
 SHELL = /bin/sh
 
 CC = g++
-CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=native
+CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=native -std=c++0x
 
 all: delete_sentinel_bytes
 
