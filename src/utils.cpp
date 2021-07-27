@@ -42,7 +42,7 @@
 #include <fstream>
 #include <algorithm>
 
-#include "utils.hpp"
+#include "../include/utils/utils.hpp"
 
 
 namespace psascan_private {

@@ -40,7 +40,7 @@
 #include <unistd.h>
 #include <omp.h>
 
-#include "psascan_src/psascan.hpp"
+#include "../include/psascan.hpp"
 
 
 char *program_name;

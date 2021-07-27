@@ -6,7 +6,7 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=nat
 all: delete_sentinel_bytes
 
 delete_sentinel_bytes:
-	$(CC) $(CFLAGS) -o delete_sentinel_bytes main.cpp
+	$(CC) $(CFLAGS) -o delete_sentinel_bytes ./src/main.cpp
 
 clean:
 	/bin/rm -f *.o

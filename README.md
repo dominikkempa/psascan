@@ -49,7 +49,7 @@ Compilation and usage
 1. Download https://github.com/y-256/libdivsufsort/archive/2.0.1.tar.gz
 and install. Make sure to compile it to static 64-bit libraries. More
 detailed instructions on the (recommended) installation can be found
-in the aux/divsufsort-install-guide.txt file of this package.
+in the doc/divsufsort-install-guide.txt file of this package.
 
 2. After installing libdivsufsort, pSAscan is compiled by simply
 typing `make` in the directory containing this README. This will build
@@ -69,7 +69,7 @@ default, pSAscan uses 3.5GiB of RAM. The current implementation
 encodes the output suffix array using unsigned 40-bit integers. For
 further processing of the suffix array, one should use the same or
 compatible encoding. The class implementing the unsigned 40-bit
-integers is located in the `src/psascan_src/types/uint40.hpp` file.
+integers is located in the `include/types/uint40.hpp` file.
 A more advanced usage of pSAscan is demonstrated below.
 
     $ ./construct_sa /data/input.txt -m 8gi -o ~/out/sa.out
@@ -192,7 +192,7 @@ Limitations
 2. The current implementation supports only inputs over byte alphabet.
 3. Only texts not containing bytes with value 255 are handled
    correctly.  The bytes with value 255 can be removed from the input
-   using the tool located in the directory aux/delete-sentinel-bytes/
+   using the tool located in the directory tools/delete-sentinel-bytes/
    of this package.
 4. The current internal-memory suffix sorting algorithm used
    internally in pSAscan works only if the input text is split into
